@@ -122,7 +122,6 @@ async function startShift() {
     device.state.session = {
       token: response.sessionToken,
       expiresAt: response.expiresAt,
-      requireAreaPhoto: response.requireAreaPhoto,
     };
     device.state.name = response.name;
     device.state.role = response.role;

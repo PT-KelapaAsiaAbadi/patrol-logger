@@ -306,7 +306,7 @@ function reviewSection(entries) {
     section.push(
       el('p', {
         class: 'muted',
-        text: 'Compare the photos with what the checkpoint really looks like. A photo of a phone screen or a printout, or an area that does not match, means the guard was not there.',
+        text: 'Scans carry no photo. Judge these on where the phone was, how fast it moved between checkpoints, and whether the pattern repeats night after night.',
       }),
       reviewList(important),
     );

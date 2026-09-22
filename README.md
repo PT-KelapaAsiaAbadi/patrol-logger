@@ -1,6 +1,6 @@
 # Guard patrol prototype
 
-> Continuing development with Claude Code? Start with `CLAUDE.md` and `docs/claude-code-setup.md`. The docs describe decisions made after this prototype, such as removing scan photos, which are not implemented yet.
+> Continuing development with Claude Code? Start with `CLAUDE.md` and `docs/claude-code-setup.md`. Phase 1 of `docs/implementation-plan.md` is done: scans carry no photo, and the camera records on its own. Phase 2 is next.
 
 A QR-code patrol prototype with three views: a guard web app, a supervisor dashboard, and a setup page. The server checks are simulated in the browser, and all data stays in that browser. In production, the `js/server` logic moves to a Supabase Edge Function.
 
@@ -39,8 +39,8 @@ js/
     screens.js               Showing a screen, and the shared result screen
     home-screen.js           The guard's assigned checkpoints for the current round, and recent activity
     scan-flow.js             Tap a checkpoint, confirm, then camera or simulator, then the report question
-    scanner.js               Two-step camera capture; only the chosen checkpoint's code is accepted
-    image-tools.js           Frame capture, sharpness and brightness, QR reading
+    scanner.js               Continuous code reading; only the chosen checkpoint's code is accepted
+    image-tools.js           Grabbing a camera frame and reading a QR code from it
     report-screen.js         "Anything to report?" and the report form (note, 0 to 5 photos)
     report-photos.js         Shrinking report photos to save mobile data
     uploads.js               Signing scans and reports, sending them, the offline queue
@@ -49,12 +49,12 @@ js/
   dashboard/               Supervisor dashboard
     dashboard.js             Rounds table, each guard's night, review list, log check
     watch-dial.js            One guard's night drawn as a watch-clock disc
-    review-item.js           One flagged scan with its photos and decision buttons
+    review-item.js           One flagged scan with its measurements and decision buttons
     report-item.js           One report from a guard, with its photos and warnings
   setup/setup.js           Guards, checkpoints, assignments, rounds, scan rules, printable codes
   demo/demo-site.js        The demo site and the recorded night
 tests/
-  e2e.py                   End-to-end test in headless Chromium (41 checks)
+  e2e.py                   End-to-end test in headless Chromium (46 checks)
   make_fake_camera.py      Fake camera video of the demo Main gate code
   requirements.txt         Python packages for the tests
 tools/
@@ -65,10 +65,10 @@ tools/
 
 1. After starting a shift, the home screen lists the checkpoints assigned to the guard for the current round, each showing whether it has been scanned. There is no general scan button.
 2. Tapping a checkpoint asks **Start scan?** with **Yes** and **No**.
-3. **Yes** opens the camera. The scanner only accepts that checkpoint's code; another checkpoint's code is refused with a message. The guard photographs the code, then the area around it.
+3. **Yes** opens the camera. It reads codes continuously and records the scan as soon as that checkpoint's code is in view, with no button to press; another checkpoint's code is refused with a message. No image is kept: frames are decoded and discarded. Location is collected while the camera is open.
 4. After a recorded or saved scan, the app asks **Do you have anything to report?** A rejected scan shows why instead.
 5. **Yes** opens a form with an optional note and optional photos. A report needs at least one of the two, and can have 1 to 5 photos when photos are added.
-6. Reports are signed by the phone like scans, wait on the phone without signal, and appear on the dashboard under *Reports from guards*. A report photo taken more than 10 minutes before its scan is flagged.
+6. Reports are signed by the phone like scans, wait on the phone without signal, and appear on the dashboard under *Reports from guards*. A report photo taken more than 10 minutes before its scan is flagged, and so is one that was already sent with an earlier report.
 
 Supervisors choose which checkpoints each guard sees under **Setup → Assignments**.
 
@@ -79,9 +79,11 @@ Modules import each other in one direction: `lib` depends on nothing, `domain` o
 The app uses ES modules, and the camera, location and signing key only work on `https://` or `localhost`, so serve the folder rather than opening `index.html` directly:
 
 ```bash
-npm start            # or: python3 -m http.server 8000
+npm start            # or: python -m http.server 8000
 # open http://localhost:8000
 ```
+
+`npm start` and `npm test` run Python through `tools/python.mjs`, which picks whichever of `python`, `py` or `python3` this machine has, so the same commands work on Windows, macOS and Linux.
 
 There is no build step. To use it on a phone, upload the folder to any static HTTPS host, such as GitHub Pages or Cloudflare Pages.
 
@@ -135,4 +137,5 @@ Optional environment variables: `CHROME_PATH` for a specific browser binary, and
 - Each browser keeps its own data; nothing syncs between devices.
 - Interface text is English only.
 - Report photos come from the phone's photo picker with the camera suggested. Some phones also allow the gallery, so an old-photo flag is raised instead of blocking it.
+- Scans carry no photo, so a guard using a fake-location app and a saved copy of a code is caught only by patterns (identical positions, travel speed, timing) until the site Wi-Fi check of phase 8 exists. See `docs/decisions.md`.
 - Reports are signed by the phone but are not part of the log's hash chain yet.

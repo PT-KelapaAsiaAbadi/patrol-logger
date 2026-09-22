@@ -1,48 +1,39 @@
 // @ts-check
 /**
- * The two-step camera capture: a sharp photo of the checkpoint code, then a photo of the area around it.
- * Location is gathered in the background while the guard takes the photos.
+ * The camera screen. It reads codes continuously and records the scan as soon as the
+ * chosen checkpoint's code is in view, with no button to press. No image is kept:
+ * frames are decoded and discarded. Location is gathered while the camera is open.
  */
-import { CAPTURE, QR_PREFIX } from '../config.js';
+import { QR_PREFIX, SCANNER } from '../config.js';
 import { sleep } from '../lib/async.js';
 import { $ } from '../lib/dom.js';
-import { captureFrame, createQrDetector, decodeQrCode, measureImage, toJpeg } from './image-tools.js';
+import { captureFrame, createQrDetector, decodeQrCode } from './image-tools.js';
 
 /**
  * @typedef {object} CapturedScan
  * @property {{ id: string, name: string }} checkpoint
  * @property {string} qr
- * @property {string} codePhoto
- * @property {string} codeTime
- * @property {string | null} areaPhoto
- * @property {string | null} areaTime
- * @property {'ok' | 'dark' | 'blurry' | null} areaQuality
+ * @property {string} takenAt
  * @property {{ lat: number, lng: number, accuracy: number } | null} position
  */
 
 /**
- * @typedef {object} CaptureState
- * @property {'code' | 'area'} step
- * @property {boolean} requireAreaPhoto
- * @property {boolean} retriedArea   The guard has already been asked once for a better area photo.
- * @property {boolean} busy
- * @property {string} [qr]
- * @property {string} [codePhoto]
- * @property {string} [codeTime]
+ * @typedef {object} ScanSession
  * @property {{ id: string, name: string }} checkpoint  The checkpoint the guard chose; other codes are refused.
+ * @property {boolean} finishing   A code has been accepted; stop reading.
  */
 
-const CODE_PREFIX = `${QR_PREFIX}|`;
-
 /**
+ * The server decides whether a code is genuine; the phone only checks it is the chosen checkpoint's.
  * @param {string | null} text
  * @param {string} checkpointId
  * @returns {'match' | 'other-checkpoint' | 'not-patrol' | 'none'}
  */
 function classifyCode(text, checkpointId) {
   if (!text) return 'none';
-  if (!text.startsWith(CODE_PREFIX)) return 'not-patrol';
-  return text.split('|')[1] === checkpointId ? 'match' : 'other-checkpoint';
+  const parts = text.split('|');
+  if (parts.length !== 3 || parts[0] !== QR_PREFIX) return 'not-patrol';
+  return parts[1] === checkpointId ? 'match' : 'other-checkpoint';
 }
 
 export class CheckpointScanner {
@@ -50,10 +41,8 @@ export class CheckpointScanner {
     root: $('#scanner'),
     video: $('#scanner-video'),
     frame: $('#scanner-frame'),
-    step: $('#scanner-step'),
     message: $('#scanner-message'),
     gps: $('#scanner-gps'),
-    capture: $('#scanner-capture'),
     torch: $('#scanner-torch'),
     cancel: $('#scanner-cancel'),
   };
@@ -62,10 +51,10 @@ export class CheckpointScanner {
   /** @type {MediaStreamTrack | null} */ #track = null;
   /** @type {any} */ #detector = null;
   /** @type {number | null} */ #gpsWatchId = null;
-  /** @type {ReturnType<typeof setTimeout> | null} */ #hintTimer = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */ #readTimer = null;
   /** @type {{ lat: number, lng: number, accuracy: number } | null} */ #bestPosition = null;
-  /** @type {CaptureState | null} */
-  #capture = null;
+  /** @type {ScanSession | null} */
+  #session = null;
 
   #onComplete;
   #onUnavailable;
@@ -78,7 +67,6 @@ export class CheckpointScanner {
     this.#onComplete = onComplete;
     this.#onUnavailable = onUnavailable;
     this.#onCancel = onCancel;
-    this.#elements.capture.addEventListener('click', () => this.#handleCapture());
     this.#elements.torch.addEventListener('click', () => this.#toggleTorch());
     this.#elements.cancel.addEventListener('click', () => this.#cancel());
     document.addEventListener('visibilitychange', () => {
@@ -87,19 +75,19 @@ export class CheckpointScanner {
   }
 
   get isOpen() {
-    return this.#capture !== null;
+    return this.#session !== null;
   }
 
-  /** @param {{ checkpoint: { id: string, name: string }, requireAreaPhoto: boolean }} options */
-  async open({ checkpoint, requireAreaPhoto }) {
+  /** @param {{ checkpoint: { id: string, name: string } }} options */
+  async open({ checkpoint }) {
     if (!navigator.mediaDevices?.getUserMedia) {
       this.#onUnavailable('This browser cannot open the camera here.');
       return;
     }
-    this.#capture = { step: 'code', checkpoint, requireAreaPhoto, retriedArea: false, busy: false };
+    this.#session = { checkpoint, finishing: false };
     this.#bestPosition = null;
     this.#elements.root.classList.add('is-active');
-    this.#showStep();
+    this.#elements.message.textContent = `Point the camera at the code at ${checkpoint.name}.`;
     this.#startGps();
 
     try {
@@ -119,19 +107,20 @@ export class CheckpointScanner {
     const capabilities = /** @type {any} */ (this.#track.getCapabilities?.() ?? {});
     this.#elements.torch.hidden = !capabilities.torch;
     this.#detector ??= await createQrDetector();
-    this.#showLiveHint();
+    this.#readContinuously();
   }
 
   close() {
-    if (this.#hintTimer) clearTimeout(this.#hintTimer);
+    if (this.#readTimer) clearTimeout(this.#readTimer);
+    this.#readTimer = null;
     this.#stream?.getTracks().forEach((track) => track.stop());
     this.#stream = null;
     this.#track = null;
     if (this.#gpsWatchId !== null) navigator.geolocation?.clearWatch(this.#gpsWatchId);
     this.#gpsWatchId = null;
-    this.#capture = null;
+    this.#session = null;
     this.#elements.root.classList.remove('is-active');
-    this.#elements.frame.classList.remove('is-code-visible', 'is-wide');
+    this.#elements.frame.classList.remove('is-code-visible');
   }
 
   #cancel() {
@@ -139,148 +128,56 @@ export class CheckpointScanner {
     this.#onCancel();
   }
 
-  #showStep() {
-    const capture = /** @type {CaptureState} */ (this.#capture);
-    const totalSteps = capture.requireAreaPhoto ? 2 : 1;
-    const { step, message, frame, capture: captureButton } = this.#elements;
-    if (capture.step === 'code') {
-      step.textContent = `Step 1 of ${totalSteps}: checkpoint code`;
-      message.textContent = 'Fill the square with the code, hold still, then tap Capture.';
-      frame.classList.remove('is-wide');
-    } else {
-      step.textContent = 'Step 2 of 2: the area around it';
-      message.textContent = 'Step back so the checkpoint and its surroundings are in view, then tap Capture.';
-      frame.classList.remove('is-code-visible');
-      frame.classList.add('is-wide');
-    }
-    captureButton.disabled = false;
-  }
+  /** Read a frame, decide what it holds, and either accept it or look again. */
+  async #readContinuously() {
+    const session = this.#session;
+    if (!session || session.finishing || !this.#stream) return;
 
-  /** While aiming at the code, outline the frame when a patrol code is readable. Saving is always manual. */
-  async #showLiveHint() {
-    if (this.#capture?.step !== 'code' || !this.#stream) return;
     const { video, frame } = this.#elements;
-    if (video.readyState >= 2 && video.videoWidth && !this.#capture.busy) {
-      const text = await decodeQrCode(captureFrame(video), this.#detector);
-      frame.classList.toggle('is-code-visible', classifyCode(text, this.#capture.checkpoint.id) === 'match');
-    }
-    this.#hintTimer = setTimeout(() => this.#showLiveHint(), CAPTURE.liveHintEveryMs);
-  }
-
-  async #handleCapture() {
-    const capture = this.#capture;
-    if (!capture || capture.busy || !this.#stream) return;
-    capture.busy = true;
-    this.#elements.capture.disabled = true;
-    this.#elements.message.textContent = 'Hold still…';
-    try {
-      if (capture.step === 'code') await this.#captureCode();
-      else await this.#captureArea();
-    } finally {
-      if (this.#capture) {
-        this.#capture.busy = false;
-        this.#elements.capture.disabled = false;
+    if (video.readyState >= 2 && video.videoWidth) {
+      const text = await decodeQrCode(captureFrame(video, SCANNER.readFrameMaxSide), this.#detector);
+      const kind = classifyCode(text, session.checkpoint.id);
+      frame.classList.toggle('is-code-visible', kind === 'match');
+      if (kind === 'match') {
+        session.finishing = true;
+        await this.#finish(/** @type {string} */ (text));
+        return;
       }
+      this.#showAimingMessage(kind, session.checkpoint.name);
     }
+    this.#readTimer = setTimeout(() => this.#readContinuously(), SCANNER.readEveryMs);
   }
 
-  /** Tapping shakes the phone, so take a short burst and keep the sharpest frame whose code can be read. */
-  async #captureCode() {
-    const capture = /** @type {CaptureState} */ (this.#capture);
-    /** @type {Set<string>} */
-    const seen = new Set();
-    for (const frame of await this.#burst()) {
-      const text = await decodeQrCode(frame.canvas, this.#detector);
-      const kind = classifyCode(text, capture.checkpoint.id);
-      seen.add(kind);
-      if (kind !== 'match') continue;
-      Object.assign(capture, { qr: text, codePhoto: toJpeg(frame.canvas), codeTime: new Date().toISOString() });
-      if (capture.requireAreaPhoto) {
-        capture.step = 'area';
-        this.#showStep();
-      } else {
-        await this.#finish(null, null, null);
-      }
-      return;
-    }
-    this.#elements.message.textContent = seen.has('other-checkpoint')
-      ? `That code belongs to a different checkpoint. Scan the code at ${capture.checkpoint.name}.`
-      : seen.has('not-patrol')
-        ? 'That is not a patrol checkpoint code.'
-        : 'The code could not be read in the photo. Move closer, hold still, and try again.';
+  /**
+   * @param {'other-checkpoint' | 'not-patrol' | 'none'} kind
+   * @param {string} checkpointName
+   */
+  #showAimingMessage(kind, checkpointName) {
+    this.#elements.message.textContent =
+      kind === 'other-checkpoint'
+        ? `That code belongs to a different checkpoint. Scan the code at ${checkpointName}.`
+        : kind === 'not-patrol'
+          ? 'That is not a patrol checkpoint code.'
+          : `Point the camera at the code at ${checkpointName}.`;
   }
 
-  async #captureArea() {
-    const capture = /** @type {CaptureState} */ (this.#capture);
-    const secondsSinceCode = (Date.now() - Date.parse(capture.codeTime ?? '')) / 1000;
-    if (secondsSinceCode > CAPTURE.maxSecondsBetweenPhotos) {
-      Object.assign(capture, {
-        step: 'code',
-        qr: undefined,
-        codePhoto: undefined,
-        codeTime: undefined,
-        retriedArea: false,
-      });
-      this.#showStep();
-      this.#elements.message.textContent = 'Too much time passed. Capture the code again.';
-      this.#showLiveHint();
-      return;
-    }
-
-    const [best] = await this.#burst();
-    /** @type {'ok' | 'dark' | 'blurry'} */
-    let quality = 'ok';
-    if (best.brightness < CAPTURE.minBrightness) quality = 'dark';
-    else if (best.sharpness < CAPTURE.minSharpness) quality = 'blurry';
-
-    // Ask once for a better photo; accept the second attempt either way so the guard is never stuck.
-    if (quality !== 'ok' && !capture.retriedArea) {
-      capture.retriedArea = true;
-      this.#elements.message.textContent =
-        quality === 'dark'
-          ? 'Too dark. Turn on the torch or find light, then capture again.'
-          : 'Blurry. Hold still and capture again.';
-      return;
-    }
-    await this.#finish(toJpeg(best.canvas), new Date().toISOString(), quality);
-  }
-
-  /** @param {string | null} areaPhoto @param {string | null} areaTime @param {'ok' | 'dark' | 'blurry' | null} areaQuality */
-  async #finish(areaPhoto, areaTime, areaQuality) {
-    const capture = /** @type {CaptureState} */ (this.#capture);
-    this.#elements.capture.disabled = true;
-    this.#elements.message.textContent = 'Photos taken. Checking location…';
+  /** @param {string} qr */
+  async #finish(qr) {
+    const session = /** @type {ScanSession} */ (this.#session);
+    const takenAt = new Date().toISOString();
+    this.#elements.message.textContent = 'Code read. Checking location…';
 
     const waitStarted = Date.now();
     while (
-      (!this.#bestPosition || this.#bestPosition.accuracy > CAPTURE.goodGpsAccuracyM) &&
-      Date.now() - waitStarted < CAPTURE.gpsWaitMs
+      (!this.#bestPosition || this.#bestPosition.accuracy > SCANNER.goodGpsAccuracyM) &&
+      Date.now() - waitStarted < SCANNER.gpsWaitMs
     ) {
       await sleep(400);
     }
 
-    const result = {
-      checkpoint: capture.checkpoint,
-      qr: /** @type {string} */ (capture.qr),
-      codePhoto: /** @type {string} */ (capture.codePhoto),
-      codeTime: /** @type {string} */ (capture.codeTime),
-      areaPhoto,
-      areaTime,
-      areaQuality,
-      position: this.#bestPosition,
-    };
+    const result = { checkpoint: session.checkpoint, qr, takenAt, position: this.#bestPosition };
     this.close();
     this.#onComplete(result);
-  }
-
-  async #burst() {
-    const frames = [];
-    for (let i = 0; i < CAPTURE.burstFrames; i++) {
-      const canvas = captureFrame(this.#elements.video);
-      frames.push({ canvas, ...measureImage(canvas) });
-      await sleep(CAPTURE.burstGapMs);
-    }
-    return frames.sort((a, b) => b.sharpness - a.sharpness);
   }
 
   #startGps() {

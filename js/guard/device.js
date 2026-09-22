@@ -8,7 +8,6 @@ import { keyValueStore, localStore } from '../lib/storage.js';
  * @typedef {object} DeviceSession
  * @property {string} token
  * @property {number} expiresAt
- * @property {boolean} requireAreaPhoto
  *
  * @typedef {object} DeviceState
  * @property {string | null} guardId
@@ -24,7 +23,7 @@ import { keyValueStore, localStore } from '../lib/storage.js';
  * @property {'scan' | 'report'} kind
  * @property {string} body
  * @property {string} signature
- * @property {import('../types.js').ScanPhotos | string[]} photos
+ * @property {string[]} photos      Report photos as JPEG data URLs. Scans carry none.
  * @property {number} takenAt
  * @property {string} checkpointName
  */
@@ -44,8 +43,6 @@ const emptyDeviceState = () => ({
 class GuardDevice {
   /** @type {DeviceState} */
   state = emptyDeviceState();
-  /** @type {string | null} Last area photo taken, used by the "reuse photo" simulation. */
-  lastAreaPhoto = null;
   /** @type {CryptoKeyPair | null} */
   #keys = null;
 
@@ -89,7 +86,6 @@ class GuardDevice {
   async forget() {
     this.state = emptyDeviceState();
     this.#keys = null;
-    this.lastAreaPhoto = null;
     this.save();
     await keyValueStore.delete(STORAGE_KEYS.deviceKeys);
     await keyValueStore.delete(STORAGE_KEYS.uploadQueue);

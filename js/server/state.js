@@ -15,7 +15,7 @@ export function createEmptyState() {
     reviews: {},
     reports: [],
     outcomes: {},
-    photoHashes: {},
+    reportPhotoHashes: {},
     config: { ...SERVER_DEFAULTS },
   };
 }

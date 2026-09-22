@@ -1,9 +1,8 @@
 // @ts-check
-/** One flagged or rejected scan in the review list, with its photos and the supervisor's decision. */
+/** One flagged or rejected scan in the review list, with the supervisor's decision. */
 import { FLAG_DESCRIPTIONS } from '../domain/flags.js';
 import { el } from '../lib/dom.js';
 import { formatClock } from '../lib/format.js';
-import { loadPhoto } from '../server/server.js';
 
 /**
  * @param {import('../types.js').LogEntry} entry
@@ -26,7 +25,6 @@ export function createReviewItem(entry, review, onDecide) {
       ),
       measurementLine(entry),
       mapLink(entry),
-      photoStrip(entry),
     ),
     decisionControls(review, onDecide),
   );
@@ -49,23 +47,6 @@ function mapLink(entry) {
     rel: 'noopener',
     text: 'Open location on map',
   });
-}
-
-/** Photos load from storage after the list is on screen. @param {import('../types.js').LogEntry} entry */
-function photoStrip(entry) {
-  const strip = el('div', { class: 'review-photos' });
-  for (const [hash, caption] of /** @type {const} */ ([
-    [entry.codePhoto, 'Code'],
-    [entry.areaPhoto, 'Area'],
-  ])) {
-    if (!hash) continue;
-    const image = el('img', { alt: `${caption} photo for ${entry.checkpointName || 'this scan'}` });
-    loadPhoto(hash).then((source) => {
-      if (source) image.src = source;
-    });
-    strip.append(el('figure', null, image, el('figcaption', { text: caption })));
-  }
-  return strip;
 }
 
 /**

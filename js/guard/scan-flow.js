@@ -46,14 +46,8 @@ export function initScanFlow({ onFinished }) {
 export function confirmScan(checkpoint) {
   chosenCheckpoint = checkpoint;
   $('#scan-confirm-checkpoint').textContent = checkpoint.name;
-  $('#scan-confirm-steps').textContent = requiresAreaPhoto()
-    ? 'You will photograph the checkpoint code, then the area around it.'
-    : 'You will photograph the checkpoint code.';
+  $('#scan-confirm-steps').textContent = 'Hold the camera up to the code. It records on its own. No photo is kept.';
   $('#scan-confirm').showModal();
-}
-
-function requiresAreaPhoto() {
-  return device.state.session?.requireAreaPhoto !== false;
 }
 
 function startScan() {
@@ -62,7 +56,7 @@ function startScan() {
     openSimulator('');
     return;
   }
-  scanner.open({ checkpoint: chosenCheckpoint, requireAreaPhoto: requiresAreaPhoto() });
+  scanner.open({ checkpoint: chosenCheckpoint });
 }
 
 /** @param {import('./scanner.js').CapturedScan} captured */
@@ -82,11 +76,7 @@ async function handleCapturedScan(captured) {
       lat: captured.position.lat,
       lng: captured.position.lng,
       accuracy: captured.position.accuracy,
-      codeTime: captured.codeTime,
-      areaTime: captured.areaTime,
-      areaQuality: captured.areaQuality,
-      codePhoto: captured.codePhoto,
-      areaPhoto: captured.areaPhoto,
+      takenAt: captured.takenAt,
     },
     captured.checkpoint.name,
   );
@@ -127,8 +117,6 @@ async function submitSimulatedScan() {
       guardPostCheckpoint: server.state.checkpoints[0],
       code: $('#sim-code').value,
       location: $('#sim-location').value,
-      photos: $('#sim-photos').value,
-      lastAreaPhoto: device.lastAreaPhoto,
     });
     continueAfterScan(await submitScan(scan, chosenCheckpoint.name));
   } finally {

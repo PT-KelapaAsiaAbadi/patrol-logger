@@ -112,34 +112,3 @@ export function checkTiming(time, receivedAt, config) {
   if (time - receivedAt > CHECKS.clockAheadToleranceMs) flags.push(Flag.PHONE_CLOCK_AHEAD);
   return flags;
 }
-
-/**
- * @param {ScanDetails} scan
- * @param {{ code: string | null, area: string | null }} photoHashes
- * @param {ServerConfig} config
- * @param {Record<string, string>} knownPhotoHashes
- */
-export function checkPhotos(scan, photoHashes, config, knownPhotoHashes) {
-  /** @type {string[]} */
-  const flags = [];
-  if (!photoHashes.code) flags.push(Flag.NO_PHOTO);
-
-  if (config.requireAreaPhoto) {
-    if (!photoHashes.area) {
-      flags.push(Flag.NO_AREA_PHOTO);
-    } else {
-      if (scan.areaQuality === 'dark') flags.push(Flag.DARK_PHOTO);
-      if (scan.areaQuality === 'blurry') flags.push(Flag.BLURRY_PHOTO);
-      const gapSeconds = (Date.parse(scan.areaTime ?? '') - Date.parse(scan.codeTime)) / 1000;
-      if (!(gapSeconds >= 0 && gapSeconds <= config.maxPhotoGapS)) flags.push(Flag.PHOTO_GAP);
-    }
-  }
-
-  const hashes = [photoHashes.code, photoHashes.area].filter(Boolean);
-  const reused =
-    hashes.some((hash) => knownPhotoHashes[/** @type {string} */ (hash)]) ||
-    (hashes.length === 2 && hashes[0] === hashes[1]);
-  if (reused) flags.push(Flag.REUSED_PHOTO);
-
-  return flags;
-}

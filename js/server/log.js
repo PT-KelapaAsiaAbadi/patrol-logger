@@ -23,8 +23,6 @@ const CHAINED_FIELDS = /** @type {const} */ ([
   'lng',
   'accuracy',
   'distance',
-  'codePhoto',
-  'areaPhoto',
   'prevHash',
 ]);
 

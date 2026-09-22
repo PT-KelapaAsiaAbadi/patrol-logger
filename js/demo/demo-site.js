@@ -40,10 +40,15 @@ const GUARDS = [
  * @property {number} checkpoint       1-based checkpoint number
  * @property {number} time
  * @property {import('../types.js').Position} [at]   Where the phone really was, if not at the checkpoint.
- * @property {string} [areaPhoto]     Reuse this exact photo.
  * @property {string} [qr]            Scan this code instead of the real one.
  * @property {number} [uploadDelayMin]
- * @property {{ text: string, photoCount: number, photoAgeMin?: number }} [report]  A report sent after the scan.
+ * @property {DemoReport} [report]    A report sent after the scan.
+ *
+ * @typedef {object} DemoReport
+ * @property {string} text
+ * @property {number} [photoCount]    New photos to attach. Ignored when `photos` is given.
+ * @property {string[]} [photos]      Exact photos, so one can be sent twice.
+ * @property {number} [photoAgeMin]   How long before the report the photos were taken.
  */
 
 export async function seedDemoSite() {
@@ -83,7 +88,7 @@ export async function seedDemoSite() {
   await refreshCurrentView();
 }
 
-/** Clear the server, stored photos and this phone's setup. */
+/** Clear the server, stored report photos and this phone's setup. */
 export async function resetEverything() {
   server.reset();
   await keyValueStore.clear();
@@ -106,17 +111,20 @@ function lastFinishedNightStart() {
 function planNight(nightStart) {
   /** Clock time on this night; hours before noon belong to the next morning. @param {number} hour @param {number} minute */
   const at = (hour, minute) => nightStart + ((hour < 12 ? hour + 24 : hour) - 22) * HOUR_MS + minute * MINUTE_MS;
-  const reusedGeneratorPhoto = createSyntheticPhoto({ title: 'Area photo', subtitle: 'Generator room', hue: 150 });
+  // Budi sends the same photo with two reports, hours apart.
+  const generatorPhoto = createSyntheticPhoto({ title: 'Generator room', subtitle: 'Fuel gauge', hue: 20 });
   /** @type {PlannedScan[]} */
   const plan = [];
   /** @param {string} guardId @param {number} checkpoint @param {number} time @param {Partial<PlannedScan>} [details] */
   const scan = (guardId, checkpoint, time, details = {}) => plan.push({ guardId, checkpoint, time, ...details });
 
-  // 22:00 round: Budi, a normal round. The Generator room photo is reused later.
+  // 22:00 round: Budi, a normal round. He photographs the generator gauge and reuses that photo later.
   scan('G01', 1, at(22, 8));
   scan('G01', 6, at(22, 14));
   scan('G01', 5, at(22, 20));
-  scan('G01', 4, at(22, 27), { areaPhoto: reusedGeneratorPhoto });
+  scan('G01', 4, at(22, 27), {
+    report: { text: 'Generator fuel gauge is low, about a quarter.', photos: [generatorPhoto] },
+  });
   scan('G01', 3, at(22, 34));
   scan('G01', 2, at(22, 41));
 
@@ -126,13 +134,13 @@ function planNight(nightStart) {
   // Supervisor spot check.
   scan('S01', 4, at(1, 5));
 
-  // 02:00 round: Budi stays at the guard post, reuses a photo and tries an old code. Back fence and Parking lot are missed.
+  // 02:00 round: Budi stays at the guard post, sends the earlier photo again and tries an old code.
+  // Back fence and Parking lot are missed.
   scan('G01', 1, at(2, 20));
   scan('G01', 6, at(2, 26));
   scan('G01', 4, at(2, 31), {
     at: GUARD_POST,
-    areaPhoto: reusedGeneratorPhoto,
-    report: { text: 'Generator fuel low.', photoCount: 1, photoAgeMin: 300 },
+    report: { text: 'Generator fuel still low.', photos: [generatorPhoto], photoAgeMin: 300 },
   });
   scan('G01', 2, at(2, 37), { at: GUARD_POST });
   scan('G01', 3, at(3, 10), { at: GUARD_POST, qr: OLD_CODE });
@@ -175,17 +183,9 @@ async function recordPlannedScans(plan) {
       lat: position.lat,
       lng: position.lng,
       accuracy: 6 + Math.round(Math.random() * 12),
-      codeTime: new Date(planned.time).toISOString(),
-      areaTime: new Date(planned.time + 25_000).toISOString(),
-      areaQuality: /** @type {'ok'} */ ('ok'),
+      takenAt: new Date(planned.time).toISOString(),
     };
-    const photos = {
-      code: createSyntheticPhoto({ title: 'Code photo', subtitle: checkpoint.name, hue: 40 }),
-      area:
-        planned.areaPhoto ??
-        createSyntheticPhoto({ title: 'Area photo', subtitle: checkpoint.name, hue: 150 + planned.checkpoint * 25 }),
-    };
-    await server.recordScan(guard, scan, photos, arrival(planned) + 2000);
+    await server.recordScan(guard, scan, arrival(planned) + 2000);
     if (planned.report) await recordPlannedReport(guard, scan.scanId, checkpoint.name, planned, arrival(planned));
   }
 }
@@ -198,11 +198,13 @@ async function recordPlannedScans(plan) {
  * @param {number} arrivedAt
  */
 async function recordPlannedReport(guard, scanId, checkpointName, planned, arrivedAt) {
-  const report = /** @type {NonNullable<PlannedScan['report']>} */ (planned.report);
+  const report = /** @type {DemoReport} */ (planned.report);
   const createdAt = planned.time + 90_000;
-  const photos = Array.from({ length: report.photoCount }, (_, index) =>
-    createSyntheticPhoto({ title: `Report photo ${index + 1}`, subtitle: checkpointName, hue: 20 }),
-  );
+  const photos =
+    report.photos ??
+    Array.from({ length: report.photoCount ?? 0 }, (_, index) =>
+      createSyntheticPhoto({ title: `Report photo ${index + 1}`, subtitle: checkpointName, hue: 20 }),
+    );
   const takenAt = createdAt - (report.photoAgeMin ?? 1) * MINUTE_MS;
   await server.recordReport(
     guard,

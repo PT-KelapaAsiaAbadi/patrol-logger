@@ -11,11 +11,7 @@ import { device } from './device.js';
  * @property {number | null} lat
  * @property {number | null} lng
  * @property {number | null} accuracy
- * @property {string} codeTime
- * @property {string | null} areaTime
- * @property {'ok' | 'dark' | 'blurry' | null} areaQuality
- * @property {string | null} codePhoto
- * @property {string | null} areaPhoto
+ * @property {string} takenAt
  *
  * @typedef {'recorded' | 'flagged' | 'rejected' | 'queued'} ScanResultKind
  *
@@ -36,18 +32,13 @@ import { device } from './device.js';
 export async function submitScan(scan, checkpointName) {
   const scanId = randomId();
   const upload = await signScan(scan, scanId, checkpointName);
-  if (scan.areaPhoto) device.lastAreaPhoto = scan.areaPhoto;
 
   if (device.state.offline) {
     await queue(upload);
     return { kind: 'queued', scanId, checkpointName, message: 'Saved on this phone. It uploads when signal returns.' };
   }
 
-  const outcome = await server.submitScan({
-    body: upload.body,
-    signature: upload.signature,
-    photos: /** @type {any} */ (upload.photos),
-  });
+  const outcome = await server.submitScan({ body: upload.body, signature: upload.signature });
   await applySessionChanges(outcome);
   if (!outcome.ok)
     return { kind: 'rejected', scanId, checkpointName, message: outcome.error ?? 'The scan was not recorded.' };
@@ -73,11 +64,7 @@ export async function submitReport(report) {
     await queue(upload);
     return { kind: 'queued', message: 'Saved on this phone. It uploads when signal returns.' };
   }
-  const outcome = await server.submitReport({
-    body: upload.body,
-    signature: upload.signature,
-    photos: /** @type {string[]} */ (upload.photos),
-  });
+  const outcome = await server.submitReport({ body: upload.body, signature: upload.signature, photos: upload.photos });
   await applySessionChanges(outcome);
   return outcome.ok
     ? { kind: 'sent', message: 'Your supervisor can see it now.' }
@@ -91,16 +78,8 @@ export async function uploadQueued() {
     const [next] = waiting;
     const outcome =
       next.kind === 'report'
-        ? await server.submitReport({
-            body: next.body,
-            signature: next.signature,
-            photos: /** @type {string[]} */ (next.photos),
-          })
-        : await server.submitScan({
-            body: next.body,
-            signature: next.signature,
-            photos: /** @type {any} */ (next.photos),
-          });
+        ? await server.submitReport({ body: next.body, signature: next.signature, photos: next.photos })
+        : await server.submitScan({ body: next.body, signature: next.signature });
     if (outcome.needsLogin || outcome.needsEnrollment) {
       await applySessionChanges(outcome);
       return;
@@ -136,11 +115,7 @@ async function signScan(scan, scanId, checkpointName) {
     lat: scan.lat,
     lng: scan.lng,
     accuracy: scan.accuracy === null ? null : Math.round(scan.accuracy),
-    codeTime: scan.codeTime,
-    areaTime: scan.areaTime,
-    areaQuality: scan.areaQuality,
-    codePhotoHash: scan.codePhoto ? await sha256Hex(scan.codePhoto) : null,
-    areaPhotoHash: scan.areaPhoto ? await sha256Hex(scan.areaPhoto) : null,
+    takenAt: scan.takenAt,
   });
 
   state.sequence += 1;
@@ -151,8 +126,8 @@ async function signScan(scan, scanId, checkpointName) {
     kind: 'scan',
     body,
     signature: await device.sign(body),
-    photos: { code: scan.codePhoto, area: scan.areaPhoto },
-    takenAt: Date.parse(scan.codeTime),
+    photos: [],
+    takenAt: Date.parse(scan.takenAt),
     checkpointName,
   };
 }

@@ -46,14 +46,12 @@
  * @typedef {{ start: string, end: string, everyMinutes: number }} RoundSettings
  *
  * @typedef {object} ServerConfig
- * @property {boolean} requireAreaPhoto
  * @property {boolean} rejectClearlyOutOfRange
  * @property {number} defaultRadiusM
  * @property {number} maxAccuracyM
  * @property {number} maxSpeedKmh
  * @property {number} duplicateWindowMin
  * @property {number} lateUploadMin
- * @property {number} maxPhotoGapS
  * @property {number} shiftHours
  *
  * @typedef {object} LogEntry
@@ -70,8 +68,6 @@
  * @property {number | null} lng
  * @property {number | null} accuracy
  * @property {number | null} distance
- * @property {string | null} codePhoto   Hash of the code photo.
- * @property {string | null} areaPhoto   Hash of the area photo.
  * @property {string} [prevHash]
  * @property {string} [hash]
  *
@@ -95,7 +91,7 @@
  * @property {Record<string, Review>} reviews
  * @property {Report[]} reports
  * @property {Record<string, ScanOutcome>} outcomes      Results by scan ID, so retried uploads get the same answer.
- * @property {Record<string, string>} photoHashes        Every photo hash seen, mapped to the scan that sent it.
+ * @property {Record<string, string>} reportPhotoHashes  Every report photo hash seen, mapped to the report that sent it.
  * @property {ServerConfig} config
  *
  * @typedef {object} ScanDetails
@@ -104,12 +100,7 @@
  * @property {number | null} lat
  * @property {number | null} lng
  * @property {number | null} accuracy
- * @property {string} codeTime
- * @property {string | null} areaTime
- * @property {'ok' | 'dark' | 'blurry' | null} areaQuality
- *
- * @typedef {{ code: string | null, area: string | null }} ScanPhotos
- * @typedef {{ code: string | null, area: string | null }} PhotoHashes
+ * @property {string} takenAt          When the phone read the code, as an ISO string.
  *
  * @typedef {object} Report
  * @property {string} reportId
@@ -128,7 +119,7 @@
  *
  * @typedef {{ ok: false, error: string, needsEnrollment?: boolean }} FailedResponse
  * @typedef {{ ok: true, guardId: string, name: string, role: 'guard' | 'supervisor' } | FailedResponse} EnrollResponse
- * @typedef {{ ok: true, sessionToken: string, expiresAt: number, name: string, role: 'guard' | 'supervisor',
- *   requireAreaPhoto: boolean } | FailedResponse} ShiftResponse
+ * @typedef {{ ok: true, sessionToken: string, expiresAt: number, name: string,
+ *   role: 'guard' | 'supervisor' } | FailedResponse} ShiftResponse
  */
 export {};

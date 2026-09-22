@@ -16,14 +16,12 @@ export const STORAGE_KEYS = Object.freeze({
  * @type {Readonly<import('./types.js').ServerConfig>}
  */
 export const SERVER_DEFAULTS = Object.freeze({
-  requireAreaPhoto: true,
   rejectClearlyOutOfRange: false,
   defaultRadiusM: 50,
   maxAccuracyM: 100,
   maxSpeedKmh: 40,
   duplicateWindowMin: 3,
   lateUploadMin: 10,
-  maxPhotoGapS: 90,
   shiftHours: 12,
 });
 
@@ -45,15 +43,11 @@ export const CHECKS = Object.freeze({
   clockAheadToleranceMs: 2 * 60_000,
 });
 
-export const CAPTURE = Object.freeze({
-  maxPhotoSide: 480,
-  jpegQuality: 0.6,
-  burstFrames: 5,
-  burstGapMs: 70,
-  liveHintEveryMs: 300,
-  minBrightness: 35,
-  minSharpness: 20,
-  maxSecondsBetweenPhotos: 90,
+/** The camera reads codes; it never keeps an image. */
+export const SCANNER = Object.freeze({
+  /** Frames are scaled down before decoding so old phones keep up. */
+  readFrameMaxSide: 480,
+  readEveryMs: 200,
   goodGpsAccuracyM: 30,
   gpsWaitMs: 10_000,
 });

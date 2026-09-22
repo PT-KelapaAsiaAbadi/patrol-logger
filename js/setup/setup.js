@@ -397,24 +397,16 @@ function roundsSection() {
 
 function scanRulesSection() {
   const config = server.state.config;
-  const areaPhoto = el('input', { type: 'checkbox', id: 'rule-area-photo', checked: config.requireAreaPhoto });
   const rejectFar = el('input', { type: 'checkbox', id: 'rule-reject-far', checked: config.rejectClearlyOutOfRange });
 
   const saveRules = () => {
-    config.requireAreaPhoto = areaPhoto.checked;
     config.rejectClearlyOutOfRange = rejectFar.checked;
-    announce('Scan rules saved. Guards pick up the photo setting when they next start a shift.');
+    announce('Scan rules saved.');
     saveAndRender();
   };
 
   return [
     el('h2', { text: 'Scan rules' }),
-    el(
-      'label',
-      { class: 'check', for: 'rule-area-photo' },
-      areaPhoto,
-      'Require a second photo of the area around the checkpoint',
-    ),
     el(
       'label',
       { class: 'check', for: 'rule-reject-far' },
@@ -520,7 +512,7 @@ function demoSection() {
     el('h2', { text: 'Demo and testing' }),
     el('p', {
       class: 'muted',
-      text: 'The demo site has three guards, six checkpoints and a recorded night that includes a rushed round, missed checkpoints, scans from the guard post, a reused photo, an old code, one person carrying two phones and a late upload.',
+      text: 'The demo site has three guards, six checkpoints and a recorded night that includes a rushed round, missed checkpoints, scans from the guard post, an old code, one person carrying two phones, a late upload and a report photo sent twice.',
     }),
     el(
       'div',

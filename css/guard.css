@@ -215,13 +215,6 @@
 .scanner-frame.is-code-visible {
   border-color: var(--hivis);
 }
-.scanner-frame.is-wide {
-  width: 86vmin;
-  height: 58vmin;
-  border-style: dashed;
-  border-color: rgba(242, 194, 48, 0.5);
-}
-
 .scanner-bar {
   position: absolute;
   right: 0;
@@ -235,11 +228,6 @@
   max-width: none;
   margin: 0 0 4px;
 }
-.scanner-step {
-  color: var(--hivis);
-  font-size: 14px;
-  font-weight: 700;
-}
 .scanner-gps {
   color: var(--night-muted);
 }
@@ -252,9 +240,6 @@
   flex: 1;
   margin-top: 12px;
   padding: 14px 8px;
-}
-.scanner-actions .scanner-capture {
-  flex: 2;
 }
 .scanner-actions [hidden] {
   display: none;

@@ -9,28 +9,26 @@ import { sleep } from '../lib/async.js';
 import { hashPin, randomSixDigits, randomToken, sha256Hex, verifySignature } from '../lib/crypto.js';
 import { hasPosition } from '../lib/geo.js';
 import { keyValueStore } from '../lib/storage.js';
-import { checkAgainstHistory, checkLocation, checkPhotos, checkTiming, parseCheckpointCode } from './checks.js';
+import { checkAgainstHistory, checkLocation, checkTiming, parseCheckpointCode } from './checks.js';
 import { appendLogEntry, verifyLogChain } from './log.js';
 import { createEmptyState, loadState, saveState } from './state.js';
 
 /** @typedef {import('../types.js').Guard} Guard */
 /** @typedef {import('../types.js').Checkpoint} Checkpoint */
 /** @typedef {import('../types.js').ScanDetails} ScanDetails */
-/** @typedef {import('../types.js').ScanPhotos} ScanPhotos */
-/** @typedef {import('../types.js').PhotoHashes} PhotoHashes */
 /** @typedef {import('../types.js').ScanOutcome} ScanOutcome */
 /** @typedef {import('../types.js').Report} Report */
 
 /**
  * Everything about one scan that ends up in its log entry.
- * @typedef {{ guard: Guard, scan: ScanDetails, photoHashes: PhotoHashes, receivedAt: number }} ScanContext
+ * @typedef {{ guard: Guard, scan: ScanDetails, receivedAt: number }} ScanContext
  */
 
 const MESSAGES = Object.freeze({
   badCode: 'This is not a valid checkpoint code. It may be an old or copied code.',
   noGps: 'Location is required. Turn on GPS and allow location for this page.',
   replayed: 'This scan was already received or arrived out of order.',
-  photosDoNotMatch: 'The photos do not match the signed scan.',
+  photosDoNotMatch: 'The photos do not match the signed report.',
   sessionEnded: 'Your shift login has ended. Enter your PIN again.',
   phoneNotSetUp: 'This phone is not set up for this guard.',
   guardUnavailable: 'Guard not found or not active.',
@@ -215,7 +213,6 @@ class PatrolServer extends EventTarget {
       expiresAt,
       name: guard.name,
       role: guard.role,
-      requireAreaPhoto: this.#state.config.requireAreaPhoto,
     };
   }
 
@@ -232,11 +229,11 @@ class PatrolServer extends EventTarget {
   }
 
   /**
-   * A scan from a guard's phone. The body is signed; photos travel alongside and must match its hashes.
-   * @param {{ body: string, signature: string, photos: ScanPhotos }} request
+   * A scan from a guard's phone. The body is signed. A scan carries no image.
+   * @param {{ body: string, signature: string }} request
    * @returns {Promise<ScanOutcome>}
    */
-  async submitScan({ body, signature, photos }) {
+  async submitScan({ body, signature }) {
     await simulateNetwork();
     const request = parseJson(body);
     if (!request) return failure(MESSAGES.badRequest);
@@ -253,20 +250,10 @@ class PatrolServer extends EventTarget {
     const earlierOutcome = this.#state.outcomes[request.scanId];
     if (earlierOutcome) return earlierOutcome;
 
-    const photoHashes = await hashPhotos(photos);
-    if (photoHashes.code !== request.codePhotoHash || photoHashes.area !== request.areaPhotoHash) {
-      return failure(MESSAGES.photosDoNotMatch);
-    }
-
     const sequence = await this.#followDeviceSequence(guard, request, body);
     const outcome = sequence.isReplay
-      ? await this.#reject(
-          { guard, scan: request, photoHashes, receivedAt: Date.now() },
-          null,
-          [Flag.REPLAYED],
-          MESSAGES.replayed,
-        )
-      : await this.recordScan(guard, request, photos, Date.now(), sequence.flags, photoHashes);
+      ? await this.#reject({ guard, scan: request, receivedAt: Date.now() }, null, [Flag.REPLAYED], MESSAGES.replayed)
+      : await this.recordScan(guard, request, Date.now(), sequence.flags);
     this.save();
     return outcome;
   }
@@ -369,9 +356,17 @@ class PatrolServer extends EventTarget {
       receivedAt,
       text: report.text.trim(),
       photos: photoHashes,
-      flags: reportFlags(report, scan.time, receivedAt, this.#state.config),
+      flags: reportFlags({
+        report,
+        photoHashes,
+        scanTime: scan.time,
+        receivedAt,
+        config: this.#state.config,
+        knownPhotoHashes: this.#state.reportPhotoHashes,
+      }),
     };
     this.#state.reports.push(stored);
+    for (const hash of photoHashes) this.#state.reportPhotoHashes[hash] ??= report.reportId;
     return this.#rememberOutcome(report.reportId, { ok: true, checkpointName: scan.checkpointName, receivedAt });
   }
 
@@ -383,16 +378,12 @@ class PatrolServer extends EventTarget {
    * Run every check and write the log entry. The demo site also calls this directly, with historical times.
    * @param {Guard} guard
    * @param {ScanDetails} scan
-   * @param {ScanPhotos} photos
    * @param {number} receivedAt
    * @param {string[]} [initialFlags]  Flags already raised, such as a break in the phone's sequence.
-   * @param {PhotoHashes} [knownHashes]
    * @returns {Promise<ScanOutcome>}
    */
-  async recordScan(guard, scan, photos, receivedAt, initialFlags = [], knownHashes) {
-    const photoHashes = knownHashes ?? (await hashPhotos(photos));
-    await storePhotos(photos, photoHashes); // kept even for rejected scans: they are evidence
-    const context = { guard, scan, photoHashes, receivedAt };
+  async recordScan(guard, scan, receivedAt, initialFlags = []) {
+    const context = { guard, scan, receivedAt };
 
     const { checkpoint, scannedCheckpoint } = this.#resolveCode(scan.qr);
     if (!checkpoint)
@@ -408,7 +399,6 @@ class PatrolServer extends EventTarget {
     if (location.calibrate) Object.assign(checkpoint, { lat: scan.lat, lng: scan.lng });
 
     const flags = this.#collectFlags(context, checkpoint, [...initialFlags, ...location.flags]);
-    this.#rememberPhotoHashes(photoHashes, scan.scanId);
     await appendLogEntry(this.#state.log, {
       ...this.#entryBase(context, checkpoint),
       result: 'ACCEPTED',
@@ -442,16 +432,15 @@ class PatrolServer extends EventTarget {
    * @param {ScanContext} context @param {Checkpoint} checkpoint @param {string[]} flagsSoFar
    * @returns {string[]}
    */
-  #collectFlags({ guard, scan, photoHashes, receivedAt }, checkpoint, flagsSoFar) {
+  #collectFlags({ guard, scan, receivedAt }, checkpoint, flagsSoFar) {
     const config = this.#state.config;
-    const time = Date.parse(scan.codeTime) || receivedAt;
+    const time = Date.parse(scan.takenAt) || receivedAt;
     const position = /** @type {ScanDetails & import('../types.js').Position} */ (scan);
     const acceptedEntries = this.#state.log.filter((entry) => entry.result === 'ACCEPTED');
     return unique([
       ...flagsSoFar,
       ...checkAgainstHistory(position, time, guard, checkpoint, acceptedEntries, config),
       ...checkTiming(time, receivedAt, config),
-      ...checkPhotos(scan, photoHashes, config, this.#state.photoHashes),
     ]);
   }
 
@@ -473,10 +462,10 @@ class PatrolServer extends EventTarget {
   }
 
   /** @param {ScanContext} context @param {{ id: string, name: string } | null} checkpoint */
-  #entryBase({ guard, scan, photoHashes, receivedAt }, checkpoint) {
+  #entryBase({ guard, scan, receivedAt }, checkpoint) {
     return {
       scanId: scan.scanId,
-      time: Date.parse(scan.codeTime) || receivedAt,
+      time: Date.parse(scan.takenAt) || receivedAt,
       receivedAt,
       guardId: guard.id,
       guardName: guard.name,
@@ -485,8 +474,6 @@ class PatrolServer extends EventTarget {
       lat: scan.lat ?? null,
       lng: scan.lng ?? null,
       accuracy: scan.accuracy ?? null,
-      codePhoto: photoHashes.code,
-      areaPhoto: photoHashes.area,
     };
   }
 
@@ -495,21 +482,6 @@ class PatrolServer extends EventTarget {
     this.#state.outcomes[scanId] = outcome;
     return outcome;
   }
-
-  /** @param {PhotoHashes} photoHashes @param {string} scanId */
-  #rememberPhotoHashes(photoHashes, scanId) {
-    for (const hash of [photoHashes.code, photoHashes.area]) {
-      if (hash) this.#state.photoHashes[hash] = scanId;
-    }
-  }
-}
-
-/** @param {ScanPhotos} photos @returns {Promise<PhotoHashes>} */
-async function hashPhotos(photos) {
-  return {
-    code: photos.code ? await sha256Hex(photos.code) : null,
-    area: photos.area ? await sha256Hex(photos.area) : null,
-  };
 }
 
 /**
@@ -529,24 +501,28 @@ async function validateReport(request, photos) {
 }
 
 /**
- * @param {{ createdAt: number, photoTimes: number[] }} report
- * @param {number} scanTime
- * @param {number} receivedAt
- * @param {import('../types.js').ServerConfig} config
+ * Report photos are the only images left, so the reuse check lives here now.
+ * @param {object} options
+ * @param {{ createdAt: number, photoTimes: number[] }} options.report
+ * @param {string[]} options.photoHashes
+ * @param {number} options.scanTime
+ * @param {number} options.receivedAt
+ * @param {import('../types.js').ServerConfig} options.config
+ * @param {Record<string, string>} options.knownPhotoHashes  Hashes from every earlier report.
  */
-function reportFlags(report, scanTime, receivedAt, config) {
+function reportFlags({ report, photoHashes, scanTime, receivedAt, config, knownPhotoHashes }) {
   /** @type {string[]} */
   const flags = [];
+
   const oldestAllowed = scanTime - REPORTS.oldPhotoToleranceMin * 60_000;
   if (report.photoTimes.some((takenAt) => takenAt < oldestAllowed)) flags.push(Flag.OLD_REPORT_PHOTO);
+
+  const repeatedInThisReport = new Set(photoHashes).size !== photoHashes.length;
+  const sentBefore = photoHashes.some((hash) => hash in knownPhotoHashes);
+  if (repeatedInThisReport || sentBefore) flags.push(Flag.REUSED_REPORT_PHOTO);
+
   if (receivedAt - report.createdAt > config.lateUploadMin * 60_000) flags.push(Flag.LATE_SYNC);
   return flags;
-}
-
-/** @param {ScanPhotos} photos @param {PhotoHashes} hashes */
-async function storePhotos(photos, hashes) {
-  if (photos.code && hashes.code) await keyValueStore.set(STORAGE_KEYS.photoPrefix + hashes.code, photos.code);
-  if (photos.area && hashes.area) await keyValueStore.set(STORAGE_KEYS.photoPrefix + hashes.area, photos.area);
 }
 
 /** @param {string | null} hash @returns {Promise<string | null>} */

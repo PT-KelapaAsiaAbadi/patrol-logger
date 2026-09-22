@@ -105,13 +105,6 @@
             <option value="far">About 2 km away</option>
             <option value="weak">Nearby, with weak GPS</option>
           </select>
-          <label for="sim-photos">Photos</label>
-          <select id="sim-photos">
-            <option value="normal">New photos</option>
-            <option value="reuse">Reuse the last area photo</option>
-            <option value="dark">Area photo too dark</option>
-            <option value="none">No area photo</option>
-          </select>
           <button class="guard-button" id="sim-submit">Record simulated scan</button>
           <button class="guard-button guard-button--quiet" id="sim-back">Cancel</button>
         </section>
@@ -170,13 +163,11 @@
       <video id="scanner-video" playsinline muted></video>
       <div class="scanner-frame" id="scanner-frame" aria-hidden="true"></div>
       <div class="scanner-bar">
-        <p class="scanner-step" id="scanner-step"></p>
         <p id="scanner-message"></p>
         <p class="scanner-gps" id="scanner-gps"></p>
         <div class="scanner-actions">
           <button class="guard-button guard-button--quiet" id="scanner-cancel">Cancel</button>
           <button class="guard-button guard-button--quiet" id="scanner-torch" hidden aria-pressed="false">Torch</button>
-          <button class="guard-button scanner-capture" id="scanner-capture">Capture</button>
         </div>
       </div>
     </section>
