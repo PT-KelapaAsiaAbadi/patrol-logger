@@ -1,16 +1,30 @@
 /**
- * TODO: Review and refactor.
+ * Patrol logger: guard-facing web app for recording checkpoint patrols.
+ *
+ * Flow: enroll this phone once -> log in with a PIN each shift -> scan
+ * checkpoint QR codes. Each scan sends the QR text, GPS fix and a photo to
+ * a Google Apps Script backend. Scans made offline are queued in
+ * localStorage and uploaded when the connection returns.
  */
 
-/**
- * TODO: Update documentation.
- */
+/* ============ Configuration ============ */
+
+/** Apps Script web app endpoint. The app shows a setup screen if this is not an http(s) URL. */
 const API_URL = "https://script.google.com/macros/s/AKfycbzZ-Lhb8RiaZgnjW2XzOMZunRGhcQkPiL1dApToL0gZteKdME9aa0TQSkyjSPNg1BgGdA/exec";
+
+/** Only QR codes starting with this prefix are treated as checkpoints. */
 const QR_PREFIX = "GP1|";
-const GOOD_ACCURACY_M = 30; // submit immediately when GPS is this good
-const GPS_WAIT_MS = 12000; // otherwise wait this long for a better fix
+
+/** GPS measure of accuracy. Submit immediately when GPS is this good */
+const GOOD_ACCURACY_M = 30;
+
+/** How long to wait to get improved GPS location (closer to target checkpoint) */
+const GPS_WAIT_MS = 12000;
+
+/** Maximum offline scans kept; the oldest are dropped beyond this. */
 const MAX_QUEUE = 30;
 
+/** Guard-readable explanations for the flag codes the server returns. */
 const FLAG_TEXT = {
 	OUT_OF_RANGE: "You appear to be too far from this checkpoint. Your supervisor will review this scan.",
 	LOW_ACCURACY: "GPS signal was weak.",
@@ -27,50 +41,58 @@ const FLAG_TEXT = {
 /* ============ Storage ============ */
 
 /**
- * TODO: Add documentation.
+ * JSON wrapper around localStorage. Keys are prefixed with "gp_".
+ * Keys used: device, session, history, queue.
  */
 const store = {
-	get(k) {
+	/** Returns the parsed value, or null if missing or unreadable. */
+	get(key) {
 		try {
-			return JSON.parse(localStorage.getItem("gp_" + k));
+			return JSON.parse(localStorage.getItem("gp_" + key));
 		} catch (e) {
 			return null;
 		}
 	},
-	set(k, v) {
-		localStorage.setItem("gp_" + k, JSON.stringify(v));
+	/** Saves a value as JSON. Throws if storage is full. */
+	set(key, value) {
+		localStorage.setItem("gp_" + key, JSON.stringify(value));
 	},
-	del(k) {
-		localStorage.removeItem("gp_" + k);
+	remove(key) {
+		localStorage.removeItem("gp_" + key);
 	},
 };
-const $ = (id) => document.getElementById(id);
+
+/** Shorthand for document.getElementById. */
+const byId = (id) => document.getElementById(id);
 
 /**
- * TODO: Update docs.
- * @param {*} id 
+ * Shows the screen with the given id and hides every other ".screen".
+ * @param {string} id - Section id, e.g. "home" or "scan".
  */
-function show(id) {
+function showScreen(id) {
 	document
-	.querySelectorAll(".screen")
-	.forEach((s) => s.classList.toggle("on", s.id === id));
+		.querySelectorAll(".screen")
+		.forEach((section) => section.classList.toggle("on", section.id === id));
 	window.scrollTo(0, 0);
 }
 
 /* ============ API ============ */
 
 /**
- * TODO: Update docs.
- * FIX: Why is it empty?
+ * Thrown when the server can't be reached or returns an unusable response.
+ * It has no body on purpose: it exists so callers can tell connection
+ * problems (queue and retry) apart from bugs (rethrow) with `instanceof`.
  */
 class NetworkError extends Error {}
 
 /**
- * TODO: Update docs.
- * @param {} body 
- * @returns 
+ * Sends a request to the backend and returns its JSON reply.
+ * 
+ * @param {object} body - Request payload; `action` selects the server handler.
+ * @returns {Promise<object>} Server reply; check `ok` before using it.
+ * @throws {NetworkError} If offline, on a non-2xx status, or if the reply isn't JSON.
  */
-async function api(body) {
+async function postToApi(body) {
 	let res;
 	try {
 		// text/plain avoids a CORS preflight, which Apps Script does not answer.
@@ -82,7 +104,9 @@ async function api(body) {
 	} catch (e) {
 		throw new NetworkError("offline");
 	}
+
 	if (!res.ok) throw new NetworkError("HTTP " + res.status);
+
 	try {
 		return await res.json();
 	} catch (e) {
@@ -91,157 +115,167 @@ async function api(body) {
 }
 
 /**
- * TODO: Update docs.
- * @returns 
+ * Creates a random ID so the server can ignore duplicate uploads of the same scan.
+ * Falls back to 32 random hex characters on browsers without crypto.randomUUID.
+ * @returns {string}
  */
-function uuid() {
+function newScanId() {
 	if (crypto.randomUUID) return crypto.randomUUID();
-	const b = crypto.getRandomValues(new Uint8Array(16));
-	return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+	const bytes = crypto.getRandomValues(new Uint8Array(16));
+	return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /* ============ Routing ============ */
 
 /**
- * TODO: Update docs.
- * @returns 
+ * Chooses the screen from saved state: config (no API URL), enroll (no
+ * device), login (no session or session expired), otherwise home.
  */
-function route() {
-	if (!API_URL || API_URL.indexOf("http") !== 0) return show("config");
+function routeToScreen() {
+	if (!API_URL || API_URL.indexOf("http") !== 0) return showScreen("screen-setup-required");
 
 	const device = store.get("device");
-	if (!device) return show("enroll");
+	if (!device) return showScreen("screen-enroll");
 
 	const session = store.get("session");
 	if (!session || new Date(session.expires) < new Date()) {
-		$("l-hello").textContent = "Hi, " + device.name;
-		$("l-pin").value = "";
-		return show("login");
+		byId("login-greeting").textContent = "Hi, " + device.name;
+		byId("login-pin").value = "";
+		return showScreen("screen-login");
 	}
 
-	renderHome();
-	show("home");
+	renderHomeScreen();
+	showScreen("screen-home");
 }
 
 /* ============ Enrollment ============ */
 
 /**
- * TODO: Update docs.
+ * Links this phone to a guard using a one-time code from their supervisor.
+ * Checks the form, then saves the device token the server returns.
+ * Requires internet.
  */
+byId("enroll-submit").onclick = async () => {
+	const id = byId("enroll-guard-id").value.trim();
+	const code = byId("enroll-code").value.trim();
+	const pin = byId("enroll-pin").value;
+	const pin2 = byId("enroll-pin-confirm").value;
 
-$("e-btn").onclick = async () => {
-	const id = $("e-id").value.trim(),
-		code = $("e-code").value.trim();
+	byId("enroll-error").textContent = "";
 
-	const pin = $("e-pin").value,
-		pin2 = $("e-pin2").value;
-
-	$("e-err").textContent = "";
-	if (!id || !code)
-		return ($("e-err").textContent =
-			"Enter your guard ID and enrollment code.");
-
-	if (!/^\d{4,8}$/.test(pin))
-		return ($("e-err").textContent = "PIN must be 4 to 8 digits.");
-
-	if (pin !== pin2) {
-		return ($("e-err").textContent = "The two PINs do not match.");
+	if (!id || !code) {
+		return (byId("enroll-error").textContent = "Enter your guard ID and enrollment code.");
 	}
 
-	$("e-btn").disabled = true;
+	// TODO: Review: are we using REGEX?
+	if (!/^\d{4,8}$/.test(pin)) {
+		return (byId("enroll-error").textContent = "PIN must be 4 to 8 digits.");
+	}
+	if (pin !== pin2) {
+		return (byId("enroll-error").textContent = "The two PINs do not match.");
+	}
+
+	byId("enroll-submit").disabled = true;
+
 	try {
-		const r = await api({
+		const reply = await postToApi({
 			action: "enroll",
 			guard_id: id,
 			code,
 			pin,
 		});
-		if (!r.ok) {
-			$("e-err").textContent = r.error;
+
+		if (!reply.ok) {
+			byId("enroll-error").textContent = reply.error;
 			return;
 		}
+
 		store.set("device", {
-			guard_id: r.guard_id,
-			name: r.name,
-			device_token: r.device_token,
+			guard_id: reply.guard_id,
+			name: reply.name,
+			device_token: reply.device_token,
 		});
-		store.del("session");
+		store.remove("session");
 		store.set("history", []);
-		route();
+		routeToScreen();
 	} catch (e) {
-		$("e-err").textContent =
+		byId("enroll-error").textContent =
 			"No internet connection. Connect and try again.";
 	} finally {
-		$("e-btn").disabled = false;
+		byId("enroll-submit").disabled = false;
 	}
 };
 
 /* ============ Shift login ============ */
 
 /**
- * TODO: Update docs.
+ * Starts a shift: sends the PIN and device token, then saves the session
+ * the server returns. Clears the history list shown for the previous shift.
+ * If the server says the device was revoked, removes the enrollment and
+ * returns to the enroll screen.
  */
-
-$("l-btn").onclick = async () => {
+byId("login-submit").onclick = async () => {
 	const device = store.get("device");
-	$("l-err").textContent = "";
-	$("l-btn").disabled = true;
+	byId("login-error").textContent = "";
+	byId("login-submit").disabled = true;
 
 	try {
-		const r = await api({
+		const reply = await postToApi({
 			action: "login",
 			guard_id: device.guard_id,
 			device_token: device.device_token,
-			pin: $("l-pin").value,
+			pin: byId("login-pin").value,
 		});
 
-		if (!r.ok) {
-			$("l-err").textContent = r.error;
-			if (r.reenroll) {
-				store.del("device");
-				setTimeout(route, 2500);
+		if (!reply.ok) {
+			byId("login-error").textContent = reply.error;
+			if (reply.reenroll) {
+				store.remove("device");
+				setTimeout(routeToScreen, 2500); // leave time to read the error
 			}
 			return;
 		}
 
 		store.set("session", {
-			token: r.session_token,
-			expires: r.expires,
-			role: r.role,
+			token: reply.session_token,
+			expires: reply.expires,
+			role: reply.role,
 		});
-
 		store.set("history", []);
-		route();
+		routeToScreen();
 	} catch (e) {
-		$("l-err").textContent =
+		byId("login-error").textContent =
 			"No internet connection. You need internet to start a shift.";
 	} finally {
-		$("l-btn").disabled = false;
+		byId("login-submit").disabled = false;
 	}
 };
 
-$("l-reset").onclick = () => {
+/** After confirmation, removes this phone's enrollment so another guard can set it up. */
+byId("login-reset-device").onclick = () => {
 	if (
 		confirm(
 			"Remove this phone setup? You will need a new enrollment code from your supervisor.",
 		)
 	) {
-		store.del("device");
-		store.del("session");
-		route();
+		store.remove("device");
+		store.remove("session");
+		routeToScreen();
 	}
 };
 
 /* ============ Home ============ */
 
 /**
- * TODO: Update docs.
+ * Updates the home screen: guard name, session end time, number of scans
+ * waiting to upload, online status, and this shift's scans (newest first).
  */
-function renderHome() {
-	const device = store.get("device"),
-		session = store.get("session");
-	$("h-name").textContent = device.name;
-	$("h-shift").textContent =
+function renderHomeScreen() {
+	const device = store.get("device");
+	const session = store.get("session");
+
+	byId("home-guard-name").textContent = device.name;
+	byId("home-shift-expiry").textContent =
 		"Shift login valid until " +
 		new Date(session.expires).toLocaleTimeString([], {
 			hour: "2-digit",
@@ -249,87 +283,91 @@ function renderHome() {
 		});
 
 	const queue = store.get("queue") || [];
-	$("h-queue").textContent = queue.length;
-	$("h-net").textContent = navigator.onLine ? "Online" : "Offline";
+	byId("home-queue-count").textContent = queue.length;
+	byId("home-network-status").textContent = navigator.onLine ? "Online" : "Offline";
 
-	const hist = store.get("history") || [];
-	$("h-empty").style.display = hist.length ? "none" : "block";
-	$("h-history").innerHTML = "";
-	hist.slice()
+	const entries = store.get("history") || [];
+	byId("home-history-empty").style.display = entries.length ? "none" : "block";
+	byId("home-history-list").innerHTML = "";
+
+	entries.slice()
 		.reverse()
-		.forEach((h) => {
+		.forEach((entry) => {
 			const li = document.createElement("li");
+
 			const name = document.createElement("div");
-			name.textContent = h.name;
+			name.textContent = entry.name;
 
 			const when = document.createElement("div");
 			when.className = "when";
-			when.textContent = new Date(h.time).toLocaleTimeString([], {
+			when.textContent = new Date(entry.time).toLocaleTimeString([], {
 				hour: "2-digit",
 				minute: "2-digit",
 			});
 
 			const tag = document.createElement("div");
-			tag.className = "tag " + h.kind;
-			tag.textContent = h.label;
+			tag.className = "tag " + entry.kind;
+			tag.textContent = entry.label;
+
 			li.append(name, when, tag);
-			$("h-history").appendChild(li);
+			byId("home-history-list").appendChild(li);
 		});
 }
 
 /**
- * TODO: Update docs.
- * @param {*} entry 
+ * Adds a scan to this shift's history, keeping only the latest 40.
+ * @param {{name: string, time: string, kind: "ok"|"warn"|"bad", label: string}} entry
  */
-function addHistory(entry) {
-	const hist = store.get("history") || [];
-	hist.push(entry);
-	store.set("history", hist.slice(-40));
+function addHistoryEntry(entry) {
+	const entries = store.get("history") || [];
+	entries.push(entry);
+	store.set("history", entries.slice(-40));
 }
 
-$("h-scan").onclick = startScan;
-$("h-end").onclick = () => {
-	const q = store.get("queue") || [];
-	const msg = q.length
-		? q.length +
+byId("home-scan-button").onclick = openScanner;
+
+/** Ends the shift. Warns first if scans are still waiting to upload. */
+byId("home-end-shift").onclick = () => {
+	const queue = store.get("queue") || [];
+	const message = queue.length
+		? queue.length +
 			" scan(s) have not uploaded yet. Connect to the internet first, or they may be lost. End shift anyway?"
 		: "End your shift on this phone?";
-	if (confirm(msg)) {
-		store.del("session");
-		route();
+
+	if (confirm(message)) {
+		store.remove("session");
+		routeToScreen();
 	}
 };
 
 /* ============ Scanner ============ */
 
-/**
- * TODO: Update docs.
- */
+let cameraStream = null; // active camera MediaStream
+let gpsWatchId = null; // geolocation watch handle
+let bestGpsFix = null; // most accurate GPS fix this scan: {lat, lng, accuracy}
+let isScanning = false; // true while the scan loop should keep running
+let barcodeDetector = null; // native BarcodeDetector, if supported; otherwise jsQR is used
+let scanFrameTimer = null; // timeout for the next scan loop tick
 
-let stream = null;
-let watchId = null;
-let bestFix = null;
-let scanning = false;
-let detector = null;
-let loopTimer = null;
-
-const work = document.createElement("canvas");
+/** Reusable offscreen canvas for jsQR frame decoding. */
+const decodeCanvas = document.createElement("canvas");
 
 /**
- * TODO: Update docs.
- * @returns 
+ * Opens the scanner: starts GPS, turns on the rear camera, and picks a QR
+ * decoder (native BarcodeDetector when available, otherwise jsQR).
+ * Shows an error result if the camera is blocked.
  */
-async function startScan() {
-	show("scan");
-	$("s-msg").textContent = "Point the camera at the checkpoint code.";
-	$("s-gps").textContent = "Getting location…";
+async function openScanner() {
+	showScreen("screen-scanner");
+	byId("scanner-message").textContent = "Point the camera at the checkpoint code.";
+	byId("scanner-gps-status").textContent = "Getting location…";
 
-	bestFix = null;
-	scanning = true;
+	bestGpsFix = null;
+	isScanning = true;
 
-	startGps();
+	startGpsWatch();
 	try {
-		stream = await navigator.mediaDevices.getUserMedia({
+		cameraStream = await navigator.mediaDevices.getUserMedia({
 			video: {
 				facingMode: { ideal: "environment" },
 				width: { ideal: 1280 },
@@ -338,100 +376,100 @@ async function startScan() {
 			audio: false,
 		});
 	} catch (e) {
-		stopScan();
-
-		return showResult(
+		closeScanner();
+		return showResultScreen(
 			"bad",
 			"Camera blocked",
 			"Allow camera access for this page in your browser settings, then try again.",
 		);
 	}
 
-	const video = $("video");
-	video.srcObject = stream;
+	const video = byId("scanner-video");
+	video.srcObject = cameraStream;
 	await video.play().catch(() => {});
+
 	if ("BarcodeDetector" in window) {
 		try {
 			const formats = await BarcodeDetector.getSupportedFormats();
-			if (formats.includes("qr_code"))
-				detector = new BarcodeDetector({
-					formats: ["qr_code"],
-				});
+			if (formats.includes("qr_code")) {
+				barcodeDetector = new BarcodeDetector({ formats: ["qr_code"] });
+			}
 		} catch (e) {
-			detector = null;
+			barcodeDetector = null;
 		}
 	}
-	loop();
+
+	scanNextFrame();
 }
 
 /**
- * TODO: Update docs.
- * @returns 
+ * Checks one video frame for a QR code, then runs again every 180 ms until a
+ * checkpoint code is found or scanning stops. Codes without QR_PREFIX are
+ * ignored with a message.
  */
-async function loop() {
-	if (!scanning) return;
+async function scanNextFrame() {
+	if (!isScanning) return;
 
-	const video = $("video");
-	let text = null;
+	const video = byId("scanner-video");
+	let qrText = null;
+
 	if (video.readyState >= 2) {
 		try {
-			if (detector) {
-				const codes = await detector.detect(video);
-				if (codes.length) text = codes[0].rawValue;
+			if (barcodeDetector) {
+				const codes = await barcodeDetector.detect(video);
+				if (codes.length) qrText = codes[0].rawValue;
 			} else if (window.jsQR) {
-				const w = 640,
-					h =
-						Math.round(
-							(640 * video.videoHeight) / video.videoWidth,
-						) || 480;
-				work.width = w;
-				work.height = h;
-				const ctx = work.getContext("2d", {
-					willReadFrequently: true,
-				});
-				ctx.drawImage(video, 0, 0, w, h);
-				const found = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {
+				// Shrink the frame to 640px wide so jsQR stays fast.
+				const width = 640;
+				const height = Math.round((640 * video.videoHeight) / video.videoWidth) || 480;
+				decodeCanvas.width = width;
+				decodeCanvas.height = height;
+
+				const ctx = decodeCanvas.getContext("2d", { willReadFrequently: true });
+				ctx.drawImage(video, 0, 0, width, height);
+				const decoded = jsQR(ctx.getImageData(0, 0, width, height).data, width, height, {
 					inversionAttempts: "dontInvert",
 				});
-				if (found) text = found.data;
+				if (decoded) qrText = decoded.data;
 			}
 		} catch (e) {
 			/* keep trying */
 		}
 	}
-	if (text && text.indexOf(QR_PREFIX) === 0) return onCode(text);
 
-	if (text) $("s-msg").textContent = "That is not a checkpoint code.";
+	if (qrText && qrText.indexOf(QR_PREFIX) === 0) return handleCheckpointCode(qrText);
+	
+	if (qrText) {
+		byId("scanner-message").textContent = "That is not a checkpoint code.";
+	} 
 
-	loopTimer = setTimeout(loop, 180);
+	scanFrameTimer = setTimeout(scanNextFrame, 180);
 }
 
 /**
- * TODO: Update docs.
- * @returns 
+ * Watches GPS position and keeps the most accurate fix in `bestGpsFix`.
+ * Shows the current accuracy, or advice if location is blocked or unavailable.
  */
-function startGps() {
+function startGpsWatch() {
 	if (!("geolocation" in navigator)) {
-		$("s-gps").textContent = "This phone has no GPS support.";
+		byId("scanner-gps-status").textContent = "This phone has no GPS support.";
 		return;
 	}
-	watchId = navigator.geolocation.watchPosition(
+
+	gpsWatchId = navigator.geolocation.watchPosition(
 		(pos) => {
-			const c = pos.coords;
-			if (!bestFix || c.accuracy <= bestFix.accuracy) {
-				bestFix = {
-					lat: c.latitude,
-					lng: c.longitude,
-					accuracy: c.accuracy,
+			const coords = pos.coords;
+			if (!bestGpsFix || coords.accuracy <= bestGpsFix.accuracy) {
+				bestGpsFix = {
+					lat: coords.latitude,
+					lng: coords.longitude,
+					accuracy: coords.accuracy,
 				};
 			}
-			$("s-gps").textContent =
-				"Location found (within " +
-				Math.round(bestFix.accuracy) +
-				" m)";
+			byId("scanner-gps-status").textContent = "Location found (within " + Math.round(bestGpsFix.accuracy) + " m)";
 		},
 		(err) => {
-			$("s-gps").textContent =
+			byId("scanner-gps-status").textContent =
 				err.code === 1
 					? "Location blocked. Allow location for this page in your browser settings."
 					: "Still looking for GPS. Move away from walls if you can.";
@@ -440,257 +478,276 @@ function startGps() {
 	);
 }
 
-/**
- * TODO: Update docs.
- */
-function stopScan() {
-	scanning = false;
-	clearTimeout(loopTimer);
+/** Stops the scan loop and turns off the camera and GPS watch. Safe to call more than once. */
+function closeScanner() {
+	isScanning = false;
+	clearTimeout(scanFrameTimer);
 
-	if (stream) stream.getTracks().forEach((t) => t.stop());
-	stream = null;
+	if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+	cameraStream = null;
 
-	if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-	watchId = null;
+	if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+	gpsWatchId = null;
 }
 
-$("s-cancel").onclick = () => {
-	stopScan();
-	route();
+byId("scanner-cancel").onclick = () => {
+	closeScanner();
+	routeToScreen();
 };
+
+// Turn the camera and GPS off when the app goes to the background.
 document.addEventListener("visibilitychange", () => {
-	if (document.hidden && scanning) {
-		stopScan();
-		route();
+	if (document.hidden && isScanning) {
+		closeScanner();
+		routeToScreen();
 	}
 });
 
 /**
- * TODO: Update docs.
- * @returns 
+ * Takes a photo of the current camera frame as evidence.
+ * @returns {string} JPEG data URL, 480px wide, quality 0.6.
  */
-function captureEvidence() {
-	const video = $("video");
-	const w = 480;
-	const h = Math.round((480 * video.videoHeight) / video.videoWidth) || 360;
-	const c = document.createElement("canvas");
-	c.width = w;
-	c.height = h;
-	c.getContext("2d").drawImage(video, 0, 0, w, h);
-	return c.toDataURL("image/jpeg", 0.6);
+function captureEvidencePhoto() {
+	const video = byId("scanner-video");
+	const width = 480;
+	const height = Math.round((480 * video.videoHeight) / video.videoWidth) || 360;
+
+	const photoCanvas = document.createElement("canvas");
+	photoCanvas.width = width;
+	photoCanvas.height = height;
+	photoCanvas.getContext("2d").drawImage(video, 0, 0, width, height);
+	return photoCanvas.toDataURL("image/jpeg", 0.6);
 }
 
 /**
- * TODO: Update docs.
- * @param {*} text 
- * @returns 
+ * Handles a checkpoint code: takes a photo straight away, waits up to
+ * GPS_WAIT_MS for a GPS fix within GOOD_ACCURACY_M, then submits the scan.
+ * If there is no GPS fix at all, the scan is not saved.
+ * @param {string} qrText - Raw QR text, starting with QR_PREFIX.
  */
-async function onCode(text) {
-	scanning = false;
-	clearTimeout(loopTimer);
-	$("s-msg").textContent = "Code read. Checking location…";
+async function handleCheckpointCode(qrText) {
+	isScanning = false;
+	clearTimeout(scanFrameTimer);
+	byId("scanner-message").textContent = "Code read. Checking location…";
 
-	const evidence = captureEvidence();
+	const evidence = captureEvidencePhoto();
 	const takenAt = new Date().toISOString();
 
 	const start = Date.now();
 	while (
-		(!bestFix || bestFix.accuracy > GOOD_ACCURACY_M) &&
+		(!bestGpsFix || bestGpsFix.accuracy > GOOD_ACCURACY_M) &&
 		Date.now() - start < GPS_WAIT_MS
 	) {
-		await new Promise((r) => setTimeout(r, 400));
+		await new Promise((resolve) => setTimeout(resolve, 400));
 	}
 
-	const fix = bestFix;
-	stopScan();
+	const gpsFix = bestGpsFix;
+	closeScanner();
 
-	if (!fix) {
-		return showResult(
+	if (!gpsFix) {
+		return showResultScreen(
 			"bad",
 			"No location",
 			"The scan was not saved because GPS is off or blocked. Turn on location and scan again.",
 		);
 	}
 
-	const device = store.get("device"),
-		session = store.get("session");
+	const device = store.get("device");
+	const session = store.get("session");
 
 	const payload = {
 		action: "scan",
 		guard_id: device.guard_id,
 		device_token: device.device_token,
 		session_token: session.token,
-		qr: text,
-		lat: fix.lat,
-		lng: fix.lng,
-		accuracy: fix.accuracy,
+		qr: qrText,
+		lat: gpsFix.lat,
+		lng: gpsFix.lng,
+		accuracy: gpsFix.accuracy,
 		client_time: takenAt,
-		scan_id: uuid(),
+		scan_id: newScanId(),
 		evidence,
 	};
-	await submit(payload, true);
+
+	await uploadScan(payload, true);
 }
 
 /* ============ Upload + offline queue ============ */
 
 /**
- * TODO: Update docs.
- * @param {*} payload 
- * @param {*} interactive 
- * @returns 
+ * Uploads a scan. On a network error, a new scan is queued for later
+ * (and the guard is told). A retry from the queue simply fails and is tried again later.
+ * @param {object} payload - Scan payload built by handleCheckpointCode.
+ * @param {boolean} interactive - true for a new scan (update the UI), false for a queue retry.
+ * @returns {Promise<boolean>} true if the server received it (even if it rejected the scan).
  */
-async function submit(payload, interactive) {
+async function uploadScan(payload, interactive) {
 	try {
-		const r = await api(payload);
-		handleServerReply(r, payload, interactive);
+		const reply = await postToApi(payload);
+		handleScanReply(reply, payload, interactive);
 		return true;
-
 	} catch (e) {
 		if (!(e instanceof NetworkError)) throw e;
+
 		if (interactive) {
-			enqueue(payload);
-			addHistory({
+			queueScanForLater(payload);
+			addHistoryEntry({
 				name: "Checkpoint (not uploaded yet)",
 				time: payload.client_time,
 				kind: "warn",
 				label: "Saved on phone",
 			});
-			showResult(
+			showResultScreen(
 				"warn",
 				"Saved on this phone",
 				"No internet right now. The scan will upload automatically when you are back online. The office will see it was uploaded late.",
 			);
 		}
+
 		return false;
 	}
 }
 
 /**
- * TODO: Update docs.
- * @param {*} r 
- * @param {*} payload 
- * @param {*} interactive 
- * @returns 
+ * Handles the server's reply to a scan: follows relogin/reenroll requests,
+ * adds a history entry, and shows the result screen for new scans.
+ * @param {object} reply - Server reply.
+ * @param {object} payload - The scan that was sent.
+ * @param {boolean} interactive - Whether to show the result screen.
  */
-function handleServerReply(r, payload, interactive) {
-	if (r.relogin) store.del("session");
-	if (r.reenroll) {
-		store.del("device");
-		store.del("session");
+function handleScanReply(reply, payload, interactive) {
+	if (reply.relogin) store.remove("session");
+	if (reply.reenroll) {
+		store.remove("device");
+		store.remove("session");
 	}
-	if (!r.ok) {
-		addHistory({
+
+	if (!reply.ok) {
+		addHistoryEntry({
 			name: "Scan rejected",
 			time: payload.client_time,
 			kind: "bad",
-			label: r.error,
+			label: reply.error,
 		});
-		if (interactive) showResult("bad", "Not recorded", r.error);
+		if (interactive) showResultScreen("bad", "Not recorded", reply.error);
 		return;
 	}
 
-	const flags = (r.flags || "").split(" ").filter(Boolean);
+	// Flags arrive as a space-separated string, e.g. "LOW_ACCURACY LATE_SYNC".
+	const flags = (reply.flags || "").split(" ").filter(Boolean);
 	const warnings = flags.map((f) => FLAG_TEXT[f] || f);
-	addHistory({
-		name: r.cp_name,
-		time: r.server_time || payload.client_time,
+
+	addHistoryEntry({
+		name: reply.cp_name,
+		time: reply.server_time || payload.client_time,
 		kind: warnings.length ? "warn" : "ok",
 		label: warnings.length ? "Recorded, needs review" : "Recorded",
 	});
 
 	if (interactive) {
-		showResult(
+		showResultScreen(
 			warnings.length ? "warn" : "ok",
-			r.cp_name,
+			reply.cp_name,
 			null,
 			warnings,
-			new Date(r.server_time || payload.client_time),
+			new Date(reply.server_time || payload.client_time),
 		);
 	}
 }
 
 /**
- * TODO: Update docs.
- * @param {*} payload 
+ * Adds a scan to the offline queue, dropping the oldest beyond MAX_QUEUE.
+ * If storage is full, removes photos from queued scans so the scan data still fits.
+ * @param {object} payload
  */
-function enqueue(payload) {
-	const q = store.get("queue") || [];
-	q.push(payload);
-	while (q.length > MAX_QUEUE) q.shift();
+function queueScanForLater(payload) {
+	const queue = store.get("queue") || [];
+	queue.push(payload);
+	while (queue.length > MAX_QUEUE) queue.shift();
+
 	try {
-		store.set("queue", q);
+		store.set("queue", queue);
 	} catch (e) {
 		// Storage full: keep the scan, drop its photo.
 		payload.evidence = null;
-		store.set(
-			"queue",
-			q.map((p) => Object.assign({}, p, { evidence: null })),
-		);
+		store.set("queue", queue.map((scan) => Object.assign({}, scan, { evidence: null })));
 	}
 }
 
-let flushing = false;
-async function flushQueue() {
-	if (flushing) return;
-	
-	flushing = true;
+/** Prevents two uploadQueuedScans runs from sending the same scans at once. */
+let isUploadingQueue = false;
+
+/**
+ * Uploads queued scans oldest first, and stops at the first network failure.
+ * Each scan is removed from the queue only after the server receives it.
+ */
+async function uploadQueuedScans() {
+	if (isUploadingQueue) return;
+
+	isUploadingQueue = true;
 	try {
-		let q = store.get("queue") || [];
-		while (q.length) {
-			const sent = await submit(q[0], false);
+		let queue = store.get("queue") || [];
+		while (queue.length) {
+			const sent = await uploadScan(queue[0], false);
 			if (!sent) break;
-			q = (store.get("queue") || []).slice(1);
-			store.set("queue", q);
+			queue = (store.get("queue") || []).slice(1);
+			store.set("queue", queue);
 		}
 	} finally {
-		flushing = false;
-		if ($("home").classList.contains("on")) renderHome();
+		isUploadingQueue = false;
+		if (byId("screen-home").classList.contains("on")) renderHomeScreen();
 	}
 }
 
 /* ============ Result ============ */
 
 /**
- * TODO: Update docs,
- * @param {*} kind 
- * @param {*} title 
- * @param {*} message 
- * @param {*} warnings 
- * @param {*} time 
+ * Shows the result screen after a scan.
+ * @param {"ok"|"warn"|"bad"} kind - Sets the status label and color.
+ * @param {string} title - Main heading, usually the checkpoint name.
+ * @param {string|null} [message] - Explanation; shown instead of the time.
+ * @param {string[]} [warnings] - Flag explanations to list. When kind is "warn"
+ *   and this is omitted, the status reads "Waiting to upload" (offline scan).
+ * @param {Date} [time] - When the scan was recorded.
  */
-function showResult(kind, title, message, warnings, time) {
+function showResultScreen(kind, title, message, warnings, time) {
 	const mark = {
 		ok: "Recorded",
 		warn: "Recorded, needs review",
 		bad: "Not recorded",
 	}[kind];
-	$("r-mark").className = "result-mark " + kind;
-	$("r-mark").textContent =
-		kind === "warn" && !warnings ? "Waiting to upload" : mark;
-	$("r-name").textContent = title;
-	$("r-time").textContent = message || (time ? time.toLocaleString() : "");
-	$("r-warn").innerHTML = "";
+
+	byId("result-status").className = "result-mark " + kind;
+	byId("result-status").textContent = kind === "warn" && !warnings ? "Waiting to upload" : mark;
+	byId("result-checkpoint-name").textContent = title;
+	byId("result-detail").textContent = message || (time ? time.toLocaleString() : "");
+
+	byId("result-warning-list").innerHTML = "";
 	(warnings || []).forEach((w) => {
 		const li = document.createElement("li");
 		li.textContent = w;
-		$("r-warn").appendChild(li);
+		byId("result-warning-list").appendChild(li);
 	});
-	show("result");
+
+	showScreen("screen-result");
 }
-$("r-next").onclick = route;
+
+byId("result-done").onclick = routeToScreen;
 
 /* ============ Start ============ */
 
+// Upload queued scans as soon as the connection returns, and keep the online status current.
 window.addEventListener("online", () => {
-	flushQueue();
-	if ($("home").classList.contains("on")) renderHome();
+	uploadQueuedScans();
+	if (byId("screen-home").classList.contains("on")) renderHomeScreen();
 });
 
 window.addEventListener("offline", () => {
-	if ($("home").classList.contains("on")) renderHome();
+	if (byId("screen-home").classList.contains("on")) renderHomeScreen();
 });
 
-setInterval(flushQueue, 60000);
-route();
+// Also retry every minute, in case the "online" event never fires.
+setInterval(uploadQueuedScans, 60000);
 
-if (store.get("device")) flushQueue();
+routeToScreen();
+if (store.get("device")) uploadQueuedScans();

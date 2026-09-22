@@ -1,0 +1,48 @@
+<html>
+    <head>
+        <meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta
+			name="theme-color"
+			content="#13202B" />
+		<title>Login</title>
+    </head>
+    <body>
+        <main>
+            <h1>Sign Up</h1>
+            <p>Your supervisor will provide you with a username and an one-time enrollment code. Please choose a secure pin/password.</p>
+            <form action="submit">
+                <label for="username-input">Username</label>
+				<input
+					id="username-input"
+					autocomplete="off"
+					autocapitalize="characters" />
+
+                <label for="">Enrollment Code</label>
+                <input 
+                    id="enrollment-code"
+                    type="number"
+                    
+                 />
+                
+                <label for="">PIN</label>
+                <input 
+                    id="pin-input"
+                    type="number"
+                    minlength="4"
+                    maxlength="8"
+                 />
+
+                <label for="">Confirm PIN</label>
+                <input 
+                    id="pin-confirmation-input"
+                    type="number"
+                    minlength="4"
+                    maxlength="8"
+                 />
+                <button>Submit</button>
+            </form>
+        </main>
+    </body>
+</html>

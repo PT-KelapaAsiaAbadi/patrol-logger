@@ -19,7 +19,7 @@
 	<body>
 		<main>
 			<section
-				id="config"
+				id="screen-setup-required"
 				class="screen">
 				<h1>App not configured</h1>
 				<p class="muted">
@@ -29,150 +29,150 @@
 			</section>
 
 			<section
-				id="enroll"
+				id="screen-enroll"
 				class="screen">
 				<h1>Set up this phone</h1>
 				<p class="muted">
 					Your supervisor will give you a one-time code. This phone
 					becomes the only phone that can record your patrols.
 				</p>
-				<label for="e-id">Guard ID</label>
+				<label for="enroll-guard-id">Guard ID</label>
 				<input
-					id="e-id"
+					id="enroll-guard-id"
 					autocomplete="off"
 					autocapitalize="characters" />
-				<label for="e-code">Enrollment code</label>
+				<label for="enroll-code">Enrollment code</label>
 				<input
-					id="e-code"
+					id="enroll-code"
 					inputmode="numeric"
 					autocomplete="one-time-code" />
-				<label for="e-pin">Choose a PIN (4 to 8 digits)</label>
+				<label for="enroll-pin">Choose a PIN (4 to 8 digits)</label>
 				<input
-					id="e-pin"
+					id="enroll-pin"
 					type="password"
 					inputmode="numeric"
 					autocomplete="new-password" />
-				<label for="e-pin2">Enter the PIN again</label>
+				<label for="enroll-pin-confirm">Enter the PIN again</label>
 				<input
-					id="e-pin2"
+					id="enroll-pin-confirm"
 					type="password"
 					inputmode="numeric"
 					autocomplete="new-password" />
 				<p
 					class="err"
-					id="e-err"></p>
+					id="enroll-error"></p>
 				<button
 					class="primary"
-					id="e-btn">
+					id="enroll-submit">
 					Set up this phone
 				</button>
 			</section>
 
 			<section
-				id="login"
+				id="screen-login"
 				class="screen">
-				<h1 id="l-hello">Start shift</h1>
+				<h1 id="login-greeting">Start shift</h1>
 				<p class="muted">Enter your PIN to start your shift.</p>
-				<label for="l-pin">PIN</label>
+				<label for="login-pin">PIN</label>
 				<input
-					id="l-pin"
+					id="login-pin"
 					type="password"
 					inputmode="numeric"
 					autocomplete="current-password" />
 				<p
 					class="err"
-					id="l-err"></p>
+					id="login-error"></p>
 				<button
 					class="primary"
-					id="l-btn">
+					id="login-submit">
 					Start shift
 				</button>
 				<button
 					class="quiet"
-					id="l-reset">
+					id="login-reset-device">
 					This is not my phone setup
 				</button>
 			</section>
 
 			<section
-				id="home"
+				id="screen-home"
 				class="screen">
-				<h1 id="h-name"></h1>
+				<h1 id="home-guard-name"></h1>
 				<p
 					class="muted"
-					id="h-shift"></p>
+					id="home-shift-expiry"></p>
 				<button
 					class="scan-btn"
-					id="h-scan">
+					id="home-scan-button">
 					Scan checkpoint
 				</button>
 				<div class="status">
 					<span
 						>Waiting to upload:
-						<strong id="h-queue">0</strong></span
+						<strong id="home-queue-count">0</strong></span
 					>
-					<span id="h-net"></span>
+					<span id="home-network-status"></span>
 				</div>
 				<h2>This shift</h2>
 				<ul
 					class="history"
-					id="h-history"></ul>
+					id="home-history-list"></ul>
 				<p
 					class="muted"
-					id="h-empty">
+					id="home-history-empty">
 					No checkpoints scanned yet.
 				</p>
 				<button
 					class="quiet"
-					id="h-end">
+					id="home-end-shift">
 					End shift
 				</button>
 			</section>
 
 			<section
-				id="result"
+				id="screen-result"
 				class="screen">
 				<p
 					class="result-mark"
-					id="r-mark"></p>
+					id="result-status"></p>
 				<p
 					class="result-name"
-					id="r-name"></p>
+					id="result-checkpoint-name"></p>
 				<p
 					class="muted"
-					id="r-time"></p>
+					id="result-detail"></p>
 				<ul
 					class="warnings"
-					id="r-warn"></ul>
+					id="result-warning-list"></ul>
 				<button
 					class="primary"
-					id="r-next">
+					id="result-done">
 					Done
 				</button>
 			</section>
 		</main>
 
 		<section
-			id="scan"
+			id="screen-scanner"
 			class="screen"
 			aria-label="Checkpoint scanner">
 			<video
-				id="video"
+				id="scanner-video"
 				playsinline
 				muted></video>
 			<div
 				class="frame"
 				aria-hidden="true"></div>
 			<div class="scan-bar">
-				<p id="s-msg">Point the camera at the checkpoint code.</p>
+				<p id="scanner-message">Point the camera at the checkpoint code.</p>
 				<p
 					class="muted"
-					id="s-gps">
+					id="scanner-gps-status">
 					Getting location…
 				</p>
 				<button
 					class="quiet"
-					id="s-cancel">
+					id="scanner-cancel">
 					Cancel
 				</button>
 			</div>

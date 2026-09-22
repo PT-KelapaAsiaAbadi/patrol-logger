@@ -160,15 +160,15 @@ ul.history .when {
 }
 
 /* Scanner */
-#scan {
+#screen-scanner {
 	position: fixed;
 	inset: 0;
 	background: #000;
 }
-#scan.on {
+#screen-scanner.on {
 	display: block;
 }
-#video {
+#scanner-video {
 	position: absolute;
 	inset: 0;
 	width: 100%;
