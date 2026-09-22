@@ -1,0 +1,5 @@
+# Prettier and .editorconfig both expect LF, so keep LF in the working tree on every platform.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.y4m binary
