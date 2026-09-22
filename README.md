@@ -6,7 +6,7 @@ A QR-code patrol prototype with three views: a guard web app, a supervisor dashb
 
 ## Project structure
 
-```
+```text
 index.html                 Page markup only; loads the CSS files and js/main.js
 css/
   base.css                 Design tokens, light/dark themes, layout, forms, buttons, tables

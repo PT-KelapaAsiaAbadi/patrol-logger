@@ -18,14 +18,35 @@ Acceptance:
 - All e2e checks pass (updated), plus the new reused-report-photo check.
 - `npm run build` still produces a working single file.
 
-## Phase 2: Repository and tooling
+## Phase 2: Two apps, TypeScript and standard tests
 
-Tasks:
-- Move the app into `web/`; update paths, build script, tests and README.
-- Initialise Supabase (`supabase init`). Note: running Supabase locally needs Docker. If Docker is not available, use a second free cloud project called `patrol-dev` and never test against the production project.
-- Add unit tests for the pure checks (`js/server/checks.js`, `js/domain/rounds.js`) that run without a browser.
+This phase changes structure and tooling only. Behaviour must stay exactly as after Phase 1. Do it in four steps, each committed separately with all tests passing, in this order so the existing tests protect every step.
 
-Acceptance: `npm test` runs unit and e2e tests; README explains local and dev-project setup.
+### Step a: split into a guard app and a staff app
+Follow `docs/refactor-two-apps.md`. The existing Python end-to-end test is the safety net for this step; update only its URLs.
+
+### Step b: standard test tools, no Python
+- Replace `tests/e2e.py` with `@playwright/test` spec files grouped by feature (enrollment, scanning, reports, offline, dashboard, setup, log integrity), with shared fixtures for "demo site loaded" and "guard logged in". Every current check needs an equivalent.
+- Add Vitest unit tests for the checks, round logic, the log hash chain and report validation.
+- Rewrite the fake camera generator and the development server in Node. Remove Python.
+
+### Step c: TypeScript
+- Convert `apps/`, `shared/` and `dev/` to strict TypeScript. Types live next to the code that uses them; remove `shared/types.js`.
+- Remove the JSDoc casts. No `any` or `as` casts except at real boundaries (untyped browser APIs, parsed JSON), each with a one-line reason.
+- esbuild builds both apps and the demo. Use a path alias such as `@shared/` instead of long relative imports, and check that Deno (Phase 4) can resolve the same `shared/checks` files.
+
+### Step d: review fixes
+- Split the setup module and the mock backend so no file is much over 300 lines.
+- Fix duplicated settings: `AUTH.maxPinAttempts` in Setup, `QR_PREFIX` wherever a code is built.
+- Move all interface text into `shared/strings`, ready for Bahasa Indonesia.
+- Replace silent `catch {}` blocks that hide real failures with a small error reporter (console, plus a short message to the user when an action fails). Storage fallbacks may stay silent.
+- Initialise Supabase (`supabase init`). Local Supabase needs Docker; without Docker, use a second free cloud project called `patrol-dev`, never production.
+
+Acceptance for the whole phase:
+- `npm install` then `npm test` runs unit and end-to-end tests with no Python installed.
+- Strict `tsc --noEmit` passes, with no unexplained `any` or `as` casts.
+- The acceptance list in `docs/refactor-two-apps.md` is met.
+- No source file over about 350 lines.
 
 ## Phase 3: Database
 

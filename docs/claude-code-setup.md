@@ -25,7 +25,7 @@ Full instructions: https://code.claude.com/docs/en/quickstart
 unzip patrol-prototype.zip && cd patrol-prototype
 git init && git add . && git commit -m "Prototype after design discussion"
 npm install
-pip install -r tests/requirements.txt && playwright install chromium
+pip install -r tests/requirements.txt && playwright install chromium   # only until Phase 2 removes Python
 ```
 
 Commit before each phase so every change Claude Code makes can be reviewed with `git diff` and undone.
@@ -55,6 +55,17 @@ After you agree with the plan:
 Implement Phase 1. Run npm run lint, npm run typecheck and npm test when you are done,
 fix anything that fails, and update docs/spec.md if behaviour changed.
 ```
+
+Phase 2, one step per session:
+
+```text
+Read CLAUDE.md, the Phase 2 section of docs/implementation-plan.md and
+docs/refactor-two-apps.md. We are doing step a only: splitting into the guard app and the
+staff app with no behaviour change. List every file move and import change you plan,
+then wait for my go-ahead. Use git mv for moves.
+```
+
+After each step is committed, start a fresh session with the same prompt for the next step (b, c, then d).
 
 Later phases, in a fresh session (`/clear`) each time:
 
