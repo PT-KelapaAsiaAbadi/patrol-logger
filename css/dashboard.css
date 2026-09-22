@@ -1,0 +1,131 @@
+/* ==========================================================================
+   Watch-clock dials: one disc per guard, like a watchman's clock chart
+   ========================================================================== */
+.dials {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 28px 36px;
+  margin-top: 14px;
+}
+
+.dial {
+  margin: 0;
+}
+.dial svg {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+}
+.dial p {
+  max-width: 30ch;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.legend span::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--stamp);
+}
+.legend .legend-flagged::before {
+  height: 4px;
+  background: var(--alert);
+}
+
+/* ==========================================================================
+   Review list
+   ========================================================================== */
+.review-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.review-title {
+  font-weight: 700;
+}
+.review-reasons {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.review-meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.review-photos {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.review-photos figure {
+  margin: 0;
+}
+.review-photos img {
+  display: block;
+  width: 128px;
+  height: 96px;
+  object-fit: cover;
+  background: var(--rule);
+}
+.review-photos figcaption {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.review-verdict {
+  font-weight: 600;
+}
+
+details summary {
+  margin-top: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .review-item {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Reports from guards
+   ========================================================================== */
+.report-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.report-item {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.report-item-title {
+  font-weight: 700;
+}
+.report-item-text {
+  margin: 6px 0;
+  white-space: pre-wrap;
+}

@@ -1,183 +1,194 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta
-			name="viewport"
-			content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<meta
-			name="theme-color"
-			content="#13202B" />
-		<title>Patrol</title>
-		<script
-			src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"
-			defer></script>
-		<link
-			rel="stylesheet"
-			href="styles.css" />
-	</head>
-	<body>
-		<main>
-			<section
-				id="screen-setup-required"
-				class="screen">
-				<h1>App not configured</h1>
-				<p class="muted">
-					Open index.js and paste your Apps Script web app URL into
-					API_URL.
-				</p>
-			</section>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Patrol prototype</title>
 
-			<section
-				id="screen-enroll"
-				class="screen">
-				<h1>Set up this phone</h1>
-				<p class="muted">
-					Your supervisor will give you a one-time code. This phone
-					becomes the only phone that can record your patrols.
-				</p>
-				<label for="enroll-guard-id">Guard ID</label>
-				<input
-					id="enroll-guard-id"
-					autocomplete="off"
-					autocapitalize="characters" />
-				<label for="enroll-code">Enrollment code</label>
-				<input
-					id="enroll-code"
-					inputmode="numeric"
-					autocomplete="one-time-code" />
-				<label for="enroll-pin">Choose a PIN (4 to 8 digits)</label>
-				<input
-					id="enroll-pin"
-					type="password"
-					inputmode="numeric"
-					autocomplete="new-password" />
-				<label for="enroll-pin-confirm">Enter the PIN again</label>
-				<input
-					id="enroll-pin-confirm"
-					type="password"
-					inputmode="numeric"
-					autocomplete="new-password" />
-				<p
-					class="err"
-					id="enroll-error"></p>
-				<button
-					class="primary"
-					id="enroll-submit">
-					Set up this phone
-				</button>
-			</section>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap"
+    />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <link rel="stylesheet" href="css/setup.css" />
+    <link rel="stylesheet" href="css/guard.css" />
 
-			<section
-				id="screen-login"
-				class="screen">
-				<h1 id="login-greeting">Start shift</h1>
-				<p class="muted">Enter your PIN to start your shift.</p>
-				<label for="login-pin">PIN</label>
-				<input
-					id="login-pin"
-					type="password"
-					inputmode="numeric"
-					autocomplete="current-password" />
-				<p
-					class="err"
-					id="login-error"></p>
-				<button
-					class="primary"
-					id="login-submit">
-					Start shift
-				</button>
-				<button
-					class="quiet"
-					id="login-reset-device">
-					This is not my phone setup
-				</button>
-			</section>
+    <!-- Classic scripts that define window.jsQR (QR reading fallback) and window.qrcode (QR drawing). -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" defer></script>
+    <script type="module" src="js/main.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <p class="app-name">Patrol</p>
+      <nav aria-label="Views">
+        <button class="view-tab" data-view="guard" aria-selected="false">Guard app</button>
+        <button class="view-tab" data-view="dashboard" aria-selected="true">Dashboard</button>
+        <button class="view-tab" data-view="setup" aria-selected="false">Setup</button>
+      </nav>
+      <span class="prototype-note">Prototype. All data stays in this browser.</span>
+    </header>
 
-			<section
-				id="screen-home"
-				class="screen">
-				<h1 id="home-guard-name"></h1>
-				<p
-					class="muted"
-					id="home-shift-expiry"></p>
-				<button
-					class="scan-btn"
-					id="home-scan-button">
-					Scan checkpoint
-				</button>
-				<div class="status">
-					<span
-						>Waiting to upload:
-						<strong id="home-queue-count">0</strong></span
-					>
-					<span id="home-network-status"></span>
-				</div>
-				<h2>This shift</h2>
-				<ul
-					class="history"
-					id="home-history-list"></ul>
-				<p
-					class="muted"
-					id="home-history-empty">
-					No checkpoints scanned yet.
-				</p>
-				<button
-					class="quiet"
-					id="home-end-shift">
-					End shift
-				</button>
-			</section>
+    <!-- Guard app -->
+    <main id="guard" class="view" aria-label="Guard app">
+      <div class="guard-column">
+        <section id="screen-enroll" class="screen">
+          <h1>Set up this phone</h1>
+          <p class="muted">
+            Your supervisor gives you a one-time enrollment code. This phone then becomes the only phone that can record
+            your patrols.
+          </p>
+          <label for="enroll-guard-id">Guard ID</label>
+          <input id="enroll-guard-id" autocomplete="off" autocapitalize="characters" />
+          <label for="enroll-code">Enrollment code</label>
+          <input id="enroll-code" inputmode="numeric" autocomplete="one-time-code" />
+          <label for="enroll-pin">Choose a PIN (4 to 8 digits)</label>
+          <input id="enroll-pin" type="password" inputmode="numeric" autocomplete="new-password" />
+          <label for="enroll-pin-repeat">Enter the PIN again</label>
+          <input id="enroll-pin-repeat" type="password" inputmode="numeric" autocomplete="new-password" />
+          <p class="guard-error" id="enroll-error" role="alert"></p>
+          <button class="guard-button" id="enroll-submit">Set up this phone</button>
+          <p class="muted" id="enroll-hint"></p>
+        </section>
 
-			<section
-				id="screen-result"
-				class="screen">
-				<p
-					class="result-mark"
-					id="result-status"></p>
-				<p
-					class="result-name"
-					id="result-checkpoint-name"></p>
-				<p
-					class="muted"
-					id="result-detail"></p>
-				<ul
-					class="warnings"
-					id="result-warning-list"></ul>
-				<button
-					class="primary"
-					id="result-done">
-					Done
-				</button>
-			</section>
-		</main>
+        <section id="screen-login" class="screen">
+          <h1 id="login-greeting">Start shift</h1>
+          <p class="muted">Enter your PIN to start your shift.</p>
+          <label for="login-pin">PIN</label>
+          <input id="login-pin" type="password" inputmode="numeric" autocomplete="current-password" />
+          <p class="guard-error" id="login-error" role="alert"></p>
+          <button class="guard-button" id="login-submit">Start shift</button>
+          <button class="guard-button guard-button--quiet" id="login-reset">Set up this phone again</button>
+        </section>
 
-		<section
-			id="screen-scanner"
-			class="screen"
-			aria-label="Checkpoint scanner">
-			<video
-				id="scanner-video"
-				playsinline
-				muted></video>
-			<div
-				class="frame"
-				aria-hidden="true"></div>
-			<div class="scan-bar">
-				<p id="scanner-message">Point the camera at the checkpoint code.</p>
-				<p
-					class="muted"
-					id="scanner-gps-status">
-					Getting location…
-				</p>
-				<button
-					class="quiet"
-					id="scanner-cancel">
-					Cancel
-				</button>
-			</div>
-		</section>
+        <section id="screen-home" class="screen">
+          <h1 id="home-name"></h1>
+          <p class="muted" id="home-shift"></p>
+          <div class="guard-status-bar">
+            <span>Waiting to upload: <strong id="home-queue-count">0</strong></span>
+            <span id="home-connection"></span>
+          </div>
+          <h2 class="guard-subheading" id="home-round-title"></h2>
+          <p class="muted" id="home-round-hint">Tap a checkpoint when you reach it.</p>
+          <ul class="checkpoint-list" id="home-checkpoints"></ul>
+          <h2 class="guard-subheading">Your recent activity</h2>
+          <ul class="guard-list" id="home-history"></ul>
+          <p class="muted" id="home-history-empty">No scans yet.</p>
+          <button class="guard-button guard-button--quiet" id="home-end-shift">End shift</button>
+          <div class="prototype-controls">
+            <p class="muted">Prototype controls</p>
+            <label class="check"
+              ><input type="checkbox" id="home-simulate-offline" /> Simulate no signal (scans wait on the phone)</label
+            >
+            <label class="check"
+              ><input type="checkbox" id="home-simulate-camera" /> Use simulated scans instead of the camera</label
+            >
+          </div>
+        </section>
 
-		<script src="index.js"></script>
-	</body>
+        <section id="screen-simulate" class="screen">
+          <h1>Simulated scan</h1>
+          <p class="muted" id="sim-intro"></p>
+          <p class="sim-checkpoint">Checkpoint: <strong id="sim-checkpoint-name"></strong></p>
+          <label for="sim-code">Code</label>
+          <select id="sim-code">
+            <option value="current">The current printed code</option>
+            <option value="old">An old or copied code</option>
+          </select>
+          <label for="sim-location">Where the phone is</label>
+          <select id="sim-location">
+            <option value="at">At the checkpoint</option>
+            <option value="post">At the guard post, by the first checkpoint</option>
+            <option value="far">About 2 km away</option>
+            <option value="weak">Nearby, with weak GPS</option>
+          </select>
+          <label for="sim-photos">Photos</label>
+          <select id="sim-photos">
+            <option value="normal">New photos</option>
+            <option value="reuse">Reuse the last area photo</option>
+            <option value="dark">Area photo too dark</option>
+            <option value="none">No area photo</option>
+          </select>
+          <button class="guard-button" id="sim-submit">Record simulated scan</button>
+          <button class="guard-button guard-button--quiet" id="sim-back">Cancel</button>
+        </section>
+
+        <section id="screen-report" class="screen">
+          <p class="report-scan-status" id="report-scan-status"></p>
+          <p class="report-checkpoint" id="report-checkpoint"></p>
+
+          <div id="report-question">
+            <h1>Do you have anything to report?</h1>
+            <p class="muted">For example damage, a stranger, an open door, or anything unusual.</p>
+            <div class="choice-row">
+              <button class="guard-button guard-button--quiet" id="report-no">No</button>
+              <button class="guard-button" id="report-yes">Yes</button>
+            </div>
+          </div>
+
+          <div id="report-form" hidden>
+            <h1>Your report</h1>
+            <p class="muted">Write a note, add photos, or both.</p>
+            <label for="report-text">What happened? (optional)</label>
+            <textarea id="report-text" rows="4" maxlength="2000"></textarea>
+            <p class="report-photo-heading">
+              <span>Photos (optional)</span>
+              <span class="muted" id="report-photo-count">0 of 5</span>
+            </p>
+            <ul class="report-photos" id="report-photos"></ul>
+            <input type="file" id="report-photo-input" accept="image/*" capture="environment" multiple hidden />
+            <button class="guard-button guard-button--quiet" id="report-add-photo">Add photo</button>
+            <p class="guard-error" id="report-error" role="alert"></p>
+            <button class="guard-button" id="report-send">Send report</button>
+            <button class="guard-button guard-button--quiet" id="report-cancel">Back</button>
+          </div>
+        </section>
+
+        <section id="screen-result" class="screen" aria-live="polite">
+          <p class="result-status" id="result-status"></p>
+          <p class="result-title" id="result-title"></p>
+          <p class="muted" id="result-message"></p>
+          <button class="guard-button" id="result-done">Done</button>
+        </section>
+      </div>
+    </main>
+
+    <dialog id="scan-confirm" class="guard-dialog" aria-labelledby="scan-confirm-title">
+      <h2 id="scan-confirm-title">Start scan?</h2>
+      <p id="scan-confirm-checkpoint"></p>
+      <p class="muted" id="scan-confirm-steps"></p>
+      <div class="choice-row">
+        <button class="guard-button guard-button--quiet" id="scan-confirm-no">No</button>
+        <button class="guard-button" id="scan-confirm-yes">Yes</button>
+      </div>
+    </dialog>
+
+    <section id="scanner" aria-label="Checkpoint camera">
+      <video id="scanner-video" playsinline muted></video>
+      <div class="scanner-frame" id="scanner-frame" aria-hidden="true"></div>
+      <div class="scanner-bar">
+        <p class="scanner-step" id="scanner-step"></p>
+        <p id="scanner-message"></p>
+        <p class="scanner-gps" id="scanner-gps"></p>
+        <div class="scanner-actions">
+          <button class="guard-button guard-button--quiet" id="scanner-cancel">Cancel</button>
+          <button class="guard-button guard-button--quiet" id="scanner-torch" hidden aria-pressed="false">Torch</button>
+          <button class="guard-button scanner-capture" id="scanner-capture">Capture</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Supervisor dashboard, rendered by js/dashboard -->
+    <main id="dashboard" class="view is-active" aria-label="Dashboard">
+      <div class="page" id="dashboard-content"></div>
+    </main>
+
+    <!-- Setup, rendered by js/setup -->
+    <main id="setup" class="view" aria-label="Setup">
+      <div class="page" id="setup-content"></div>
+    </main>
+  </body>
 </html>

@@ -1,0 +1,6 @@
+node_modules/
+tests/fake_camera.y4m
+__pycache__/
+dist/
+.env
+supabase/.temp/

@@ -1,0 +1,23 @@
+{
+  "name": "guard-patrol-prototype",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "QR-code guard patrol prototype: guard web app, supervisor dashboard and setup, with simulated server checks.",
+  "scripts": {
+    "start": "node tools/python.mjs -m http.server 8000",
+    "lint": "eslint js",
+    "typecheck": "tsc -p jsconfig.json",
+    "format": "prettier --write \"js/**/*.js\" \"css/**/*.css\" index.html",
+    "test": "node tools/python.mjs tests/make_fake_camera.py tests/fake_camera.y4m && node tools/python.mjs tests/e2e.py",
+    "build": "node tools/build-single-file.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.4.0",
+    "esbuild": "^0.23.0"
+  }
+}
