@@ -1,4 +1,0 @@
-playwright>=1.40
-qrcode[pil]>=7.4
-numpy>=1.24
-Pillow>=10.0

@@ -1,8 +1,25 @@
+# Dependencies
 node_modules/
-tests/fake_camera.y4m
-__pycache__/
-dist/
-.env
-supabase/.temp/
 
-patrol-prototype.zip
+# Build output
+dist/
+dev-dist/
+*.tsbuildinfo
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Source and prototype bundles
+*.zip
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/

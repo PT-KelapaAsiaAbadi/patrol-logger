@@ -1,24 +1,29 @@
 {
-  "name": "guard-patrol-prototype",
-  "version": "0.2.0",
+  "name": "patrol-logger",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
-  "description": "QR-code guard patrol prototype: a guard app and a staff app from one repository, with the backend simulated in the browser.",
   "scripts": {
-    "start": "node tools/python.mjs -m http.server 8000 --bind 127.0.0.1",
-    "lint": "eslint apps shared dev tools",
-    "typecheck": "tsc -p jsconfig.json",
-    "format": "prettier --write \"apps/**/*.{js,css,html}\" \"shared/**/*.{js,css}\" \"dev/**/*.{js,html}\" \"tools/**/*.mjs\"",
-    "test": "node tools/python.mjs tests/make_fake_camera.py tests/fake_camera.y4m && node tools/python.mjs tests/e2e.py",
-    "build": "node tools/build.mjs",
-    "build:demo": "node tools/build-demo.mjs"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:single": "tsc -b && vite build --mode single",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "preact": "^10.29.8",
+    "qr-scanner": "^1.4.2",
+    "qrcode": "^1.5.4",
+    "wouter-preact": "^3.11.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
-    "eslint": "^9.0.0",
-    "globals": "^15.0.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.4.0",
-    "esbuild": "^0.23.0"
+    "@babel/core": "^7.29.7",
+    "@preact/preset-vite": "^2.10.6",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/qrcode": "^1.5.6",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vite-plugin-pwa": "^1.3.0",
+    "vite-plugin-singlefile": "^2.3.3"
   }
 }
