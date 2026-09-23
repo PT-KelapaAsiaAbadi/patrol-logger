@@ -3,14 +3,15 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "QR-code guard patrol prototype: guard web app, supervisor dashboard and setup, with simulated server checks.",
+  "description": "QR-code guard patrol prototype: a guard app and a staff app from one repository, with the backend simulated in the browser.",
   "scripts": {
-    "start": "node tools/python.mjs -m http.server 8000",
-    "lint": "eslint js",
+    "start": "node tools/python.mjs -m http.server 8000 --bind 127.0.0.1",
+    "lint": "eslint apps shared dev tools",
     "typecheck": "tsc -p jsconfig.json",
-    "format": "prettier --write \"js/**/*.js\" \"css/**/*.css\" index.html",
+    "format": "prettier --write \"apps/**/*.{js,css,html}\" \"shared/**/*.{js,css}\" \"dev/**/*.{js,html}\" \"tools/**/*.mjs\"",
     "test": "node tools/python.mjs tests/make_fake_camera.py tests/fake_camera.y4m && node tools/python.mjs tests/e2e.py",
-    "build": "node tools/build-single-file.mjs"
+    "build": "node tools/build.mjs",
+    "build:demo": "node tools/build-demo.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

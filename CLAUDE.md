@@ -16,10 +16,11 @@ Guards scan a printed QR code at each checkpoint on their round; supervisors see
 
 ## Current state
 
-- `index.html`, `css/`, `js/`: a working prototype. The backend is simulated inside the browser (`js/server/`), and all data stays in that browser.
+- `apps/guard/` and `apps/staff/`: two working apps sharing `shared/`. The backend is simulated in the browser (`dev/mock-backend/`), and all data stays in that browser.
 - `tests/e2e.py`: Playwright end-to-end tests in Python (46 checks). They must keep passing, updated as the flow changes, until Phase 2 replaces them with `@playwright/test`.
 - The code is JavaScript with JSDoc types until Phase 2 converts it to TypeScript.
-- Phase 1 is done: scans carry no photo, and the camera records on its own. The next job is Phase 2 step a of `docs/implementation-plan.md`.
+- Phase 1 is done: scans carry no photo, and the camera records on its own.
+- Phase 2 step a is done: the app is split in two, with ESLint enforcing the import rules. The next job is Phase 2 step b of `docs/implementation-plan.md` (standard test tools, no Python).
 
 ## Decisions that are fixed unless M changes them
 
@@ -59,7 +60,7 @@ docs/                spec, plan, decisions
 tools/               build scripts
 ```
 
-Until Phase 2 step a is done, the prototype still lives in `index.html`, `css/` and `js/` at the root.
+`supabase/` and `apps-script/` arrive in phases 3 and 7. Everything else above exists.
 
 ## Commands
 
@@ -67,10 +68,12 @@ Now (prototype):
 
 ```bash
 npm start              # serve at http://127.0.0.1:8000
-npm run lint           # ESLint
+                       #   /apps/guard/   /apps/staff/   /dev/demo-shell/
+npm run lint           # ESLint, including the import rules between apps
 npm run typecheck      # tsc strict over JSDoc
 npm run format         # Prettier
-npm run build          # single-file version in dist/
+npm run build          # dist/guard/ and dist/staff/
+npm run build:demo     # dist/patrol-demo.html, both apps in one file
 npm test               # fake camera video + Python Playwright e2e
 ```
 
@@ -91,9 +94,9 @@ Before calling any task done: lint, typecheck and all tests must pass.
 
 ## Code conventions
 
-- Modules depend in one direction: `lib` (no app knowledge) <- `domain` (patrol rules) <- `server` / functions <- UI (`guard`, `dashboard`, `setup`).
-- Every threshold, limit and storage key lives in `js/config.js` (and a matching config in the backend). No magic numbers.
-- Scan checks are small functions that only read their inputs and return flags (`js/server/checks.js`). Keep them pure so they can be unit tested and shared with the Edge Functions.
+- Modules depend in one direction: `shared/lib` (no app knowledge) <- `shared/domain` (patrol rules) <- `shared/checks` / functions <- the apps.
+- Every threshold, limit and storage key lives in `shared/config.js` (and a matching config in the backend). No magic numbers.
+- Scan checks are small functions that only read their inputs and return flags (`shared/checks/checks.js`). Keep them pure so they can be unit tested and shared with the Edge Functions.
 - Names are spelled out: `checkpoint`, not `cp`; `#enroll-guard-id`, not `#g-id`.
 - Build DOM with the `el()` helper and `textContent`. Never put user or server text into `innerHTML`.
 - Functions stay short (ESLint warns above 60 lines or complexity 12). Split rather than disable the rule.

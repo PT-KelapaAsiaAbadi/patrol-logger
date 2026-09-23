@@ -17,6 +17,8 @@ from playwright.async_api import async_playwright
 ROOT = Path(__file__).resolve().parent.parent
 CAMERA = ROOT / "tests" / "fake_camera.y4m"
 PORT = 8765
+GUARD_URL = f"http://127.0.0.1:{PORT}/apps/guard/"
+STAFF_URL = f"http://127.0.0.1:{PORT}/apps/staff/"
 failures = []
 
 
@@ -104,7 +106,15 @@ async def main():
         errors = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
         pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
-        await pg.goto(f"http://127.0.0.1:{PORT}/index.html")
+        async def open_staff(view="dashboard"):
+            if not pg.url.startswith(STAFF_URL):
+                await pg.goto(STAFF_URL)
+            await pg.click(f"button.view-tab[data-view={view}]")
+
+        async def open_guard():
+            await pg.goto(GUARD_URL)
+
+        await pg.goto(STAFF_URL)
 
         # ---------------- Demo data and dashboard ----------------
         await pg.click('button:has-text("Load the demo site")')
@@ -124,13 +134,13 @@ async def main():
         check("Padlock on the back gate" in reports, "dashboard shows the demo report text")
 
         # ---------------- Setup: enrollment code ----------------
-        await pg.click("button.view-tab[data-view=setup]")
+        await open_staff("setup")
         await pg.locator("tr", has_text="Budi Santoso").locator('button:has-text("Create enrollment code")').click()
         code = re.search(r"(\d{6})", await pg.inner_text("#setup-status")).group(1)
 
         # ---------------- Guard app on a phone-sized screen ----------------
         await pg.set_viewport_size({"width": 390, "height": 844})
-        await pg.click("button.view-tab[data-view=guard]")
+        await open_guard()
         for sel, val in [("#enroll-guard-id", "g01"), ("#enroll-code", "000000"), ("#enroll-pin", "2468"), ("#enroll-pin-repeat", "2468")]:
             await pg.fill(sel, val)
         await pg.click("#enroll-submit"); await pg.wait_for_timeout(900)
@@ -258,7 +268,7 @@ async def main():
 
         # ---------------- Dashboard shows the new reports ----------------
         await pg.set_viewport_size({"width": 1200, "height": 900})
-        await pg.click("button.view-tab[data-view=dashboard]")
+        await open_staff("dashboard")
         await pg.fill("#dashboard-night", await pg.evaluate(
             "(()=>{const d=new Date(); if(d.getHours()<12) d.setDate(d.getDate()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})()"))
         await pg.wait_for_timeout(800)
@@ -278,24 +288,21 @@ async def main():
               "no logged scan has a photo field")
 
         # ---------------- Assignments ----------------
-        await pg.click("button.view-tab[data-view=setup]")
+        await open_staff("setup")
         await pg.locator('input[aria-label="Budi Santoso patrols Back fence"]').uncheck()
         await pg.click('button:has-text("Save assignments")')
-        await pg.click("button.view-tab[data-view=guard]")
-        # The home screen was already active, so wait for the re-rendered list rather than the screen.
-        try:
-            await pg.wait_for_function("document.querySelectorAll('.checkpoint-button').length === 5", timeout=5000)
-        except Exception:
-            pass
+        await open_guard()
+        await pg.wait_for_selector("#screen-home.is-active", timeout=20000)
+        await pg.wait_for_function("document.querySelectorAll('.checkpoint-button').length === 5", timeout=20000)
         names = " ".join(await pg.locator(".checkpoint-button span:first-child").all_inner_texts())
         check(await pg.locator(".checkpoint-button").count() == 5 and "Back fence" not in names, "guard only sees assigned checkpoints")
 
         # ---------------- Tamper detection ----------------
-        await pg.click("button.view-tab[data-view=dashboard]")
+        await open_staff("dashboard")
         await pg.click('button:has-text("Check the log")'); await pg.wait_for_timeout(1500)
         check("unchanged" in await pg.inner_text("#dashboard-content .status-line"), "untouched log verifies")
-        await pg.click("button.view-tab[data-view=setup]"); await pg.click('button:has-text("Edit a log entry")')
-        await pg.click("button.view-tab[data-view=dashboard]")
+        await open_staff("setup"); await pg.click('button:has-text("Edit a log entry")')
+        await open_staff("dashboard")
         await pg.click('button:has-text("Check the log")'); await pg.wait_for_timeout(1500)
         check("was changed" in await pg.inner_text("#dashboard-content .status-line"), "edited log entry is detected")
 

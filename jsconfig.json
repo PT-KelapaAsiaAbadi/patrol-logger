@@ -7,7 +7,15 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
   },
-  "include": ["js/**/*.js"]
+  "include": [
+    "apps/**/*.js",
+    "shared/**/*.js",
+    "dev/**/*.js"
+  ]
 }

@@ -1,65 +1,67 @@
 # Guard patrol prototype
 
-> Continuing development with Claude Code? Start with `CLAUDE.md` and `docs/claude-code-setup.md`. Phase 1 of `docs/implementation-plan.md` is done: scans carry no photo, and the camera records on its own. Phase 2 is next.
+> Continuing development with Claude Code? Start with `CLAUDE.md` and `docs/claude-code-setup.md`. Phase 1 and Phase 2 step a of `docs/implementation-plan.md` are done. Step b (standard test tools, no Python) is next.
 
-A QR-code patrol prototype with three views: a guard web app, a supervisor dashboard, and a setup page. The server checks are simulated in the browser, and all data stays in that browser. In production, the `js/server` logic moves to a Supabase Edge Function.
+A QR-code patrol prototype built as two apps: a guard web app for phones, and a staff app holding the supervisor dashboard and setup. They share code through `shared/` and never import each other. The server checks are simulated in the browser, and all data stays in that browser. In production, the `shared/checks` logic moves to a Supabase Edge Function.
 
 ## Project structure
 
 ```text
-index.html                 Page markup only; loads the CSS files and js/main.js
-css/
-  base.css                 Design tokens, light/dark themes, layout, forms, buttons, tables
-  dashboard.css            Watch-clock dials and the review list
-  setup.css                Printable code cards and print rules
-  guard.css                Guard app (night palette) and the camera scanner
-js/
-  main.js                  Entry point: loads data and wires up the three views
-  config.js                Every tunable number and storage key in one place
-  types.js                 JSDoc type definitions shared by all modules
-  app/navigation.js        Switching between views
-  lib/                     Small, app-independent helpers
-    dom.js                   Element builders and query shorthands
-    format.js                Times, dates, durations, plurals
-    crypto.js                Hashing, tokens, device signing keys, PIN hashing
-    geo.js                   Distances and position offsets
-    storage.js               localStorage and IndexedDB wrappers with fallbacks
-    async.js                 sleep()
-  domain/                  Patrol rules that do not depend on the UI
-    flags.js                 Flag names, descriptions, and which ones need review
-    rounds.js                Night schedules, shortest realistic round, round results
-    synthetic-photo.js       Placeholder photos for simulated scans and the demo
-  server/                  The simulated backend
-    server.js                Requests: enroll, start shift, submit scan; runs the checks
-    checks.js                The scan checks as small functions that only return flags
-    log.js                   Append-only, hash-chained log and its verification
-    state.js                 Creating, loading and saving server data
-  guard/                   The guard's phone
-    guard-app.js             Routing between screens, phone setup, starting and ending a shift
-    screens.js               Showing a screen, and the shared result screen
-    home-screen.js           The guard's assigned checkpoints for the current round, and recent activity
-    scan-flow.js             Tap a checkpoint, confirm, then camera or simulator, then the report question
-    scanner.js               Continuous code reading; only the chosen checkpoint's code is accepted
-    image-tools.js           Grabbing a camera frame and reading a QR code from it
-    report-screen.js         "Anything to report?" and the report form (note, 0 to 5 photos)
-    report-photos.js         Shrinking report photos to save mobile data
-    uploads.js               Signing scans and reports, sending them, the offline queue
-    simulated-scan.js        Building scans without a camera, for testing
-    device.js                The phone's identity, signing key and upload queue
-  dashboard/               Supervisor dashboard
-    dashboard.js             Rounds table, each guard's night, review list, log check
-    watch-dial.js            One guard's night drawn as a watch-clock disc
-    review-item.js           One flagged scan with its measurements and decision buttons
-    report-item.js           One report from a guard, with its photos and warnings
-  setup/setup.js           Guards, checkpoints, assignments, rounds, scan rules, printable codes
-  demo/demo-site.js        The demo site and the recorded night
+apps/
+  guard/                   Guard app: enrollment, shift, checkpoints, scanner, reports
+    index.html               Guard screens, the scan dialog and the camera overlay
+    src/
+      main.js                Entry point
+      api.js                 The app's only door to the backend
+      guard-app.js           Routing between screens, phone setup, starting and ending a shift
+      screens.js             Showing a screen, and the shared result screen
+      home-screen.js         Assigned checkpoints for the current round, and recent activity
+      scan-flow.js           Tap a checkpoint, confirm, then camera or simulator, then the report question
+      scanner.js             Continuous code reading; only the chosen checkpoint's code is accepted
+      image-tools.js         Grabbing a camera frame and reading a QR code from it
+      report-screen.js       "Anything to report?" and the report form (note, 0 to 5 photos)
+      report-photos.js       Shrinking report photos to save mobile data
+      uploads.js             Signing scans and reports, sending them, the offline queue
+      device.js              The phone's identity, signing key and upload queue
+      dev/simulated-scan.js  Building scans without a camera, for testing
+    styles/guard.css         Guard app (night palette) and the camera scanner
+  staff/                   Staff app: dashboard and setup
+    index.html               Dashboard and Setup tabs
+    src/
+      main.js                Entry point
+      api.js                 The app's only door to the backend
+      navigation.js          Switching between the two tabs
+      dashboard/             Rounds table, each guard's night, review list, reports, log check
+      setup/                 Guards, checkpoints, assignments, rounds, scan rules, printable codes
+      dev/demo-tools.js      The demo site, wired to this app
+    styles/                  dashboard.css, setup.css
+shared/                    Used by both apps, and later by the Edge Functions
+  config.js                  Every tunable number and storage key in one place
+  types.js                   JSDoc type definitions
+  lib/                       dom, format, crypto, geo, storage, async
+  domain/                    flags.js (flag names and descriptions), rounds.js (night schedules, rushed rounds)
+  checks/                    checks.js (the scan checks), log.js (the hash-chained log)
+  styles/base.css            Design tokens, light/dark themes, layout, forms, buttons, tables
+dev/                       Development only, never in a production build
+  mock-backend/              server.js, state.js: the in-browser backend
+  demo-site.js               The demo site and its recorded night
+  synthetic-photo.js         Placeholder report photos for the demo
+  demo-shell/                Both apps as tabs, for demos and the single-file build
 tests/
-  e2e.py                   End-to-end test in headless Chromium (46 checks)
-  make_fake_camera.py      Fake camera video of the demo Main gate code
-  requirements.txt         Python packages for the tests
+  e2e.py                     End-to-end test in headless Chromium (46 checks)
+  make_fake_camera.py        Fake camera video of the demo Main gate code
+  requirements.txt           Python packages for the tests
 tools/
-  build-single-file.mjs    Bundles everything into one HTML file (npm run build)
+  build.mjs                  dist/guard/ and dist/staff/ (npm run build)
+  build-demo.mjs             dist/patrol-demo.html, both apps in one file (npm run build:demo)
+  lib/build-app.mjs          Bundles one app into a single self-contained file
+  python.mjs                 Runs Python with whichever launcher the machine has
 ```
+
+Each app is bundled from its own entry point, and the build fails if one app's
+code reaches the other. ESLint enforces the same rule while you edit: the apps
+import only from `shared/`, each app's `src/api.js` is the single place that
+touches `dev/mock-backend`, and `shared/` never imports from an app.
 
 ## The guard's flow
 
@@ -72,22 +74,28 @@ tools/
 
 Supervisors choose which checkpoints each guard sees under **Setup → Assignments**.
 
-Modules import each other in one direction: `lib` depends on nothing, `domain` on `lib`, `server` on both, and the UI folders (`guard`, `dashboard`, `setup`, `demo`) on everything below them.
+Modules import each other in one direction: `shared/lib` depends on nothing, `shared/domain` on `lib`, `shared/checks` on both, and the two apps on `shared/` only.
 
 ## Run the app
 
 The app uses ES modules, and the camera, location and signing key only work on `https://` or `localhost`, so serve the folder rather than opening `index.html` directly:
 
 ```bash
-npm start            # or: python -m http.server 8000
-# open http://localhost:8000
+npm start
+# guard app:  http://127.0.0.1:8000/apps/guard/
+# staff app:  http://127.0.0.1:8000/apps/staff/
+# both:       http://127.0.0.1:8000/dev/demo-shell/
 ```
+
+Both apps are served from one origin in development, so they share the mock
+backend's storage. In production they live on separate origins and share data
+only through Supabase.
 
 `npm start` and `npm test` run Python through `tools/python.mjs`, which picks whichever of `python`, `py` or `python3` this machine has, so the same commands work on Windows, macOS and Linux.
 
 There is no build step. To use it on a phone, upload the folder to any static HTTPS host, such as GitHub Pages or Cloudflare Pages.
 
-For hosts that accept only one HTML file, such as a Claude artifact, `npm run build` bundles everything into `dist/patrol-prototype.html` with esbuild: the CSS files are inlined and the JavaScript modules are combined into one inline module script. The two QR libraries and the font still load from their CDNs.
+`npm run build` writes `dist/guard/index.html` and `dist/staff/index.html`, one self-contained file per app, with the CSS inlined and the modules bundled by esbuild. For hosts that accept only one file, such as a Claude artifact, `npm run build:demo` writes `dist/patrol-demo.html` with both apps embedded. The two QR libraries and the font still load from their CDNs.
 
 ## Why JavaScript with JSDoc instead of TypeScript
 
@@ -112,7 +120,7 @@ Browser features: ES modules, camera (`getUserMedia`), Geolocation, WebCrypto (S
 | ESLint 9 | `npm run lint` | Recommended rules plus limits on function length and complexity |
 | TypeScript 5 | `npm run typecheck` | Strict type checking of the JSDoc annotations |
 | Prettier 3 | `npm run format` | Consistent formatting |
-| esbuild | `npm run build` | Bundles the single-file version in `dist/` |
+| esbuild | `npm run build` | Bundles each app into a single file in `dist/` |
 
 **Tests** (Python 3.10 or newer):
 
