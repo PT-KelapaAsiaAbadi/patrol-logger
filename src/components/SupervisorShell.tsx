@@ -8,6 +8,7 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
   const [location, navigate] = useLocation();
   const nav = [
     { href: '/supervisor', label: t('navLog'), active: location === '/supervisor' || location.startsWith('/supervisor/scans') },
+    { href: '/supervisor/guards', label: t('navGuards'), active: location === '/supervisor/guards' },
     { href: '/supervisor/checkpoints', label: t('navCheckpoints'), active: location === '/supervisor/checkpoints' },
   ];
 
@@ -16,7 +17,7 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
       <header class="border-b border-line bg-surface">
         <div class="max-w-5xl mx-auto px-5 flex flex-wrap items-center gap-x-6 gap-y-1 py-2">
           <span class="font-bold text-lg">Patroli</span>
-          <nav class="flex gap-1 -mb-2 order-last w-full sm:order-none sm:w-auto">
+          <nav class="flex gap-1 -mb-2 order-last w-full sm:order-0 sm:w-auto">
             {nav.map((n) => (
               <Link key={n.href} href={n.href} class={`tab ${n.active ? 'is-active' : ''}`} aria-current={n.active ? 'page' : undefined}>
                 {n.label}

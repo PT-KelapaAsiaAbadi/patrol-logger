@@ -9,34 +9,44 @@
  *   4. the frame is decoded by the browser's BarcodeDetector if it has one (most Android Chrome),
  *      otherwise by a bundled decoder running in a Web Worker so the UI doesn't freeze
  */
-import QrScanner from 'qr-scanner';
+import QrScanner from "qr-scanner";
 
-export type ScannerError = 'no_camera' | 'permission_denied' | 'insecure_context' | 'unknown';
+export type ScannerError =
+	| "no_camera"
+	| "permission_denied"
+	| "insecure_context"
+	| "unknown";
 
 export interface ScannerHandle {
-  stop: () => void;
+	stop: () => void;
 }
 
 export async function startScanner(
-  video: HTMLVideoElement,
-  onCode: (text: string) => void,
+	video: HTMLVideoElement,
+	onCode: (text: string) => void,
 ): Promise<ScannerHandle> {
-  if (!window.isSecureContext) throw 'insecure_context' satisfies ScannerError;
-  if (!(await QrScanner.hasCamera())) throw 'no_camera' satisfies ScannerError;
+	if (!window.isSecureContext)
+		throw "insecure_context" satisfies ScannerError;
+	if (!(await QrScanner.hasCamera()))
+		throw "no_camera" satisfies ScannerError;
 
-  const scanner = new QrScanner(video, (result) => onCode(result.data), {
-    preferredCamera: 'environment',
-    maxScansPerSecond: 5, // enough to feel instant, low enough for old CPUs
-    returnDetailedScanResult: true,
-  });
+	const scanner = new QrScanner(video, (result) => onCode(result.data), {
+		preferredCamera: "environment",
+		maxScansPerSecond: 5, // enough to feel instant, low enough for old CPUs
+		returnDetailedScanResult: true,
+	});
 
-  try {
-    await scanner.start();
-  } catch (e) {
-    scanner.destroy();
-    const name = e instanceof Error ? e.name : String(e);
-    throw (/NotAllowed|Permission/i.test(name) ? 'permission_denied' : 'unknown') satisfies ScannerError;
-  }
+	try {
+		await scanner.start();
+	} catch (e) {
+		scanner.destroy();
+		const name = e instanceof Error ? e.name : String(e);
+		throw (
+			/NotAllowed|Permission/i.test(name)
+				? "permission_denied"
+				: "unknown"
+		) satisfies ScannerError;
+	}
 
-  return { stop: () => scanner.destroy() };
+	return { stop: () => scanner.destroy() };
 }

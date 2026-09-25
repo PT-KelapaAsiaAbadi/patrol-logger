@@ -1,20 +1,34 @@
-import QRCode from 'qrcode';
-import type { Checkpoint } from '../types';
+import QRCode from "qrcode";
+import type { Checkpoint } from "../types";
 
 export const qrImage = (payload: string) =>
-  QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 1, width: 480 });
+	QRCode.toDataURL(payload, {
+		errorCorrectionLevel: "M",
+		margin: 1,
+		width: 480,
+	});
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+const esc = (s: string) =>
+	s.replace(
+		/[&<>"]/g,
+		(c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+	);
 
 /** A standalone A4 page of cut-out labels, opened and printed from any browser. */
-export function labelsDocument(items: { cp: Checkpoint; img: string }[]): string {
-  const labels = items.map(({ cp, img }) => `
+export function labelsDocument(
+	items: { cp: Checkpoint; img: string }[],
+): string {
+	const labels = items
+		.map(
+			({ cp, img }) => `
     <div class="label">
       <img src="${img}" alt="">
       <p class="name">${esc(cp.name)}</p>
       <p class="code">${esc(cp.manualCode)}</p>
-    </div>`).join('');
-  return `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Label titik patroli</title>
+    </div>`,
+		)
+		.join("");
+	return `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Label titik patroli</title>
 <style>
   @page { size: A4; margin: 12mm; }
   body { font-family: system-ui, sans-serif; margin: 0; }

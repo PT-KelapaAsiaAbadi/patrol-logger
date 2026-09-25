@@ -1,6 +1,6 @@
 import { createContext } from 'preact';
 import type { ComponentChildren } from 'preact';
-import { useCallback, useContext, useState } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useState } from 'preact/hooks';
 import { translate, type Key, type Lang } from './i18n';
 import * as api from './data/api';
 import type { User } from './types';
@@ -24,6 +24,9 @@ function initialLang(): Lang {
 export function AppProvider({ children }: { children: ComponentChildren }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
   const [user, setUser] = useState<User | null>(api.currentUser);
+
+  // Session gone (signed out elsewhere, storage cleared): back to the login screen.
+  useEffect(() => api.onSessionEnd(() => setUser(null)), []);
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
