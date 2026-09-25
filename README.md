@@ -25,10 +25,15 @@ Local accounts from `supabase/seed.sql` (password `patroli-local-1`): `superviso
 Other commands:
 
 ```bash
-npx supabase db reset    # rebuild the local database from migrations + seed
+npm run db:reset         # rebuild the local database from migrations + seed
 npm run db:types         # regenerate database.types.ts from the local database
 npm run build            # hosted build with service worker, installable as a PWA
+npm run lint             # oxlint (typescript-eslint doesn't support TypeScript 7)
+npm run format           # Prettier; format:check is what CI runs
+npm test                 # backend + browser tests against the local stack (resets the local database)
 ```
+
+`npm test` needs the local stack running. The browser test uses the installed Microsoft Edge on Windows; elsewhere run `npx playwright-core install chromium` once, or set `PW_CHANNEL`. CI (`.github/workflows/ci.yml`) runs lint, format check, type check and build on every push, then starts a local Supabase stack and runs `npm test`.
 
 To test on a real phone, the page must be served over **https** (the camera is blocked on plain http).
 Easiest: `npm run build`, then drag `dist/` into Netlify Drop or Cloudflare Pages.
@@ -39,6 +44,7 @@ Easiest: `npm run build`, then drag `dist/` into Netlify Drop or Cloudflare Page
 npx supabase link --project-ref cfiayahvwjjqhmayakmy
 npx supabase db push                          # applies supabase/migrations (never seed.sql)
 npx supabase functions deploy create-guards
+npx supabase functions deploy reset-password
 ```
 
 Then in the dashboard:
@@ -52,7 +58,7 @@ Then in the dashboard:
    select id, 'Supervisor name', email, 'supervisor' from auth.users where email = 'you@example.com';
    ```
 
-From then on, supervisors add guards from the Guards tab.
+From then on, supervisors add guards (and other supervisors) from the Accounts tab.
 
 ## Stack
 
@@ -64,7 +70,8 @@ From then on, supervisors add guards from the Guards tab.
 | QR scanning | qr-scanner | native BarcodeDetector when available, worker fallback |
 | QR generation | qrcode | supervisor label sheet |
 | Offline / install | vite-plugin-pwa | caches the app shell, adds manifest |
-| Backend | Supabase | Postgres + Row Level Security, Auth, Storage, one Edge Function |
+| Backend | Supabase | Postgres + Row Level Security, Auth, Storage, two Edge Functions |
+| Offline queue | idb-keyval | IndexedDB holds hundreds of MB, so queued report photos fit |
 
 Whole app: about 100 KB gzipped, most of it supabase-js. The service worker caches it after the first visit.
 
@@ -77,7 +84,7 @@ src/
   data/
     backend.ts          Supabase calls. Nothing else imports it except api.ts
     api.ts              what pages call. Decides: send now, or park in the outbox
-    queue.ts            offline outbox (runs on the phone, stays in production)
+    queue.ts            offline outbox in IndexedDB (runs on the phone)
     network.ts          online/offline state
   lib/
     scanner.ts          camera + QR decode, isolated so you can rebuild it by hand
@@ -85,13 +92,17 @@ src/
     labels.ts           printable QR sticker sheet
     csv.ts              scan export, guard CSV import
     print.ts            prints a label sheet through a hidden iframe
+    updates.ts          switches in a new app version only on a screen where a reload loses nothing
     download.ts, format.ts, id.ts
   pages/guard/          Home (round), Scan, Report
-  pages/supervisor/     Log (paginated), ScanDetail, Guards (add one or import CSV), Checkpoints (add, select, print QR)
+  pages/supervisor/     Log (paginated), ScanDetail,
+                        Guards = the Accounts tab (add one, import CSV, new password, deactivate),
+                        Checkpoints (round order, rename, replace sticker, add, select, print QR)
 supabase/
   migrations/           tables, Row Level Security, server functions, QR signing key, photo bucket
-  functions/create-guards/  creates guard logins with generated passwords (service-role key)
+  functions/            create-guards, reset-password (service-role key), _shared/
   seed.sql              local test accounts and checkpoints
+tests/                  backend.test.mjs (each role against the API), e2e.test.mjs (the app in a browser)
 ```
 
 ## How the backend works
@@ -99,11 +110,15 @@ supabase/
 | backend.ts | Supabase |
 |---|---|
 | `signIn` | `supabase.auth.signInWithPassword`, then the caller's row in `profiles` (role, active) |
-| `createGuards` | `create-guards` Edge Function: `auth.admin.createUser` with a generated password, then a `profiles` row |
+| `createGuards` | `create-guards` Edge Function: `auth.admin.createUser` with a generated password, then a `profiles` row (guard or supervisor) |
+| `resetPassword` | `reset-password` Edge Function: a new generated password, shown once |
+| `setAccountActive` | `set_account_active()`: a deactivated account can't sign in and its open sessions get nothing |
 | `submitScan` | `submit_scan()`: verifies the QR's HMAC with a key kept in Vault, or matches the manual code, then inserts. The guard is always the caller |
 | `submitReport` | photos uploaded to the private `report-photos` bucket, then `submit_report()` stores their paths |
 | `qrPayloadFor` | `qr_payload()`, supervisors only |
 | `createCheckpoint` | `create_checkpoint()`: next route position and a unique manual code |
+| `updateCheckpoint`, `moveCheckpoint` | `update_checkpoint()`, `move_checkpoint()` |
+| `reissueCheckpoint` | `reissue_checkpoint()`: bumps `qr_version` (part of the QR signature) and issues a new manual code, so every copy of the old sticker stops working |
 | `listScans`, `exportScans`, `getScan` | the `scan_rows` view, paged with `.range()`; photos shown via signed URLs |
 | `guardSummaries`, `missedCheckpoints` | `guard_summaries()`, `missed_checkpoints()` |
 
@@ -111,18 +126,33 @@ Row Level Security: guards read only their own profile, scans and reports; super
 
 ## TODO
 
-Open work, mirrored from the code. `TODO:` comments and `not implemented:` stubs are highlighted in the editor by the TODO Highlight extension (`.vscode/settings.json`). Tick an item here when you resolve it in the code.
+Open work before real use. `TODO:` comments in the code are highlighted by the TODO Highlight extension (`.vscode/settings.json`).
 
-### Storage
+### Launch
 
-- [ ] Outbox to IndexedDB (`idb`), so queued report photos don't hit localStorage's ~5 MB limit ([src/data/queue.ts](src/data/queue.ts)).
+- [ ] Deploy the backend to PatrolLogger (commands above), then in the dashboard: turn off sign-up, set the minimum password length to 10 and the site URL to the app's address, create the first supervisor.
+- [ ] Host the app over https (Netlify, Cloudflare Pages or Vercel) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` set in the host's build settings.
+- [ ] Test on real phones at the site: a cheap Android and an iPhone, installed from the browser, scanning printed stickers, offline in basements and stairwells.
+- [ ] Run Supabase's Security and Performance Advisors on the hosted project.
 
-### Guard accounts
+### Operations
 
-- [ ] Password reset: a guard who loses their password needs a supervisor action (for example a "new password" button calling the Edge Function). For now, reset it in the dashboard.
-- [ ] Deactivating a guard: set `profiles.active = false` in the dashboard for now; there's no button yet.
+- [ ] Error reporting (for example Sentry), so failures on guards' phones are visible.
+- [ ] Supabase plan with restorable backups.
+- [ ] Photo retention: decide how long to keep report photos, then add a scheduled cleanup.
+- [ ] Privacy under UU PDP (27/2022): privacy notice for guards, retention period, who can see what.
+- [ ] How one-time passwords reach guards, and when the password CSV is deleted.
+- [ ] One-page guard guide (Indonesian) and a supervisor guide.
+
+### Decisions (not built)
+
+- [ ] Shifts: "missed checkpoints" is per calendar day, so a night shift over midnight is split and rounds within a shift aren't tracked.
+- [ ] Several sites or routes (there's one route for everyone).
+- [ ] Alerts to supervisors for incident reports or missed checkpoints.
+- [ ] Time zones: "today" is the supervisor's device's day; wrong if sites span WIB, WITA and WIT.
+- [ ] Self-service password reset by email (needs custom SMTP).
 
 ## Known limits (by design, to discuss)
 
-- A signed QR stops typed or guessed codes, but not a photo of the sticker. Next layers: GPS check, minimum time between checkpoints.
+- A signed QR stops typed or guessed codes, but not a photo of the sticker. "Replace sticker" invalidates a copied one once you know; next layers would be a GPS check or a minimum time between checkpoints.
 - `scannedAt` uses the phone clock. `receivedAt` is the server's; a big gap flags offline scans or a changed clock.
