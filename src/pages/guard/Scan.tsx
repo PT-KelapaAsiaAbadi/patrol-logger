@@ -17,7 +17,10 @@ export function ScanPage() {
 	const [, navigate] = useLocation();
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const handleRef = useRef<ScannerHandle | null>(null);
-	const busyRef = useRef(false); // stops the camera from submitting the same code 5 times a second
+	// The camera reads the same sticker several times a second. While a scan is being sent, and
+	// for good once one has succeeded, further reads are ignored: frames still being decoded when
+	// the camera stops would otherwise record the same checkpoint a second time.
+	const busyRef = useRef(false);
 
 	const [camera, setCamera] = useState<CameraState>("starting");
 	const [showManual, setShowManual] = useState(false);
@@ -38,11 +41,12 @@ export function ScanPage() {
 		setError(null);
 		const r = await api.scan(code, user!.id);
 		setBusy(false);
-		busyRef.current = false;
 		if (!r.ok) {
+			busyRef.current = false; // wrong code: keep scanning
 			setError(r.reason);
 			return;
 		}
+		// Success: busyRef stays set, so this page never records another scan.
 		handleRef.current?.stop();
 		handleRef.current = null;
 		navigator.vibrate?.(80); // short buzz so the guard knows without looking

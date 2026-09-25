@@ -2,7 +2,7 @@
 // Starts its own Vite dev server on port 5210, pointed at the local stack.
 // Browser: Chromium from `npx playwright-core install chromium`, or set PW_CHANNEL
 // (defaults to the installed Microsoft Edge on Windows).
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { chromium } from "playwright-core";
 import { localStack, reporter, SEED } from "./local-supabase.mjs";
 
@@ -20,9 +20,10 @@ const vite = spawn("npx", ["vite", "--port", String(PORT), "--strictPort"], {
 		VITE_SUPABASE_PUBLISHABLE_KEY: stack.publishableKey,
 	},
 });
+// Synchronous: the test exits right after, and an async kill would never run.
 const stopVite = () => {
 	if (process.platform === "win32")
-		spawn("taskkill", ["/pid", String(vite.pid), "/T", "/F"], {
+		spawnSync("taskkill", ["/pid", String(vite.pid), "/T", "/F"], {
 			stdio: "ignore",
 		});
 	else vite.kill();
@@ -247,10 +248,21 @@ try {
 	await text("Lampu koridor mati.");
 	const photo = page.locator("article ul img").first();
 	await photo.waitFor({ timeout: 15000 });
-	ok(
-		await photo.evaluate((img) => img.complete && img.naturalWidth > 0),
-		"report note and photo visible to the supervisor",
-	);
+	// The photo comes from a signed Storage URL; give it time to download before judging it.
+	const loaded = await photo
+		.evaluate(
+			(img) =>
+				new Promise((resolve) => {
+					if (img.complete) return resolve(img.naturalWidth > 0);
+					img.addEventListener("load", () =>
+						resolve(img.naturalWidth > 0),
+					);
+					img.addEventListener("error", () => resolve(false));
+					setTimeout(() => resolve(false), 15000);
+				}),
+		)
+		.catch(() => false);
+	ok(loaded, "report note and photo visible to the supervisor");
 
 	await page.getByRole("link", { name: "Accounts" }).click();
 	const row = page.locator("tr", {

@@ -11,10 +11,11 @@
     "lint": "oxlint --deny-warnings",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"supabase/functions/**/*.ts\" \"tests/**/*.{ts,mjs}\" vite.config.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"supabase/functions/**/*.ts\" \"tests/**/*.{ts,mjs}\" vite.config.ts",
-    "test": "npm run db:reset && node tests/backend.test.mjs && npm run db:reset && node tests/e2e.test.mjs",
+    "test": "npm run db:reset && node tests/backend.test.mjs && npm run db:reset && node tests/e2e.test.mjs && node tests/camera.test.mjs",
     "test:backend": "node tests/backend.test.mjs",
     "test:e2e": "node tests/e2e.test.mjs",
-    "db:reset": "supabase db reset --local"
+    "db:reset": "supabase db reset --local",
+    "test:camera": "node tests/camera.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",

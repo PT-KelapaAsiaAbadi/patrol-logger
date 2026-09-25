@@ -27,11 +27,19 @@ export async function startScanner(
 	if (!(await QrScanner.hasCamera()))
 		throw "no_camera" satisfies ScannerError;
 
-	const scanner = new QrScanner(video, (result) => onCode(result.data), {
-		preferredCamera: "environment",
-		maxScansPerSecond: 5, // enough to feel instant, low enough for old CPUs
-		returnDetailedScanResult: true,
-	});
+	// qr-scanner can still report a frame it was decoding when stop() was called; drop those.
+	let stopped = false;
+	const scanner = new QrScanner(
+		video,
+		(result) => {
+			if (!stopped) onCode(result.data);
+		},
+		{
+			preferredCamera: "environment",
+			maxScansPerSecond: 5, // enough to feel instant, low enough for old CPUs
+			returnDetailedScanResult: true,
+		},
+	);
 
 	try {
 		await scanner.start();
@@ -45,5 +53,10 @@ export async function startScanner(
 		) satisfies ScannerError;
 	}
 
-	return { stop: () => scanner.destroy() };
+	return {
+		stop: () => {
+			stopped = true;
+			scanner.destroy();
+		},
+	};
 }
