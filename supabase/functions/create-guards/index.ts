@@ -1,84 +1,53 @@
 /**
- * create-guards: a supervisor creates guard accounts, one per email.
+ * create-guards: a supervisor creates accounts, one per email. Guards by default; a supervisor
+ * can also add another supervisor by passing role: "supervisor".
  *
  * Creating a login for someone else needs the service-role key, so this runs here and never in
- * the browser. Each new guard gets a random password, returned once so the supervisor can hand
+ * the browser. Each new account gets a random password, returned once so the supervisor can hand
  * it out. No emails are sent.
  *
- * Request:  POST { guards: { name: string; email: string }[] }  with the supervisor's session
+ * Request:  POST { guards: { name: string; email: string; role?: "guard" | "supervisor" }[] }
+ *           with the supervisor's session
  * Response: { created: { user, password }[], existing: string[], failed: string[] }
  */
-import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+	adminClient,
+	cors,
+	json,
+	newPassword,
+	requireSupervisor,
+} from "../_shared/supervisor.ts";
 
-const MAX_GUARDS = 500;
+const MAX_ACCOUNTS = 500;
 
-const cors = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers":
-		"authorization, x-client-info, apikey, content-type",
-	"Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-	new Response(JSON.stringify(body), {
-		status,
-		headers: { ...cors, "Content-Type": "application/json" },
-	});
+type Role = "guard" | "supervisor";
 
 const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-
-// No 0/o, 1/l/i: easy to read off a slip of paper and type on a phone. 31^12 is about 59 bits.
-const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
-function newPassword(): string {
-	const out: string[] = [];
-	const buf = new Uint32Array(1);
-	while (out.length < 12) {
-		crypto.getRandomValues(buf);
-		const n = buf[0];
-		if (n >= 0xffffffff - (0xffffffff % ALPHABET.length)) continue; // avoid modulo bias
-		out.push(ALPHABET[n % ALPHABET.length]);
-	}
-	return `${out.slice(0, 4).join("")}-${out.slice(4, 8).join("")}-${out.slice(8).join("")}`;
-}
 
 Deno.serve(async (req) => {
 	if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 	if (req.method !== "POST")
 		return json({ error: "method_not_allowed" }, 405);
 
-	const admin = createClient(
-		Deno.env.get("SUPABASE_URL")!,
-		Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-		{ auth: { persistSession: false, autoRefreshToken: false } },
-	);
+	const admin = adminClient();
+	const supervisor = await requireSupervisor(req, admin);
+	if (supervisor instanceof Response) return supervisor;
 
-	// Who is asking? Must be an active supervisor.
-	const token =
-		req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-	const { data: caller } = await admin.auth.getUser(token);
-	if (!caller.user) return json({ error: "not_signed_in" }, 401);
-	const { data: me } = await admin
-		.from("profiles")
-		.select("role, active")
-		.eq("id", caller.user.id)
-		.maybeSingle();
-	if (!me || !me.active || me.role !== "supervisor") {
-		return json({ error: "not_allowed" }, 403);
-	}
-
-	let body: { guards?: { name?: unknown; email?: unknown }[] };
+	let body: {
+		guards?: { name?: unknown; email?: unknown; role?: unknown }[];
+	};
 	try {
 		body = await req.json();
 	} catch {
 		return json({ error: "bad_request" }, 400);
 	}
 	const input = Array.isArray(body.guards) ? body.guards : [];
-	if (input.length === 0 || input.length > MAX_GUARDS) {
+	if (input.length === 0 || input.length > MAX_ACCOUNTS) {
 		return json({ error: "bad_request" }, 400);
 	}
 
 	const created: {
-		user: { id: string; name: string; role: "guard"; email: string };
+		user: { id: string; name: string; role: Role; email: string };
 		password: string;
 	}[] = [];
 	const existing: string[] = [];
@@ -93,7 +62,19 @@ Deno.serve(async (req) => {
 		const email = String(g.email ?? "")
 			.trim()
 			.toLowerCase();
-		if (!name || name.length > 120 || !isEmail(email) || seen.has(email)) {
+		const role: Role | null =
+			g.role === undefined || g.role === "guard"
+				? "guard"
+				: g.role === "supervisor"
+					? "supervisor"
+					: null;
+		if (
+			!name ||
+			name.length > 120 ||
+			!isEmail(email) ||
+			!role ||
+			seen.has(email)
+		) {
 			failed.push(email || "(empty)");
 			continue;
 		}
@@ -121,7 +102,7 @@ Deno.serve(async (req) => {
 
 		const { error: profileError } = await admin
 			.from("profiles")
-			.insert({ id: data.user.id, name, email, role: "guard" });
+			.insert({ id: data.user.id, name, email, role });
 		if (profileError) {
 			console.error("profile insert failed", email, profileError);
 			await admin.auth.admin.deleteUser(data.user.id); // don't leave a login with no profile
@@ -130,7 +111,7 @@ Deno.serve(async (req) => {
 		}
 
 		created.push({
-			user: { id: data.user.id, name, role: "guard", email },
+			user: { id: data.user.id, name, role, email },
 			password,
 		});
 	}

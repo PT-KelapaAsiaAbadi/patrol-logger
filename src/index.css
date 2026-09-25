@@ -165,6 +165,24 @@ img {
 		cursor: pointer;
 		background: none;
 	}
+	.link-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.icon-btn {
+		width: 2rem;
+		height: 2rem;
+		display: inline-grid;
+		place-items: center;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: var(--surface);
+		cursor: pointer;
+	}
+	.icon-btn:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
+	}
 	.link {
 		text-decoration: underline;
 		text-underline-offset: 3px;

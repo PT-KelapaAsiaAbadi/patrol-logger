@@ -23,7 +23,9 @@ export function GuardHome() {
 	const route = progress.data?.route ?? [];
 	const visits = progress.data?.visits ?? {};
 	const done = route.filter((c) => visits[c.id]).length;
-	const pendingScans = outbox.items.filter((i) => i.kind === "scan").length;
+	const pendingScans = outbox.items.filter(
+		(i) => i.kind === "scan" && i.scan.guardId === user!.id,
+	).length;
 
 	return (
 		<div class="min-h-full flex flex-col">
@@ -33,6 +35,13 @@ export function GuardHome() {
 					type="button"
 					class="link-btn"
 					onClick={() => {
+						// Unsent items stay on this phone and only go out when this guard signs in again.
+						const unsent = api.unsentCount(user!.id);
+						if (
+							unsent > 0 &&
+							!confirm(t("signOutUnsent", { n: unsent }))
+						)
+							return;
 						api.signOut();
 						setUser(null);
 						navigate("/login");

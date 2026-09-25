@@ -250,7 +250,7 @@ export async function addReport(
 			/* fall through */
 		}
 	}
-	outbox.enqueue({ kind: "report", report });
+	outbox.enqueue({ kind: "report", report, guardId: currentUser()?.id });
 	return "queued";
 }
 
@@ -278,7 +278,8 @@ export function flushOutbox(): Promise<void> {
 			}
 			if (
 				item.kind === "report" &&
-				otherGuardsScanIds.has(item.report.scanId)
+				((item.guardId && item.guardId !== me) ||
+					otherGuardsScanIds.has(item.report.scanId))
 			) {
 				continue;
 			}
@@ -341,6 +342,14 @@ export const getScan = (id: string) => needsNetwork(() => backend.getScan(id));
 
 export const listGuards = () => needsNetwork(() => backend.listGuards());
 
+export const listAccounts = () => needsNetwork(() => backend.listAccounts());
+
+export const setAccountActive = (id: string, active: boolean) =>
+	needsNetwork(() => backend.setAccountActive(id, active));
+
+export const resetPassword = (userId: string) =>
+	needsNetwork(() => backend.resetPassword(userId));
+
 export const createGuards = (guards: NewGuard[]) =>
 	needsNetwork(() => backend.createGuards(guards));
 
@@ -350,6 +359,16 @@ export const allCheckpoints = () =>
 export const createCheckpoint = (name: string) =>
 	needsNetwork(() => backend.createCheckpoint(name));
 
+export const updateCheckpoint = (
+	cp: Parameters<typeof backend.updateCheckpoint>[0],
+) => needsNetwork(() => backend.updateCheckpoint(cp));
+
+export const moveCheckpoint = (id: string, up: boolean) =>
+	needsNetwork(() => backend.moveCheckpoint(id, up));
+
+export const reissueCheckpoint = (id: string) =>
+	needsNetwork(() => backend.reissueCheckpoint(id));
+
 export const guardSummaries = (date: string) =>
 	needsNetwork(() => backend.guardSummaries(date));
 
@@ -358,7 +377,18 @@ export const missedCheckpoints = (date: string) =>
 
 export const qrPayloadFor = backend.qrPayloadFor;
 
+/** Scans and reports this guard has queued on this phone and not yet sent. */
+export const unsentCount = (guardId: string) =>
+	outbox
+		.outboxItems()
+		.filter((i) =>
+			i.kind === "scan"
+				? i.scan.guardId === guardId
+				: (i.guardId ?? guardId) === guardId,
+		).length;
+
 export {
+	loadOutbox,
 	outboxItems,
 	rejectedCount,
 	clearRejected,

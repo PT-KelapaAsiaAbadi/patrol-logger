@@ -41,6 +41,7 @@ export type Database = {
           id: string
           manual_code: string
           name: string
+          qr_version: number
           route_order: number
         }
         Insert: {
@@ -49,6 +50,7 @@ export type Database = {
           id?: string
           manual_code: string
           name: string
+          qr_version?: number
           route_order: number
         }
         Update: {
@@ -57,6 +59,7 @@ export type Database = {
           id?: string
           manual_code?: string
           name?: string
+          qr_version?: number
           route_order?: number
         }
         Relationships: []
@@ -206,6 +209,7 @@ export type Database = {
           id: string
           manual_code: string
           name: string
+          qr_version: number
           route_order: number
         }
         SetofOptions: {
@@ -232,6 +236,7 @@ export type Database = {
           id: string
           manual_code: string
           name: string
+          qr_version: number
           route_order: number
         }[]
         SetofOptions: {
@@ -241,7 +246,29 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      move_checkpoint: {
+        Args: { p_id: string; p_up: boolean }
+        Returns: undefined
+      }
       qr_payload: { Args: { p_checkpoint_id: string }; Returns: string }
+      reissue_checkpoint: {
+        Args: { p_id: string }
+        Returns: {
+          active: boolean
+          created_at: string
+          id: string
+          manual_code: string
+          name: string
+          qr_version: number
+          route_order: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "checkpoints"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       route_checkpoints: {
         Args: never
         Returns: {
@@ -250,6 +277,10 @@ export type Database = {
           name: string
           route_order: number
         }[]
+      }
+      set_account_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
       }
       submit_report: {
         Args: {
@@ -264,6 +295,24 @@ export type Database = {
       submit_scan: {
         Args: { p_code: string; p_id: string; p_scanned_at: string }
         Returns: Json
+      }
+      update_checkpoint: {
+        Args: { p_active: boolean; p_id: string; p_name: string }
+        Returns: {
+          active: boolean
+          created_at: string
+          id: string
+          manual_code: string
+          name: string
+          qr_version: number
+          route_order: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "checkpoints"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

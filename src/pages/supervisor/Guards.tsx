@@ -9,8 +9,9 @@ import {
 	type GuardsCsv,
 } from "../../lib/csv";
 import { saveFile } from "../../lib/download";
-import type { GuardImportResult, NewGuard } from "../../types";
+import type { GuardImportResult, NewGuard, Role } from "../../types";
 import { LoadError } from "./Log";
+import { AccountsTable } from "./AccountsTable";
 
 const PREVIEW_ROWS = 50;
 
@@ -18,15 +19,15 @@ type Outcome = { kind: "done"; result: GuardImportResult } | { kind: "error" };
 
 export function Guards() {
 	const { t } = useApp();
-	const guards = useAsync(() => api.listGuards(), []);
+	const accounts = useAsync(() => api.listAccounts(), []);
 
 	return (
 		<>
 			<h1 class="text-xl font-bold">{t("navGuards")}</h1>
 
 			<div class="admin-grid mt-4">
-				<AddGuard onAdded={guards.reload} />
-				<ImportGuards onAdded={guards.reload} />
+				<AddGuard onAdded={accounts.reload} />
+				<ImportGuards onAdded={accounts.reload} />
 			</div>
 
 			<section
@@ -37,35 +38,16 @@ export function Guards() {
 					class="text-lg font-semibold mb-3">
 					{t("guardList")}
 				</h2>
-				{guards.error && <LoadError onRetry={guards.reload} />}
-				{guards.loading && !guards.data && (
+				{accounts.error && <LoadError onRetry={accounts.reload} />}
+				{accounts.loading && !accounts.data && (
 					<p class="text-muted">{t("loading")}</p>
 				)}
-				{guards.data &&
-					(guards.data.length === 0 ? (
-						<p class="text-muted">{t("noGuards")}</p>
-					) : (
-						<div class="table-wrap">
-							<table class="log-table">
-								<thead>
-									<tr>
-										<th scope="col">{t("fullName")}</th>
-										<th scope="col">{t("email")}</th>
-									</tr>
-								</thead>
-								<tbody>
-									{guards.data.map((g) => (
-										<tr key={g.id}>
-											<td>{g.name}</td>
-											<td class="text-muted">
-												{g.email}
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					))}
+				{accounts.data && (
+					<AccountsTable
+						accounts={accounts.data}
+						onChanged={accounts.reload}
+					/>
+				)}
 			</section>
 		</>
 	);
@@ -99,6 +81,7 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 	const { t } = useApp();
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
+	const [role, setRole] = useState<Role>("guard");
 	const { busy, outcome, create } = useCreateGuards(onAdded);
 
 	async function submit() {
@@ -106,11 +89,13 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 			{
 				name: name.trim().replace(/\s+/g, " "),
 				email: email.trim().toLowerCase(),
+				role,
 			},
 		]);
 		if (ok) {
 			setName("");
 			setEmail("");
+			setRole("guard");
 		}
 	}
 
@@ -151,6 +136,20 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 						value={email}
 						onInput={(e) => setEmail(e.currentTarget.value)}
 					/>
+				</label>
+				<label class="grid gap-1">
+					<span class="font-medium">{t("colRole")}</span>
+					<select
+						class="field"
+						value={role}
+						onChange={(e) =>
+							setRole(e.currentTarget.value as Role)
+						}>
+						<option value="guard">{t("roleGuard")}</option>
+						<option value="supervisor">
+							{t("roleSupervisor")}
+						</option>
+					</select>
 				</label>
 				<button
 					class="btn btn-primary"

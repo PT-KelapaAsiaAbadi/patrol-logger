@@ -7,6 +7,7 @@ import { saveFile } from "../../lib/download";
 import { printDocument } from "../../lib/print";
 import type { Checkpoint } from "../../types";
 import { LoadError } from "./Log";
+import { RouteTable } from "./RouteTable";
 
 export function Checkpoints() {
 	const { t } = useApp();
@@ -22,7 +23,8 @@ export function Checkpoints() {
 		);
 	}, []);
 
-	const items = labels.data ?? [];
+	const all = labels.data ?? [];
+	const items = all.filter(({ cp }) => cp.active); // only checkpoints in use get printed
 	const chosen = items.filter(({ cp }) => selected.has(cp.id));
 	const allChosen = items.length > 0 && chosen.length === items.length;
 
@@ -74,11 +76,24 @@ export function Checkpoints() {
 				<p class="mt-6 text-muted">{t("loading")}</p>
 			)}
 			{labels.data &&
-				(items.length === 0 ? (
+				(all.length === 0 ? (
 					<p class="mt-6 text-muted">{t("noCheckpoints")}</p>
 				) : (
 					<>
-						<div class="label-toolbar mt-8">
+						<RouteTable
+							checkpoints={all.map(({ cp }) => cp)}
+							onChanged={(reissued) => {
+								// A replaced sticker must be printed straight away.
+								if (reissued)
+									select(new Set(selected).add(reissued.id));
+								labels.reload();
+							}}
+						/>
+
+						<h2 class="text-lg font-semibold mt-10">
+							{t("printTitle")}
+						</h2>
+						<div class="label-toolbar mt-3">
 							<label class="inline-flex items-center gap-2 font-medium">
 								<input
 									ref={allBox}

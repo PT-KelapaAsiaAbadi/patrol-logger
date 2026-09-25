@@ -68,10 +68,16 @@ export interface GuardSummary {
 	lastScanAt: string | null;
 }
 
-/** A guard account to create. Email is the sign-in identity for now. */
+/** An account to create. Email is the sign-in identity. Role defaults to guard. */
 export interface NewGuard {
 	name: string;
 	email: string;
+	role?: Role;
+}
+
+/** An account as the supervisor's accounts screen lists it. */
+export interface Account extends User {
+	active: boolean; // false: can't sign in, and Row Level Security gives them nothing
 }
 
 /** A new guard account and its generated password. The password is only ever shown once. */

@@ -9,7 +9,9 @@ export default defineConfig({
 		preact(),
 		tailwindcss(),
 		VitePWA({
-			registerType: "autoUpdate", // new versions install themselves on next open; no Play Store review
+			// New versions download in the background and wait; src/lib/updates.ts switches them in
+			// on a screen where a reload loses nothing. No Play Store review either way.
+			registerType: "prompt",
 			includeAssets: ["icon-192.png", "icon-512.png"],
 			manifest: {
 				name: "Patroli",

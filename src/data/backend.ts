@@ -11,6 +11,7 @@
  * Database rows are snake_case; everything returned from here is the camelCase shape in types.ts.
  */
 import type {
+	Account,
 	Checkpoint,
 	GuardImportResult,
 	GuardSummary,
@@ -288,15 +289,48 @@ export async function scansForGuardOnDate(
 
 // ---------- supervisor-facing (RLS: role = supervisor) ----------
 
+/** Every guard, including deactivated ones, so old scans can still be filtered by guard. */
 export async function listGuards(): Promise<User[]> {
 	return must(
 		await supabase
 			.from("profiles")
 			.select("id, name, role, email")
 			.eq("role", "guard")
-			.eq("active", true)
 			.order("name"),
 	).map(toUser);
+}
+
+/** Every account, active ones first. */
+export async function listAccounts(): Promise<Account[]> {
+	return must(
+		await supabase
+			.from("profiles")
+			.select("id, name, role, email, active")
+			.order("active", { ascending: false })
+			.order("name"),
+	).map((p) => ({ ...toUser(p), active: p.active }));
+}
+
+/** Deactivated accounts can't sign in; reactivating restores everything. Not for your own account. */
+export async function setAccountActive(
+	id: string,
+	active: boolean,
+): Promise<void> {
+	maybe(
+		await supabase.rpc("set_account_active", {
+			p_id: id,
+			p_active: active,
+		}),
+	);
+}
+
+/** A new generated password for someone else, returned once. Runs in the reset-password Edge Function. */
+export async function resetPassword(userId: string): Promise<string> {
+	const { data, error } = await supabase.functions.invoke<{
+		password: string;
+	}>("reset-password", { body: { userId } });
+	if (error || !data) throw new Error(error?.message ?? "reset_failed");
+	return data.password;
 }
 
 /**
@@ -326,6 +360,33 @@ export async function allCheckpoints(): Promise<Checkpoint[]> {
 export async function createCheckpoint(name: string): Promise<Checkpoint> {
 	return toCheckpoint(
 		must(await supabase.rpc("create_checkpoint", { p_name: name })),
+	);
+}
+
+/** Saves a checkpoint's name and whether it's in use. */
+export async function updateCheckpoint(
+	cp: Pick<Checkpoint, "id" | "name" | "active">,
+): Promise<Checkpoint> {
+	return toCheckpoint(
+		must(
+			await supabase.rpc("update_checkpoint", {
+				p_id: cp.id,
+				p_name: cp.name,
+				p_active: cp.active,
+			}),
+		),
+	);
+}
+
+/** Swaps a checkpoint with the one before (up) or after it in the round. */
+export async function moveCheckpoint(id: string, up: boolean): Promise<void> {
+	maybe(await supabase.rpc("move_checkpoint", { p_id: id, p_up: up }));
+}
+
+/** New QR signature and typed code. Every copy of the old sticker stops working at once. */
+export async function reissueCheckpoint(id: string): Promise<Checkpoint> {
+	return toCheckpoint(
+		must(await supabase.rpc("reissue_checkpoint", { p_id: id })),
 	);
 }
 

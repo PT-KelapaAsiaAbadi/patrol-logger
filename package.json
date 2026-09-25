@@ -10,10 +10,15 @@
     "db:types": "supabase gen types typescript --local > database.types.ts",
     "lint": "oxlint --deny-warnings",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"supabase/functions/**/*.ts\" \"tests/**/*.{ts,mjs}\" vite.config.ts",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"supabase/functions/**/*.ts\" \"tests/**/*.{ts,mjs}\" vite.config.ts"
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"supabase/functions/**/*.ts\" \"tests/**/*.{ts,mjs}\" vite.config.ts",
+    "test": "npm run db:reset && node tests/backend.test.mjs && npm run db:reset && node tests/e2e.test.mjs",
+    "test:backend": "node tests/backend.test.mjs",
+    "test:e2e": "node tests/e2e.test.mjs",
+    "db:reset": "supabase db reset --local"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
+    "idb-keyval": "^6.3.0",
     "preact": "^10.29.8",
     "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.4",
@@ -25,6 +30,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/qrcode": "^1.5.6",
     "oxlint": "^1.85.0",
+    "playwright-core": "^1.63.0",
     "prettier": "^3.9.9",
     "supabase": "^2.117.0",
     "tailwindcss": "^4.3.3",
