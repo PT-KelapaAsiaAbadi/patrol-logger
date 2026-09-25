@@ -15,6 +15,11 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
 				location.startsWith("/supervisor/scans"),
 		},
 		{
+			href: "/supervisor/map",
+			label: t("navMap"),
+			active: location === "/supervisor/map",
+		},
+		{
 			href: "/supervisor/guards",
 			label: t("navGuards"),
 			active: location === "/supervisor/guards",

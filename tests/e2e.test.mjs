@@ -351,6 +351,41 @@ try {
 		.first()
 		.waitFor({ timeout: 15000 });
 	ok(true, "the log shows at-checkpoint and far scans");
+
+	section("map");
+	await page.getByRole("link", { name: "Map", exact: true }).click();
+	const map = page.locator(".overview-map");
+	await map.locator(".map-pin").first().waitFor({ timeout: 20000 });
+	ok(
+		(await map.locator(".map-pin").count()) === 3,
+		"the 3 pinned checkpoints are on the map",
+	);
+	ok(
+		(await map.locator(".map-pin.is-visited").count()) === 2,
+		"the 2 visited ones are green",
+	);
+	await text("Scans on the map: 4");
+	ok(
+		(await map.locator("path.map-scan.is-ok").count()) === 2 &&
+			(await map.locator("path.map-scan.is-far").count()) === 1 &&
+			(await map.locator("path.map-scan.is-unknown").count()) === 1,
+		"scans are drawn at-checkpoint, far and unpinned",
+	);
+	await text("Checkpoints without a location (not on the map): 6");
+	ok(true, "unpinned checkpoints are counted, not hidden");
+	await map.locator('.map-pin[title="Pos belakang gudang"]').click();
+	await map
+		.locator(".leaflet-popup-content")
+		.getByText("Not visited that day")
+		.waitFor();
+	ok(true, "a checkpoint's popup says whether it was visited");
+	await page.getByLabel("Guard").selectOption({ label: "Siti Rahma" });
+	// "attached": at the zoom that fits every pin, a route of a few km is under a pixel wide.
+	await map
+		.locator("path.map-path")
+		.waitFor({ state: "attached", timeout: 15000 });
+	ok(true, "choosing one guard draws their route");
+	await page.getByRole("link", { name: "Patrol log" }).click();
 	await page.getByRole("link", { name: "View report" }).first().click();
 	await text("Lampu koridor mati.");
 	const photo = page.locator("article ul img").first();

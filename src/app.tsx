@@ -13,6 +13,7 @@ import { SupervisorLog } from "./pages/supervisor/Log";
 import { ScanDetail } from "./pages/supervisor/ScanDetail";
 import { Checkpoints } from "./pages/supervisor/Checkpoints";
 import { Guards } from "./pages/supervisor/Guards";
+import { MapView } from "./pages/supervisor/MapView";
 
 /** Sends signed-out people to /login and each role to its own home. */
 function RequireRole({
@@ -77,6 +78,13 @@ export function App() {
 						<RequireRole role="supervisor">
 							<SupervisorShell>
 								<SupervisorLog />
+							</SupervisorShell>
+						</RequireRole>
+					</Route>
+					<Route path="/supervisor/map">
+						<RequireRole role="supervisor">
+							<SupervisorShell>
+								<MapView />
 							</SupervisorShell>
 						</RequireRole>
 					</Route>

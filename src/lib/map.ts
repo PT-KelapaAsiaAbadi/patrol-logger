@@ -92,3 +92,137 @@ export function createPickerMap(
 		destroy: () => map.remove(),
 	};
 }
+
+// ---------- supervisor overview ----------
+
+export type OverviewItem =
+	| {
+			kind: "checkpoint";
+			lat: number;
+			lng: number;
+			radiusM: number;
+			visited: boolean;
+			name: string;
+			popup: () => HTMLElement;
+	  }
+	| {
+			kind: "scan";
+			lat: number;
+			lng: number;
+			/** ok: at its checkpoint, far: too far away, unknown: its checkpoint isn't pinned. */
+			tone: "ok" | "far" | "unknown";
+			/** For a far scan: where its checkpoint is, drawn as a dashed line. */
+			checkpoint: { lat: number; lng: number } | null;
+			popup: () => HTMLElement;
+	  };
+
+export interface OverviewMap {
+	/**
+	 * Replaces everything on the map. `path` joins one guard's scans in time order.
+	 * `reframe` zooms to the new data; otherwise the supervisor's own zoom and pan are kept.
+	 */
+	show(
+		items: OverviewItem[],
+		path: [number, number][],
+		reframe?: boolean,
+	): void;
+	destroy(): void;
+}
+
+const cssColor = (name: string, fallback: string) =>
+	getComputedStyle(document.documentElement).getPropertyValue(name).trim() ||
+	fallback;
+
+export function createOverviewMap(el: HTMLElement): OverviewMap {
+	const map = L.map(el).setView(INDONESIA, 5);
+	L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+		maxZoom: 19,
+		attribution:
+			'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+	}).addTo(map);
+	setTimeout(() => map.invalidateSize(), 0);
+	const layer = L.layerGroup().addTo(map);
+	let fitted = false;
+
+	return {
+		show(items, path, reframe = false) {
+			layer.clearLayers();
+			const ok = cssColor("--ok-fill", "#1f7a4a");
+			const warn = cssColor("--warn", "#9c3a10");
+			const accent = cssColor("--accent", "#f0a500");
+			const muted = cssColor("--muted", "#56616d");
+			const points: L.LatLngTuple[] = [];
+
+			if (path.length > 1) {
+				L.polyline(path, {
+					color: accent,
+					weight: 3,
+					opacity: 0.8,
+					className: "map-path",
+				}).addTo(layer);
+			}
+			for (const item of items) {
+				points.push([item.lat, item.lng]);
+				if (item.kind === "checkpoint") {
+					L.circle([item.lat, item.lng], {
+						radius: item.radiusM,
+						color: item.visited ? ok : accent,
+						weight: 1,
+						fillOpacity: 0.08,
+						interactive: false,
+					}).addTo(layer);
+					L.marker([item.lat, item.lng], {
+						icon: L.divIcon({
+							className: `map-pin${item.visited ? " is-visited" : ""}`,
+							iconSize: [26, 26],
+							iconAnchor: [13, 30],
+							popupAnchor: [0, -28],
+						}),
+						title: item.name,
+						alt: item.name,
+						keyboard: true,
+					})
+						.bindPopup(item.popup)
+						.addTo(layer);
+				} else {
+					if (item.tone === "far" && item.checkpoint) {
+						L.polyline(
+							[
+								[item.lat, item.lng],
+								[item.checkpoint.lat, item.checkpoint.lng],
+							],
+							{
+								color: warn,
+								weight: 2,
+								dashArray: "6 6",
+								interactive: false,
+							},
+						).addTo(layer);
+					}
+					L.circleMarker([item.lat, item.lng], {
+						radius: 7,
+						color: "#fff",
+						weight: 2,
+						fillColor:
+							item.tone === "far"
+								? warn
+								: item.tone === "ok"
+									? ok
+									: muted,
+						fillOpacity: 1,
+						className: `map-scan is-${item.tone}`,
+					})
+						.bindPopup(item.popup)
+						.addTo(layer);
+				}
+			}
+
+			if ((reframe || !fitted) && points.length) {
+				fitted = true;
+				if (points.length === 1) map.setView(points[0], 17);
+				else map.fitBounds(points, { padding: [30, 30], maxZoom: 18 });
+			}
+		},
+		destroy: () => map.remove(),
+	};
+}

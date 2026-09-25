@@ -99,7 +99,7 @@ src/
     map.ts, geocode.ts  checkpoint map (Leaflet) and address search (Nominatim), supervisor only
     download.ts, format.ts, id.ts
   pages/guard/          Home (round), Scan, Report
-  pages/supervisor/     Log (paginated), ScanDetail,
+  pages/supervisor/     Log (paginated), ScanDetail, Map (one day: checkpoints, scans, a guard's route),
                         Guards = the Accounts tab (add one, import CSV, new password, deactivate),
                         Checkpoints (round order, rename, replace sticker, add, select, print QR)
 supabase/
@@ -139,6 +139,8 @@ Supervisors pin each checkpoint on a map (Checkpoints tab: tap the map, search a
 | far | further than that; the guard sees a warning, the supervisor sees the distance |
 | No GPS | the phone had no position less than a minute old (permission off, indoors, older app) |
 | Checkpoint not pinned | the checkpoint has no location yet |
+
+The **Map** tab shows one day at a time: checkpoints (green once visited that day), each scan at the position the phone reported (orange, with a dashed line to its checkpoint, when far), and, when one guard is chosen, that guard's route in time order. Scans without GPS and checkpoints without a location are counted under the map rather than drawn.
 
 Scans that are far away are **flagged, not rejected**: GPS is often weak or missing in basements and stairwells, and blocking those scans would stop honest guards. The distance is stored with the scan, so moving a checkpoint later doesn't rewrite history. Limits: a phone with a GPS-spoofing app can fake its position, and indoor readings can be off by tens of metres, so treat a single "far" as a question, not proof.
 
