@@ -15,10 +15,11 @@ import type { PendingScan, Report } from "../types";
 const KEY = "outbox";
 const LEGACY_LOCALSTORAGE_KEY = "patrol-outbox-v1"; // where the outbox lived before IndexedDB
 
+// error: why the server last refused the item (it stays queued, but it isn't waiting for signal).
 export type OutboxItem =
-	| { kind: "scan"; scan: PendingScan }
+	| { kind: "scan"; scan: PendingScan; error?: string }
 	// guardId: who wrote the report. Missing on reports queued by older versions of the app.
-	| { kind: "report"; report: Report; guardId?: string };
+	| { kind: "report"; report: Report; guardId?: string; error?: string };
 
 interface Outbox {
 	items: OutboxItem[];
@@ -111,6 +112,27 @@ export function markRejected(item: OutboxItem) {
 		items: cache.items.filter((i) => i !== item),
 		rejected: cache.rejected + 1,
 	});
+}
+
+/** Records why the server refused an item, so the guard sees a reason instead of "no signal". */
+export function markFailed(item: OutboxItem, error: string) {
+	write({
+		...cache,
+		items: cache.items.map((i) => (i === item ? { ...i, error } : i)),
+	});
+}
+
+/** Forgets the recorded refusals, before trying those items again. */
+export function clearErrors() {
+	write({
+		...cache,
+		items: cache.items.map(({ error: _e, ...i }) => i as OutboxItem),
+	});
+}
+
+/** Drops items for good. */
+export function removeItems(drop: (item: OutboxItem) => boolean) {
+	write({ ...cache, items: cache.items.filter((i) => !drop(i)) });
 }
 
 export function clearRejected() {

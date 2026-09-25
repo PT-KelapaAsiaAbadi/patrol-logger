@@ -190,6 +190,81 @@ try {
 	} finally {
 		await admin().from("profiles").update({ active: true }).eq("id", me.id);
 	}
+	section("refused while queued");
+	const scansOnServer = async () =>
+		(
+			await admin()
+				.from("scans")
+				.select("id", { count: "exact", head: true })
+				.eq("guard_id", me.id)
+		).count;
+	const queueOneOffline = async () => {
+		await page.goto(BASE + "#/");
+		await page
+			.getByText(/checkpoints checked today/)
+			.waitFor({ timeout: 15000 });
+		await context.setOffline(true);
+		await page.getByRole("link", { name: "Scan checkpoint" }).click();
+		await page.getByLabel("Code under the QR sticker").fill(cp.manual_code);
+		await page.getByRole("button", { name: "Log scan" }).click();
+		await page.getByText("Saved on phone").waitFor({ timeout: 10000 });
+		await page.getByRole("link", { name: "Back to round" }).click();
+	};
+	const refusedNotice = page.getByText(
+		"couldn't be sent: the server refused them",
+	);
+
+	await queueOneOffline();
+	await admin().from("profiles").update({ active: false }).eq("id", me.id);
+	try {
+		const before = await scansOnServer();
+		await context.setOffline(false); // "online" starts a sync, which the server refuses
+		await refusedNotice.waitFor({ timeout: 30000 });
+		await page.getByText("Reason from the server: not_allowed").waitFor();
+		ok(true, "a queued scan the server refuses says so, with the reason");
+		ok(
+			!(await page.getByText("not sent yet").isVisible()),
+			"and isn't counted as waiting for signal",
+		);
+		await admin().from("profiles").update({ active: true }).eq("id", me.id);
+		await page.getByRole("button", { name: "Try again" }).click();
+		// Try again clears the note at once; the scan reaches the server a moment later.
+		let arrived = false;
+		for (let i = 0; i < 30 && !arrived; i++) {
+			arrived = (await scansOnServer()) === before + 1;
+			if (!arrived) await page.waitForTimeout(500);
+		}
+		ok(arrived, "Try again sends it once the account is fixed");
+
+		await queueOneOffline();
+		await admin()
+			.from("profiles")
+			.update({ active: false })
+			.eq("id", me.id);
+		await context.setOffline(false);
+		await refusedNotice.waitFor({ timeout: 30000 });
+		page.once("dialog", (d) => void d.accept());
+		await page.getByRole("button", { name: "Discard" }).click();
+		await refusedNotice.waitFor({ state: "detached", timeout: 15000 });
+		const left = await page.evaluate(async () => {
+			const req = indexedDB.open("patroli");
+			const db = await new Promise(
+				(r) => (req.onsuccess = () => r(req.result)),
+			);
+			const tx = db
+				.transaction("outbox")
+				.objectStore("outbox")
+				.get("outbox");
+			const box = await new Promise(
+				(r) => (tx.onsuccess = () => r(tx.result)),
+			);
+			return box.items.length;
+		});
+		ok(left === 0, "Discard removes it from the phone", `${left} left`);
+	} finally {
+		await context.setOffline(false);
+		await admin().from("profiles").update({ active: true }).eq("id", me.id);
+	}
 } catch (e) {
 	ok(false, "(exception)", e.message.split("\n")[0]);
 	await page

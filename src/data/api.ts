@@ -311,9 +311,17 @@ export function flushOutbox(): Promise<void> {
 					outbox.removeItem(item);
 				}
 			} catch (e) {
-				// A report on a scan another guard already sent: the server refuses it for this
-				// guard, so leave it for its owner rather than blocking everything behind it.
-				if (e instanceof Error && e.message === "not_allowed") continue;
+				// The server answered and refused: note why and move on, so one bad item
+				// doesn't hold up the rest or pass itself off as "waiting for signal".
+				if (e instanceof backend.ServerError) {
+					console.error(
+						"Queued item refused by the server",
+						e.code,
+						e.message,
+					);
+					outbox.markFailed(item, e.message);
+					continue;
+				}
 				break; // network dropped again; try on the next tick
 			}
 		}
@@ -391,6 +399,26 @@ export const missedCheckpoints = (date: string) =>
 	needsNetwork(() => backend.missedCheckpoints(date));
 
 export const qrPayloadFor = backend.qrPayloadFor;
+
+const isMine = (i: OutboxItem, guardId: string) =>
+	i.kind === "scan"
+		? i.scan.guardId === guardId
+		: (i.guardId ?? guardId) === guardId;
+
+/** This guard's queued items that the server refused last time it was asked. */
+export const failedItems = (guardId: string) =>
+	outbox.outboxItems().filter((i) => i.error && isMine(i, guardId));
+
+/** Tries the refused items again (e.g. after a supervisor fixed the account). */
+export function retryFailed(): Promise<void> {
+	outbox.clearErrors();
+	return flushOutbox();
+}
+
+/** Removes this guard's refused items from the phone for good. */
+export function discardFailed(guardId: string) {
+	outbox.removeItems((i) => !!i.error && isMine(i, guardId));
+}
 
 /** Scans and reports this guard has queued on this phone and not yet sent. */
 export const unsentCount = (guardId: string) =>

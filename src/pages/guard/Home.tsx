@@ -24,8 +24,9 @@ export function GuardHome() {
 	const visits = progress.data?.visits ?? {};
 	const done = route.filter((c) => visits[c.id]).length;
 	const pendingScans = outbox.items.filter(
-		(i) => i.kind === "scan" && i.scan.guardId === user!.id,
+		(i) => i.kind === "scan" && i.scan.guardId === user!.id && !i.error,
 	).length;
+	const failed = api.failedItems(user!.id);
 
 	return (
 		<div class="min-h-full flex flex-col">
@@ -63,6 +64,43 @@ export function GuardHome() {
 							onClick={api.clearRejected}>
 							{t("dismiss")}
 						</button>
+					</div>
+				)}
+
+				{failed.length > 0 && (
+					<div
+						class="notice notice-warn mb-4"
+						role="alert">
+						<p>{t("sendFailed", { n: failed.length })}</p>
+						<p class="text-sm mt-1">
+							{t("sendFailedReason", {
+								reason: failed[0].error!,
+							})}
+						</p>
+						<div class="flex flex-wrap gap-x-5 gap-y-1 mt-2">
+							<button
+								type="button"
+								class="link-btn"
+								disabled={!online}
+								onClick={() => void api.retryFailed()}>
+								{t("retry")}
+							</button>
+							<button
+								type="button"
+								class="link-btn"
+								onClick={() => {
+									if (
+										confirm(
+											t("discardConfirm", {
+												n: failed.length,
+											}),
+										)
+									)
+										api.discardFailed(user!.id);
+								}}>
+								{t("discard")}
+							</button>
+						</div>
 					</div>
 				)}
 

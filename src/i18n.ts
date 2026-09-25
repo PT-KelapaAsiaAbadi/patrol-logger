@@ -182,6 +182,12 @@ const id = {
 	locFinding: "Mencari lokasi...",
 	locFound: "Lokasi ditemukan (±{m} m)",
 	locOff: "Lokasi tidak diizinkan. Scan tetap tercatat, tapi tanpa lokasi. Izinkan lokasi di pengaturan browser.",
+	sendFailed:
+		"{n} scan atau laporan tidak bisa dikirim: server menolaknya. Ini bukan masalah sinyal.",
+	sendFailedReason: "Alasan dari server: {reason}",
+	discard: "Buang",
+	discardConfirm:
+		"Buang {n} scan atau laporan ini dari HP? Tidak bisa dikembalikan.",
 	locSlow:
 		"Masih mencari lokasi. Dekat jendela atau di luar ruangan biasanya lebih cepat. Scan tetap tercatat.",
 	locDeviceOff:
@@ -428,6 +434,12 @@ const en: Record<Key, string> = {
 	locFinding: "Finding your location...",
 	locFound: "Location found (±{m} m)",
 	locOff: "Location is blocked. Scans still count, but without a location. Allow location in the browser settings.",
+	sendFailed:
+		"{n} scans or reports couldn't be sent: the server refused them. This isn't a signal problem.",
+	sendFailedReason: "Reason from the server: {reason}",
+	discard: "Discard",
+	discardConfirm:
+		"Remove these {n} scans or reports from this phone? This can't be undone.",
 	locSlow:
 		"Still finding your location. Near a window or outside is usually faster. Scans still count.",
 	locDeviceOff:
