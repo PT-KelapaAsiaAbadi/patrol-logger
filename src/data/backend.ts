@@ -140,18 +140,39 @@ function dayRange(date: string): { from: string; to: string } {
 	return { from: from.toISOString(), to: to.toISOString() };
 }
 
-type Result<T> = { data: T | null; error: { message: string } | null };
+/**
+ * The server answered and said no (a database or API error code). Anything else thrown by a
+ * request, such as a failed fetch, means the server wasn't reached.
+ */
+export class ServerError extends Error {
+	constructor(
+		message: string,
+		readonly code: string,
+	) {
+		super(message);
+		this.name = "ServerError";
+	}
+}
+
+type Result<T> = {
+	data: T | null;
+	error: { message: string; code?: string } | null;
+};
+
+function toError(e: { message: string; code?: string }): Error {
+	return e.code ? new ServerError(e.message, e.code) : new Error(e.message);
+}
 
 /** Supabase returns errors instead of throwing. The rest of the app expects a throw. */
 function must<T>(res: Result<T>): T {
-	if (res.error) throw new Error(res.error.message);
+	if (res.error) throw toError(res.error);
 	if (res.data === null) throw new Error("empty_response");
 	return res.data;
 }
 
 /** Like `must`, for queries where no row (or no return value) is a normal answer. */
 function maybe<T>(res: Result<T>): T | null {
-	if (res.error) throw new Error(res.error.message);
+	if (res.error) throw toError(res.error);
 	return res.data;
 }
 
@@ -242,7 +263,7 @@ type SubmitScanJson =
  */
 export async function submitScan(pending: PendingScan): Promise<SubmitResult> {
 	if ((await sessionUserId()) !== pending.guardId)
-		throw new Error("not_allowed");
+		throw new ServerError("not_allowed", "session_mismatch");
 	const r = must(
 		await supabase.rpc("submit_scan", {
 			p_id: pending.id,

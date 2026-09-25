@@ -107,7 +107,8 @@ supabase/
   functions/            create-guards, reset-password (service-role key), _shared/
   seed.sql              local test accounts and checkpoints
 tests/                  backend.test.mjs (each role against the API), e2e.test.mjs (the app in a browser),
-                        camera.test.mjs (a real camera scan, using the browser's fake camera showing a QR sticker)
+                        camera.test.mjs (a real camera scan, using the browser's fake camera showing a QR sticker),
+                        location.test.mjs (location messages with scripted GPS; a refused scan isn't "no signal")
 ```
 
 ## How the backend works

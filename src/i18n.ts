@@ -182,7 +182,14 @@ const id = {
 	locFinding: "Mencari lokasi...",
 	locFound: "Lokasi ditemukan (±{m} m)",
 	locOff: "Lokasi tidak diizinkan. Scan tetap tercatat, tapi tanpa lokasi. Izinkan lokasi di pengaturan browser.",
-	locUnavailable: "Belum ada sinyal GPS. Scan tetap tercatat.",
+	locSlow:
+		"Masih mencari lokasi. Dekat jendela atau di luar ruangan biasanya lebih cepat. Scan tetap tercatat.",
+	locDeviceOff:
+		"HP ini tidak bisa menentukan lokasinya. Nyalakan Lokasi (GPS) di pengaturan HP. Scan tetap tercatat.",
+	locInsecure:
+		"Lokasi hanya bisa dibaca lewat alamat https aplikasi ini. Scan tetap tercatat.",
+	server_error:
+		"Server menolak scan ini. Coba lagi, atau keluar lalu masuk lagi. Kalau tetap gagal, hubungi supervisor.",
 	scanFar:
 		"Posisi Anda sekitar {d} dari titik ini. Scan tetap tercatat dan ditandai untuk supervisor.",
 	colLocation: "Lokasi",
@@ -421,7 +428,14 @@ const en: Record<Key, string> = {
 	locFinding: "Finding your location...",
 	locFound: "Location found (±{m} m)",
 	locOff: "Location is blocked. Scans still count, but without a location. Allow location in the browser settings.",
-	locUnavailable: "No GPS signal yet. Scans still count.",
+	locSlow:
+		"Still finding your location. Near a window or outside is usually faster. Scans still count.",
+	locDeviceOff:
+		"This device can't find its location. Turn on Location (GPS) in the device settings. Scans still count.",
+	locInsecure:
+		"Location only works on the app's https address. Scans still count.",
+	server_error:
+		"The server refused this scan. Try again, or sign out and back in. If it keeps failing, tell your supervisor.",
 	scanFar:
 		"You seem to be about {d} from this checkpoint. The scan is saved and flagged for your supervisor.",
 	colLocation: "Location",

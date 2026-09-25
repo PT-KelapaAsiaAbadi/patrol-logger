@@ -17,6 +17,14 @@ import type { ScanOutcome } from "../../types";
 
 type CameraState = "starting" | "running" | ScannerError;
 
+const LOCATION_TEXT = {
+	finding: "locFinding",
+	slow: "locSlow",
+	off: "locOff",
+	device_off: "locDeviceOff",
+	insecure: "locInsecure",
+} as const;
+
 export function ScanPage() {
 	const { t, lang, user } = useApp();
 	const [, navigate] = useLocation();
@@ -35,9 +43,9 @@ export function ScanPage() {
 	const [showManual, setShowManual] = useState(false);
 	const [manual, setManual] = useState("");
 	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<"unknown_code" | "inactive" | null>(
-		null,
-	);
+	const [error, setError] = useState<
+		"unknown_code" | "inactive" | "server_error" | null
+	>(null);
 	const [outcome, setOutcome] = useState<Extract<
 		ScanOutcome,
 		{ ok: true }
@@ -168,17 +176,21 @@ export function ScanPage() {
 					<p>{t("aimCamera")}</p>
 				)}
 				<p
-					class={`mt-2 text-sm ${location.kind === "off" ? "text-warn" : "text-muted"}`}
+					class={`mt-2 text-sm ${location.kind === "found" || location.kind === "finding" ? "text-muted" : "text-warn"}`}
 					aria-live="polite">
 					{location.kind === "found"
 						? t("locFound", { m: location.accuracyM })
-						: t(
-								location.kind === "finding"
-									? "locFinding"
-									: location.kind === "off"
-										? "locOff"
-										: "locUnavailable",
-							)}
+						: t(LOCATION_TEXT[location.kind])}{" "}
+					{(location.kind === "off" ||
+						location.kind === "device_off" ||
+						location.kind === "slow") && (
+						<button
+							type="button"
+							class="link-btn"
+							onClick={() => geoRef.current?.retry()}>
+							{t("retry")}
+						</button>
+					)}
 				</p>
 				{error && (
 					<p

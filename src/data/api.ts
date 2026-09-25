@@ -217,8 +217,13 @@ export async function scan(
 				scan: r.scan,
 				checkpoint: r.checkpoint,
 			};
-		} catch {
-			/* request failed mid-way: keep it in the outbox instead of losing it */
+		} catch (e) {
+			// The server answered and refused: queuing it would only claim "no signal" forever.
+			if (e instanceof backend.ServerError) {
+				console.error("Scan refused by the server", e.code, e.message);
+				return { ok: false, reason: "server_error" };
+			}
+			/* the server wasn't reached: keep it in the outbox instead of losing it */
 		}
 	}
 

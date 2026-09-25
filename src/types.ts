@@ -143,5 +143,5 @@ export type ScanOutcome =
 	  }
 	| {
 			ok: false;
-			reason: "unknown_code" | "inactive";
+			reason: "unknown_code" | "inactive" | "server_error";
 	  };
