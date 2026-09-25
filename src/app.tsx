@@ -36,6 +36,7 @@ function RequireRole({
 export function App() {
 	const { user, t } = useApp();
 	return (
+		// oxlint-disable-next-line react/hooks -- wouter takes the location hook itself, by design
 		<Router hook={useHashLocation}>
 			<LanguageBar />
 			<div class="flex-1 flex flex-col">

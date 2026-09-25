@@ -39,9 +39,14 @@ const iso = (t: string) => new Date(t).toISOString();
 
 type ProfileRow = Pick<Tables<"profiles">, "id" | "name" | "role" | "email">;
 type ScanRecord = Tables<"scans">;
-type ReportRecord = Omit<Tables<"reports">, "created_at"> & { created_at: string };
+type ReportRecord = Omit<Tables<"reports">, "created_at"> & {
+	created_at: string;
+};
 type CheckpointRecord = Tables<"checkpoints">;
-type PublicCheckpointRecord = Pick<CheckpointRecord, "id" | "name" | "route_order" | "active">;
+type PublicCheckpointRecord = Pick<
+	CheckpointRecord,
+	"id" | "name" | "route_order" | "active"
+>;
 
 const toUser = (p: ProfileRow): User => ({
 	id: p.id,
@@ -187,7 +192,9 @@ export function onSessionEnd(onEnd: () => void): () => void {
 
 /** Active checkpoints in route order, without manual codes. */
 export async function publicCheckpoints(): Promise<PublicCheckpoint[]> {
-	return must(await supabase.rpc("route_checkpoints")).map(toPublicCheckpoint);
+	return must(await supabase.rpc("route_checkpoints")).map(
+		toPublicCheckpoint,
+	);
 }
 
 export type SubmitResult =
@@ -205,7 +212,8 @@ type SubmitScanJson =
  * on this phone is refused here and stays in the outbox until they sign in again.
  */
 export async function submitScan(pending: PendingScan): Promise<SubmitResult> {
-	if ((await sessionUserId()) !== pending.guardId) throw new Error("not_allowed");
+	if ((await sessionUserId()) !== pending.guardId)
+		throw new Error("not_allowed");
 	const r = must(
 		await supabase.rpc("submit_scan", {
 			p_id: pending.id,
@@ -303,7 +311,8 @@ export async function createGuards(
 		"create-guards",
 		{ body: { guards } },
 	);
-	if (error || !data) throw new Error(error?.message ?? "create_guards_failed");
+	if (error || !data)
+		throw new Error(error?.message ?? "create_guards_failed");
 	return data;
 }
 
@@ -380,7 +389,9 @@ export async function getScan(id: string): Promise<ScanRow | null> {
 				.from(PHOTO_BUCKET)
 				.createSignedUrls(row.report.photos, SIGNED_URL_SECONDS),
 		);
-		row.report.photos = signed.flatMap((s) => (s.signedUrl ? [s.signedUrl] : []));
+		row.report.photos = signed.flatMap((s) =>
+			s.signedUrl ? [s.signedUrl] : [],
+		);
 	}
 	return row;
 }

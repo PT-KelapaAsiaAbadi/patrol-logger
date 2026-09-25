@@ -45,7 +45,11 @@ export function Checkpoints() {
 	}
 
 	function download() {
-		saveFile("label-titik-patroli.html", labelsDocument(chosen), "text/html");
+		saveFile(
+			"label-titik-patroli.html",
+			labelsDocument(chosen),
+			"text/html",
+		);
 		setSaved(true);
 	}
 
@@ -85,7 +89,11 @@ export function Checkpoints() {
 										select(
 											allChosen
 												? new Set()
-												: new Set(items.map(({ cp }) => cp.id)),
+												: new Set(
+														items.map(
+															({ cp }) => cp.id,
+														),
+													),
 										)
 									}
 								/>
@@ -104,7 +112,9 @@ export function Checkpoints() {
 									type="button"
 									class="btn btn-primary"
 									disabled={chosen.length === 0}
-									onClick={() => printDocument(labelsDocument(chosen))}>
+									onClick={() =>
+										printDocument(labelsDocument(chosen))
+									}>
 									{t("printSelected", { n: chosen.length })}
 								</button>
 								<button
@@ -141,9 +151,13 @@ export function Checkpoints() {
 											alt={`QR ${cp.name}`}
 										/>
 										<p class="sticker-name">{cp.name}</p>
-										<p class="sticker-code">{cp.manualCode}</p>
+										<p class="sticker-code">
+											{cp.manualCode}
+										</p>
 										<p class="sticker-order">
-											{t("routeOrder", { n: cp.routeOrder })}
+											{t("routeOrder", {
+												n: cp.routeOrder,
+											})}
 										</p>
 									</label>
 								</li>
@@ -167,7 +181,9 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 		setBusy(true);
 		setOutcome(null);
 		try {
-			const cp = await api.createCheckpoint(name.trim().replace(/\s+/g, " "));
+			const cp = await api.createCheckpoint(
+				name.trim().replace(/\s+/g, " "),
+			);
 			setName("");
 			setOutcome({ kind: "added", name: cp.name });
 			onAdded(cp);

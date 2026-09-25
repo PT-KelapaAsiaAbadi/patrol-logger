@@ -31,12 +31,10 @@ export function scansToCsv(rows: ScanRow[]): string {
 // ---------- guard import ----------
 
 export const GUARDS_CSV_TEMPLATE =
-	"\uFEFF" + "full_name,email\nBudi Santoso,budi@example.com\n";
+	"\uFEFFfull_name,email\nBudi Santoso,budi@example.com\n";
 
 export type CsvProblemReason =
-	| "missing_name"
-	| "invalid_email"
-	| "duplicate_email";
+	"missing_name" | "invalid_email" | "duplicate_email";
 
 export interface GuardsCsv {
 	guards: NewGuard[];
@@ -49,30 +47,30 @@ export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 function parseRows(text: string, sep: string): string[][] {
 	const rows: string[][] = [];
 	let row: string[] = [];
-	let cell = "";
+	let field = "";
 	let quoted = false;
 	for (let i = 0; i < text.length; i++) {
 		const c = text[i];
 		if (quoted) {
-			if (c !== '"') cell += c;
+			if (c !== '"') field += c;
 			else if (text[i + 1] === '"') {
-				cell += '"';
+				field += '"';
 				i++;
 			} else quoted = false;
 		} else if (c === '"') quoted = true;
 		else if (c === sep) {
-			row.push(cell);
-			cell = "";
+			row.push(field);
+			field = "";
 		} else if (c === "\n" || c === "\r") {
 			if (c === "\r" && text[i + 1] === "\n") i++;
-			row.push(cell);
+			row.push(field);
 			rows.push(row);
 			row = [];
-			cell = "";
-		} else cell += c;
+			field = "";
+		} else field += c;
 	}
-	if (cell || row.length) {
-		row.push(cell);
+	if (field || row.length) {
+		row.push(field);
 		rows.push(row);
 	}
 	return rows;
@@ -111,7 +109,8 @@ export function parseGuardsCsv(text: string): GuardsCsv {
 		const name = (cells[nameCol] ?? "").replace(/\s+/g, " ");
 		const email = (cells[emailCol] ?? "").toLowerCase();
 		if (!name) problems.push({ line, reason: "missing_name" });
-		else if (!isEmail(email)) problems.push({ line, reason: "invalid_email" });
+		else if (!isEmail(email))
+			problems.push({ line, reason: "invalid_email" });
 		else if (seen.has(email))
 			problems.push({ line, reason: "duplicate_email" });
 		else {

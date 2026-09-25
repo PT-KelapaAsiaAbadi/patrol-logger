@@ -120,12 +120,12 @@ interface TodayCache {
 	scans: Scan[];
 }
 
-function rememberScan(scan: Scan) {
+function rememberScan(saved: Scan) {
 	const c = readJson<TodayCache>(TODAY_KEY);
 	const today = localDateKey();
-	if (c && c.date === today && c.guardId === scan.guardId) {
-		if (!c.scans.some((s) => s.id === scan.id))
-			writeJson(TODAY_KEY, { ...c, scans: [...c.scans, scan] });
+	if (c && c.date === today && c.guardId === saved.guardId) {
+		if (!c.scans.some((s) => s.id === saved.id))
+			writeJson(TODAY_KEY, { ...c, scans: [...c.scans, saved] });
 	}
 }
 
@@ -276,7 +276,10 @@ export function flushOutbox(): Promise<void> {
 				otherGuardsScanIds.add(item.scan.id);
 				continue;
 			}
-			if (item.kind === "report" && otherGuardsScanIds.has(item.report.scanId)) {
+			if (
+				item.kind === "report" &&
+				otherGuardsScanIds.has(item.report.scanId)
+			) {
 				continue;
 			}
 
@@ -303,15 +306,17 @@ export function flushOutbox(): Promise<void> {
 				break; // network dropped again; try on the next tick
 			}
 		}
-	})().finally(() => { flushing = null; });
+	})().finally(() => {
+		flushing = null;
+	});
 	return flushing;
 }
 
 export function startAutoSync() {
 	const tick = () => {
 		if (isOnline() && outbox.outboxItems().length) {
-      void flushOutbox();
-    }
+			void flushOutbox();
+		}
 	};
 	onNetworkChange(tick);
 	setInterval(tick, 20_000);

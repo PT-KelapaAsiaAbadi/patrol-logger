@@ -68,7 +68,11 @@ export function Login() {
 					<p
 						class="notice notice-warn"
 						role="alert">
-						{t(error === "wrong" ? "signInError" : "signInUnreachable")}
+						{t(
+							error === "wrong"
+								? "signInError"
+								: "signInUnreachable",
+						)}
 					</p>
 				)}
 				<button

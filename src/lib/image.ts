@@ -11,25 +11,29 @@ export async function compressImage(
 	try {
 		const img = await new Promise<HTMLImageElement>((resolve, reject) => {
 			const el = new Image();
-			el.onload = () => resolve(el);
-			el.onerror = () => reject(new Error("image_decode_failed"));
+			el.addEventListener("load", () => resolve(el), { once: true });
+			el.addEventListener(
+				"error",
+				() => reject(new Error("image_decode_failed")),
+				{ once: true },
+			);
 			el.src = url;
 		});
-		
-    const scale = Math.min(
+
+		const scale = Math.min(
 			1,
 			maxSide / Math.max(img.naturalWidth, img.naturalHeight),
 		);
-		
-    const canvas = document.createElement("canvas");
+
+		const canvas = document.createElement("canvas");
 		canvas.width = Math.round(img.naturalWidth * scale);
 		canvas.height = Math.round(img.naturalHeight * scale);
-		
-    const ctx = canvas.getContext("2d");
+
+		const ctx = canvas.getContext("2d");
 		if (!ctx) throw new Error("canvas_unavailable");
 		ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-		
-    return canvas.toDataURL("image/jpeg", quality);
+
+		return canvas.toDataURL("image/jpeg", quality);
 	} finally {
 		URL.revokeObjectURL(url);
 	}

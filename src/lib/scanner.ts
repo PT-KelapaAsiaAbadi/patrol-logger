@@ -12,10 +12,7 @@
 import QrScanner from "qr-scanner";
 
 export type ScannerError =
-	| "no_camera"
-	| "permission_denied"
-	| "insecure_context"
-	| "unknown";
+	"no_camera" | "permission_denied" | "insecure_context" | "unknown";
 
 export interface ScannerHandle {
 	stop: () => void;

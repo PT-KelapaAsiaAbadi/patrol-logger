@@ -14,7 +14,8 @@ const MAX_GUARDS = 500;
 
 const cors = {
 	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+	"Access-Control-Allow-Headers":
+		"authorization, x-client-info, apikey, content-type",
 	"Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -42,7 +43,8 @@ function newPassword(): string {
 
 Deno.serve(async (req) => {
 	if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-	if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+	if (req.method !== "POST")
+		return json({ error: "method_not_allowed" }, 405);
 
 	const admin = createClient(
 		Deno.env.get("SUPABASE_URL")!,
@@ -51,7 +53,8 @@ Deno.serve(async (req) => {
 	);
 
 	// Who is asking? Must be an active supervisor.
-	const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+	const token =
+		req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
 	const { data: caller } = await admin.auth.getUser(token);
 	if (!caller.user) return json({ error: "not_signed_in" }, 401);
 	const { data: me } = await admin
@@ -74,15 +77,22 @@ Deno.serve(async (req) => {
 		return json({ error: "bad_request" }, 400);
 	}
 
-	const created: { user: { id: string; name: string; role: "guard"; email: string }; password: string }[] = [];
+	const created: {
+		user: { id: string; name: string; role: "guard"; email: string };
+		password: string;
+	}[] = [];
 	const existing: string[] = [];
 	const failed: string[] = [];
 	const seen = new Set<string>();
 
 	// One at a time: the Auth admin API is rate limited, and the lists are small.
 	for (const g of input) {
-		const name = String(g.name ?? "").trim().replace(/\s+/g, " ");
-		const email = String(g.email ?? "").trim().toLowerCase();
+		const name = String(g.name ?? "")
+			.trim()
+			.replace(/\s+/g, " ");
+		const email = String(g.email ?? "")
+			.trim()
+			.toLowerCase();
 		if (!name || name.length > 120 || !isEmail(email) || seen.has(email)) {
 			failed.push(email || "(empty)");
 			continue;
@@ -97,7 +107,10 @@ Deno.serve(async (req) => {
 			user_metadata: { name },
 		});
 		if (error || !data.user) {
-			if (error?.code === "email_exists" || /already.*registered/i.test(error?.message ?? "")) {
+			if (
+				error?.code === "email_exists" ||
+				/already.*registered/i.test(error?.message ?? "")
+			) {
 				existing.push(email);
 			} else {
 				console.error("createUser failed", email, error);
@@ -116,7 +129,10 @@ Deno.serve(async (req) => {
 			continue;
 		}
 
-		created.push({ user: { id: data.user.id, name, role: "guard", email }, password });
+		created.push({
+			user: { id: data.user.id, name, role: "guard", email },
+			password,
+		});
 	}
 
 	return json({ created, existing, failed });

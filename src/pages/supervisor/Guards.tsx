@@ -57,7 +57,9 @@ export function Guards() {
 									{guards.data.map((g) => (
 										<tr key={g.id}>
 											<td>{g.name}</td>
-											<td class="text-muted">{g.email}</td>
+											<td class="text-muted">
+												{g.email}
+											</td>
 										</tr>
 									))}
 								</tbody>
@@ -101,7 +103,10 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 
 	async function submit() {
 		const ok = await create([
-			{ name: name.trim().replace(/\s+/g, " "), email: email.trim().toLowerCase() },
+			{
+				name: name.trim().replace(/\s+/g, " "),
+				email: email.trim().toLowerCase(),
+			},
 		]);
 		if (ok) {
 			setName("");
@@ -192,12 +197,17 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 				type="button"
 				class="link-btn mt-1"
 				onClick={() =>
-					saveFile("contoh-petugas.csv", GUARDS_CSV_TEMPLATE, "text/csv")
+					saveFile(
+						"contoh-petugas.csv",
+						GUARDS_CSV_TEMPLATE,
+						"text/csv",
+					)
 				}>
 				{t("downloadTemplate")}
 			</button>
 
-			<label class={`btn btn-quiet w-full mt-3 ${busy ? "opacity-60 pointer-events-none" : ""}`}>
+			<label
+				class={`btn btn-quiet w-full mt-3 ${busy ? "opacity-60 pointer-events-none" : ""}`}>
 				{t("chooseCsv")}
 				<input
 					type="file"
@@ -221,7 +231,10 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 					) : (
 						<>
 							<p class="font-medium">
-								{t("csvReady", { file: file.name, n: csv.guards.length })}
+								{t("csvReady", {
+									file: file.name,
+									n: csv.guards.length,
+								})}
 							</p>
 							<div class="table-wrap max-h-64 overflow-y-auto">
 								<table class="log-table">
@@ -232,18 +245,22 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 										</tr>
 									</thead>
 									<tbody>
-										{csv.guards.slice(0, PREVIEW_ROWS).map((g) => (
-											<tr key={g.email}>
-												<td>{g.name}</td>
-												<td>{g.email}</td>
-											</tr>
-										))}
+										{csv.guards
+											.slice(0, PREVIEW_ROWS)
+											.map((g) => (
+												<tr key={g.email}>
+													<td>{g.name}</td>
+													<td>{g.email}</td>
+												</tr>
+											))}
 									</tbody>
 								</table>
 							</div>
 							{csv.guards.length > PREVIEW_ROWS && (
 								<p class="text-muted">
-									{t("csvMore", { n: csv.guards.length - PREVIEW_ROWS })}
+									{t("csvMore", {
+										n: csv.guards.length - PREVIEW_ROWS,
+									})}
 								</p>
 							)}
 						</>
@@ -253,15 +270,20 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 						<div class="notice notice-warn">
 							<p class="font-medium">{t("csvSkipped")}</p>
 							<ul class="mt-1">
-								{csv.problems.slice(0, PREVIEW_ROWS).map((p) => (
-									<li key={p.line}>
-										{t("csvRow", { line: p.line })}: {t(`csv_${p.reason}`)}
-									</li>
-								))}
+								{csv.problems
+									.slice(0, PREVIEW_ROWS)
+									.map((p) => (
+										<li key={p.line}>
+											{t("csvRow", { line: p.line })}:{" "}
+											{t(`csv_${p.reason}`)}
+										</li>
+									))}
 							</ul>
 							{csv.problems.length > PREVIEW_ROWS && (
 								<p>
-									{t("csvMore", { n: csv.problems.length - PREVIEW_ROWS })}
+									{t("csvMore", {
+										n: csv.problems.length - PREVIEW_ROWS,
+									})}
 								</p>
 							)}
 						</div>
@@ -273,7 +295,9 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 							class="btn btn-primary"
 							disabled={busy || csv.guards.length === 0}
 							onClick={() => void submit()}>
-							{busy ? t("saving") : t("addGuards", { n: csv.guards.length })}
+							{busy
+								? t("saving")
+								: t("addGuards", { n: csv.guards.length })}
 						</button>
 						<button
 							type="button"
@@ -309,7 +333,9 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 			role="status">
 			{created.length > 0 && (
 				<div class="notice notice-ok grid gap-2">
-					<p class="font-medium">{t("guardsAdded", { n: created.length })}</p>
+					<p class="font-medium">
+						{t("guardsAdded", { n: created.length })}
+					</p>
 					<p>{t("passwordsOnce")}</p>
 					<div class="table-wrap max-h-64 overflow-y-auto">
 						<table class="log-table">
@@ -325,7 +351,9 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 									<tr key={user.id}>
 										<td>{user.name}</td>
 										<td>{user.email}</td>
-										<td class="font-mono whitespace-nowrap">{password}</td>
+										<td class="font-mono whitespace-nowrap">
+											{password}
+										</td>
 									</tr>
 								))}
 							</tbody>
@@ -335,7 +363,11 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 						type="button"
 						class="btn btn-quiet justify-self-start"
 						onClick={() =>
-							saveFile("kata-sandi-petugas.csv", passwordsToCsv(created), "text/csv")
+							saveFile(
+								"kata-sandi-petugas.csv",
+								passwordsToCsv(created),
+								"text/csv",
+							)
 						}>
 						{t("downloadPasswords")}
 					</button>

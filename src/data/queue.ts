@@ -13,8 +13,7 @@ import type { PendingScan, Report } from "../types";
 const KEY = "patrol-outbox-v1";
 
 export type OutboxItem =
-	| { kind: "scan"; scan: PendingScan }
-	| { kind: "report"; report: Report };
+	{ kind: "scan"; scan: PendingScan } | { kind: "report"; report: Report };
 
 interface Outbox {
 	items: OutboxItem[];
