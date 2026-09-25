@@ -39,27 +39,36 @@ export type Database = {
           active: boolean
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           manual_code: string
           name: string
           qr_version: number
+          radius_m: number
           route_order: number
         }
         Insert: {
           active?: boolean
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           manual_code: string
           name: string
           qr_version?: number
+          radius_m?: number
           route_order: number
         }
         Update: {
           active?: boolean
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           manual_code?: string
           name?: string
           qr_version?: number
+          radius_m?: number
           route_order?: number
         }
         Relationships: []
@@ -132,23 +141,38 @@ export type Database = {
       }
       scans: {
         Row: {
+          accuracy_m: number | null
           checkpoint_id: string
+          distance_m: number | null
           guard_id: string
           id: string
+          latitude: number | null
+          location_status: string
+          longitude: number | null
           received_at: string
           scanned_at: string
         }
         Insert: {
+          accuracy_m?: number | null
           checkpoint_id: string
+          distance_m?: number | null
           guard_id: string
           id: string
+          latitude?: number | null
+          location_status?: string
+          longitude?: number | null
           received_at?: string
           scanned_at: string
         }
         Update: {
+          accuracy_m?: number | null
           checkpoint_id?: string
+          distance_m?: number | null
           guard_id?: string
           id?: string
+          latitude?: number | null
+          location_status?: string
+          longitude?: number | null
           received_at?: string
           scanned_at?: string
         }
@@ -173,11 +197,19 @@ export type Database = {
     Views: {
       scan_rows: {
         Row: {
+          accuracy_m: number | null
           checkpoint_id: string | null
+          checkpoint_latitude: number | null
+          checkpoint_longitude: number | null
           checkpoint_name: string | null
+          checkpoint_radius_m: number | null
+          distance_m: number | null
           guard_id: string | null
           guard_name: string | null
           id: string | null
+          latitude: number | null
+          location_status: string | null
+          longitude: number | null
           received_at: string | null
           report: Json | null
           scanned_at: string | null
@@ -207,9 +239,12 @@ export type Database = {
           active: boolean
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           manual_code: string
           name: string
           qr_version: number
+          radius_m: number
           route_order: number
         }
         SetofOptions: {
@@ -234,9 +269,12 @@ export type Database = {
           active: boolean
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           manual_code: string
           name: string
           qr_version: number
+          radius_m: number
           route_order: number
         }[]
         SetofOptions: {
@@ -257,9 +295,12 @@ export type Database = {
           active: boolean
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           manual_code: string
           name: string
           qr_version: number
+          radius_m: number
           route_order: number
         }
         SetofOptions: {
@@ -282,6 +323,27 @@ export type Database = {
         Args: { p_active: boolean; p_id: string }
         Returns: undefined
       }
+      set_checkpoint_location: {
+        Args: { p_id: string; p_lat: number; p_lng: number; p_radius_m: number }
+        Returns: {
+          active: boolean
+          created_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          manual_code: string
+          name: string
+          qr_version: number
+          radius_m: number
+          route_order: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "checkpoints"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       submit_report: {
         Args: {
           p_created_at: string
@@ -293,7 +355,14 @@ export type Database = {
         Returns: undefined
       }
       submit_scan: {
-        Args: { p_code: string; p_id: string; p_scanned_at: string }
+        Args: {
+          p_accuracy_m?: number
+          p_code: string
+          p_id: string
+          p_lat?: number
+          p_lng?: number
+          p_scanned_at: string
+        }
         Returns: Json
       }
       update_checkpoint: {
@@ -302,9 +371,12 @@ export type Database = {
           active: boolean
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           manual_code: string
           name: string
           qr_version: number
+          radius_m: number
           route_order: number
         }
         SetofOptions: {

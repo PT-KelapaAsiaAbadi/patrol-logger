@@ -7,6 +7,7 @@ import { formatDateTime, formatTime, localDateKey } from "../../lib/format";
 import { scansToCsv } from "../../lib/csv";
 import { saveFile } from "../../lib/download";
 import { Pagination } from "../../components/Pagination";
+import { LocationBadge } from "../../components/LocationBadge";
 
 const PAGE_SIZE = 12;
 
@@ -198,6 +199,9 @@ export function SupervisorLog() {
 											<th scope="col">
 												{t("checkpoint")}
 											</th>
+											<th scope="col">
+												{t("colLocation")}
+											</th>
 											<th scope="col">{t("report")}</th>
 										</tr>
 									</thead>
@@ -212,6 +216,9 @@ export function SupervisorLog() {
 												</td>
 												<td>{r.guardName}</td>
 												<td>{r.checkpointName}</td>
+												<td class="whitespace-nowrap">
+													<LocationBadge scan={r} />
+												</td>
 												<td>
 													{r.report ? (
 														<Link

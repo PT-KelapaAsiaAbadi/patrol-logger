@@ -24,6 +24,12 @@ const target = cps[3];
 const { data: payload } = await sup.rpc("qr_payload", {
 	p_checkpoint_id: target.id,
 });
+await sup.rpc("set_checkpoint_location", {
+	p_id: target.id,
+	p_lat: -6.2,
+	p_lng: 106.8,
+	p_radius_m: 50,
+});
 const video = join(tmpdir(), "patroli-fake-camera.y4m");
 writeQrVideo(payload, video);
 
@@ -66,15 +72,20 @@ const browser = await chromium.launch({
 		`--use-file-for-fake-video-capture=${video}`,
 	],
 });
-const context = await browser.newContext({ permissions: ["camera"] });
+const context = await browser.newContext({
+	permissions: ["camera", "geolocation"],
+	geolocation: { latitude: -6.2001, longitude: 106.8, accuracy: 12 },
+});
 await context.addInitScript(() => localStorage.setItem("patrol-lang", "en"));
 const page = await context.newPage();
 
+let statuses = {};
 const scansHere = async () => {
 	const { data } = await admin()
 		.from("scans")
-		.select("id")
+		.select("id, location_status")
 		.eq("checkpoint_id", target.id);
+	statuses = Object.fromEntries(data.map((s) => [s.id, s.location_status]));
 	return data.map((s) => s.id);
 };
 
@@ -100,6 +111,11 @@ try {
 		afterScan.length === 1,
 		"exactly one scan recorded",
 		`${afterScan.length} scans`,
+	);
+	ok(
+		statuses[afterScan[0]] === "ok",
+		"the camera scan carries the phone's position",
+		statuses[afterScan[0]],
 	);
 
 	await page.getByRole("link", { name: "Add report" }).click();

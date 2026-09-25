@@ -5,7 +5,9 @@ import * as api from "../../data/api";
 import { labelsDocument, qrImage } from "../../lib/labels";
 import { saveFile } from "../../lib/download";
 import { printDocument } from "../../lib/print";
-import type { Checkpoint } from "../../types";
+import type { Checkpoint, CheckpointLocation } from "../../types";
+import { LocationPicker } from "../../components/LocationPicker";
+import { formatLocation } from "./RouteTable";
 import { LoadError } from "./Log";
 import { RouteTable } from "./RouteTable";
 
@@ -187,6 +189,8 @@ export function Checkpoints() {
 function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 	const { t } = useApp();
 	const [name, setName] = useState("");
+	const [location, setLocation] = useState<CheckpointLocation | null>(null);
+	const [picking, setPicking] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [outcome, setOutcome] = useState<
 		{ kind: "added"; name: string } | { kind: "error" } | null
@@ -196,10 +200,12 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 		setBusy(true);
 		setOutcome(null);
 		try {
-			const cp = await api.createCheckpoint(
+			let cp = await api.createCheckpoint(
 				name.trim().replace(/\s+/g, " "),
 			);
+			if (location) cp = await api.setCheckpointLocation(cp.id, location);
 			setName("");
+			setLocation(null);
 			setOutcome({ kind: "added", name: cp.name });
 			onAdded(cp);
 		} catch {
@@ -243,6 +249,26 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 				</button>
 			</form>
 			<p class="text-muted mt-2">{t("checkpointHint")}</p>
+			<div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3">
+				<span class="font-medium">{t("colLocation")}:</span>
+				<span class={location ? "font-mono text-sm" : "text-muted"}>
+					{location ? formatLocation(location) : t("locationNotSet")}
+				</span>
+				<button
+					type="button"
+					class="link-btn"
+					onClick={() => setPicking(true)}>
+					{location ? t("editLocation") : t("setLocationOptional")}
+				</button>
+			</div>
+			{picking && (
+				<LocationPicker
+					name={name.trim() || t("pickerNewCheckpoint")}
+					initial={location}
+					onSave={setLocation}
+					onClose={() => setPicking(false)}
+				/>
+			)}
 			{outcome?.kind === "added" && (
 				<p
 					class="notice notice-ok mt-3"

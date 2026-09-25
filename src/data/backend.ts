@@ -13,6 +13,8 @@
 import type {
 	Account,
 	Checkpoint,
+	CheckpointLocation,
+	LocationStatus,
 	GuardImportResult,
 	GuardSummary,
 	NewGuard,
@@ -56,12 +58,20 @@ const toUser = (p: ProfileRow): User => ({
 	email: p.email,
 });
 
+const toCheckpointLocation = (
+	lat: number | null,
+	lng: number | null,
+	radiusM: number | null,
+): CheckpointLocation | null =>
+	lat === null || lng === null ? null : { lat, lng, radiusM: radiusM ?? 50 };
+
 const toCheckpoint = (c: CheckpointRecord): Checkpoint => ({
 	id: c.id,
 	name: c.name,
 	routeOrder: c.route_order,
 	manualCode: c.manual_code,
 	active: c.active,
+	location: toCheckpointLocation(c.latitude, c.longitude, c.radius_m),
 });
 
 const toPublicCheckpoint = (c: PublicCheckpointRecord): PublicCheckpoint => ({
@@ -77,6 +87,16 @@ const toScan = (s: ScanRecord): Scan => ({
 	guardId: s.guard_id,
 	scannedAt: iso(s.scanned_at),
 	receivedAt: iso(s.received_at),
+	location:
+		s.latitude === null || s.longitude === null
+			? null
+			: {
+					lat: s.latitude,
+					lng: s.longitude,
+					accuracyM: s.accuracy_m ?? 0,
+				},
+	distanceM: s.distance_m,
+	locationStatus: s.location_status as LocationStatus,
 });
 
 const toReport = (r: ReportRecord): Report => ({
@@ -92,6 +112,9 @@ type ScanRowRecord = ScanRecord & {
 	guard_name: string;
 	checkpoint_name: string;
 	report: ReportRecord | null;
+	checkpoint_latitude: number | null;
+	checkpoint_longitude: number | null;
+	checkpoint_radius_m: number | null;
 };
 
 const toScanRow = (r: Tables<"scan_rows">): ScanRow => {
@@ -101,6 +124,11 @@ const toScanRow = (r: Tables<"scan_rows">): ScanRow => {
 		guardName: v.guard_name,
 		checkpointName: v.checkpoint_name,
 		report: v.report ? toReport(v.report) : null,
+		checkpointLocation: toCheckpointLocation(
+			v.checkpoint_latitude,
+			v.checkpoint_longitude,
+			v.checkpoint_radius_m,
+		),
 	};
 };
 
@@ -220,6 +248,11 @@ export async function submitScan(pending: PendingScan): Promise<SubmitResult> {
 			p_id: pending.id,
 			p_code: pending.code,
 			p_scanned_at: pending.scannedAt,
+			...(pending.location && {
+				p_lat: pending.location.lat,
+				p_lng: pending.location.lng,
+				p_accuracy_m: pending.location.accuracyM,
+			}),
 		}),
 	) as unknown as SubmitScanJson;
 	if (!r.ok) return { ok: false, reason: r.reason };
@@ -373,6 +406,24 @@ export async function updateCheckpoint(
 				p_id: cp.id,
 				p_name: cp.name,
 				p_active: cp.active,
+			}),
+		),
+	);
+}
+
+/** Pins a checkpoint on the map, or clears its location (null). */
+export async function setCheckpointLocation(
+	id: string,
+	location: CheckpointLocation | null,
+): Promise<Checkpoint> {
+	return toCheckpoint(
+		must(
+			await supabase.rpc("set_checkpoint_location", {
+				p_id: id,
+				// The function takes nulls to clear; the generated types don't say so.
+				p_lat: (location?.lat ?? null) as number,
+				p_lng: (location?.lng ?? null) as number,
+				p_radius_m: (location?.radiusM ?? null) as number,
 			}),
 		),
 	);

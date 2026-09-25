@@ -10,13 +10,35 @@ export interface User {
 	email: string; // the sign-in identity
 }
 
+/** Where a checkpoint is, and how far from it a scan may be and still count as "at" it. */
+export interface CheckpointLocation {
+	lat: number;
+	lng: number;
+	radiusM: number;
+}
+
 export interface Checkpoint {
 	id: string; // uuid, never shown to guards
 	name: string;
 	routeOrder: number; // position in the patrol round
 	manualCode: string; // short random code printed under the QR, for when the camera fails
 	active: boolean;
+	location: CheckpointLocation | null; // null until a supervisor pins it on the map
 }
+
+/** The phone's GPS position when it scanned. */
+export interface ScanLocation {
+	lat: number;
+	lng: number;
+	accuracyM: number; // the phone's own estimate, radius in metres
+}
+
+/**
+ * How the scan's position compares with the checkpoint's, decided by the server:
+ * ok = within the radius, far = further, no_fix = the phone had no usable position,
+ * not_set = the checkpoint has no location yet.
+ */
+export type LocationStatus = "ok" | "far" | "no_fix" | "not_set";
 
 export interface Scan {
 	id: string; // generated on the phone so a retried upload can't create duplicates
@@ -24,6 +46,9 @@ export interface Scan {
 	guardId: string;
 	scannedAt: string; // ISO, device clock at the moment of scanning
 	receivedAt: string; // ISO, server clock when the scan arrived
+	location: ScanLocation | null;
+	distanceM: number | null; // from the checkpoint, at scan time
+	locationStatus: LocationStatus;
 }
 
 export interface Report {
@@ -37,13 +62,14 @@ export interface Report {
 }
 
 /** What a guard's phone is allowed to cache. No manual codes, so they can't be read out of storage. */
-export type PublicCheckpoint = Omit<Checkpoint, "manualCode">;
+export type PublicCheckpoint = Omit<Checkpoint, "manualCode" | "location">;
 
 /** A scan joined with names, as the supervisor table shows it. */
 export interface ScanRow extends Scan {
 	guardName: string;
 	checkpointName: string;
 	report: Report | null;
+	checkpointLocation: CheckpointLocation | null; // where the checkpoint is now
 }
 
 export interface ScanQuery {
@@ -98,6 +124,7 @@ export interface PendingScan {
 	guardId: string;
 	code: string; // raw QR payload or manual code
 	scannedAt: string;
+	location?: ScanLocation; // missing when the phone had no fresh position
 }
 
 /** Result of scanning a QR code or typing a manual code. */

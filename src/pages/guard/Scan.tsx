@@ -7,7 +7,12 @@ import {
 	type ScannerError,
 	type ScannerHandle,
 } from "../../lib/scanner";
-import { formatTime } from "../../lib/format";
+import { formatDistance, formatTime } from "../../lib/format";
+import {
+	watchLocation,
+	type LocationState,
+	type LocationWatch,
+} from "../../lib/geo";
 import type { ScanOutcome } from "../../types";
 
 type CameraState = "starting" | "running" | ScannerError;
@@ -17,6 +22,10 @@ export function ScanPage() {
 	const [, navigate] = useLocation();
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const handleRef = useRef<ScannerHandle | null>(null);
+	const geoRef = useRef<LocationWatch | null>(null);
+	const [location, setLocation] = useState<LocationState>({
+		kind: "finding",
+	});
 	// The camera reads the same sticker several times a second. While a scan is being sent, and
 	// for good once one has succeeded, further reads are ignored: frames still being decoded when
 	// the camera stops would otherwise record the same checkpoint a second time.
@@ -39,7 +48,7 @@ export function ScanPage() {
 		busyRef.current = true;
 		setBusy(true);
 		setError(null);
-		const r = await api.scan(code, user!.id);
+		const r = await api.scan(code, user!.id, geoRef.current?.latest());
 		setBusy(false);
 		if (!r.ok) {
 			busyRef.current = false; // wrong code: keep scanning
@@ -52,6 +61,13 @@ export function ScanPage() {
 		navigator.vibrate?.(80); // short buzz so the guard knows without looking
 		setOutcome(r);
 	}
+
+	// GPS starts with the screen, so a position is usually ready when the sticker is read.
+	useEffect(() => {
+		const watch = watchLocation(setLocation);
+		geoRef.current = watch;
+		return () => watch.stop();
+	}, []);
 
 	useEffect(() => {
 		if (outcome) return;
@@ -93,6 +109,18 @@ export function ScanPage() {
 				</p>
 				{outcome.queued && (
 					<p class="text-muted mt-2">{t("scanSavedHint")}</p>
+				)}
+				{!outcome.queued && outcome.scan.locationStatus === "far" && (
+					<p
+						class="notice notice-warn mt-4"
+						role="alert">
+						{t("scanFar", {
+							d: formatDistance(
+								outcome.scan.distanceM ?? 0,
+								lang,
+							),
+						})}
+					</p>
 				)}
 
 				<div class="mt-auto grid gap-3 pt-10">
@@ -139,6 +167,19 @@ export function ScanPage() {
 				) : (
 					<p>{t("aimCamera")}</p>
 				)}
+				<p
+					class={`mt-2 text-sm ${location.kind === "off" ? "text-warn" : "text-muted"}`}
+					aria-live="polite">
+					{location.kind === "found"
+						? t("locFound", { m: location.accuracyM })
+						: t(
+								location.kind === "finding"
+									? "locFinding"
+									: location.kind === "off"
+										? "locOff"
+										: "locUnavailable",
+							)}
+				</p>
 				{error && (
 					<p
 						class="notice notice-warn mt-3"

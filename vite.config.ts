@@ -36,7 +36,11 @@ export default defineConfig({
 					},
 				],
 			},
-			workbox: { globPatterns: ["**/*.{js,css,html,png}"] }, // app shell cached, so it opens with no signal
+			workbox: {
+				globPatterns: ["**/*.{js,css,html,png}"],
+				// The supervisor-only map (Leaflet) isn't precached on guards' phones.
+				globIgnores: ["**/map-*"],
+			}, // app shell cached, so it opens with no signal
 		}),
 	],
 });

@@ -42,7 +42,7 @@ Easiest: `npm run build`, then drag `dist/` into Netlify Drop or Cloudflare Page
 
 ```bash
 npx supabase link --project-ref cfiayahvwjjqhmayakmy
-npx supabase db push                          # applies supabase/migrations (never seed.sql)
+npx supabase db push                          # applies new files in supabase/migrations (never seed.sql); rerun after each update
 npx supabase functions deploy create-guards
 npx supabase functions deploy reset-password
 ```
@@ -72,6 +72,8 @@ From then on, supervisors add guards (and other supervisors) from the Accounts t
 | Offline / install | vite-plugin-pwa | caches the app shell, adds manifest |
 | Backend | Supabase | Postgres + Row Level Security, Auth, Storage, two Edge Functions |
 | Offline queue | idb-keyval | IndexedDB holds hundreds of MB, so queued report photos fit |
+| Checkpoint map | Leaflet + OpenStreetMap tiles | free, no API key; loaded only when a supervisor opens the map |
+| Address search | Nominatim (OpenStreetMap) | free, no API key; searches only on "Search", as its usage policy asks |
 
 Whole app: about 100 KB gzipped, most of it supabase-js. The service worker caches it after the first visit.
 
@@ -93,6 +95,8 @@ src/
     csv.ts              scan export, guard CSV import
     print.ts            prints a label sheet through a hidden iframe
     updates.ts          switches in a new app version only on a screen where a reload loses nothing
+    geo.ts              the phone's GPS position while the scan screen is open
+    map.ts, geocode.ts  checkpoint map (Leaflet) and address search (Nominatim), supervisor only
     download.ts, format.ts, id.ts
   pages/guard/          Home (round), Scan, Report
   pages/supervisor/     Log (paginated), ScanDetail,
@@ -122,6 +126,21 @@ tests/                  backend.test.mjs (each role against the API), e2e.test.m
 | `reissueCheckpoint` | `reissue_checkpoint()`: bumps `qr_version` (part of the QR signature) and issues a new manual code, so every copy of the old sticker stops working |
 | `listScans`, `exportScans`, `getScan` | the `scan_rows` view, paged with `.range()`; photos shown via signed URLs |
 | `guardSummaries`, `missedCheckpoints` | `guard_summaries()`, `missed_checkpoints()` |
+
+| `setCheckpointLocation` | `set_checkpoint_location()`: a checkpoint's position and radius, or none |
+
+## Location checks
+
+Supervisors pin each checkpoint on a map (Checkpoints tab: tap the map, search an address, use their own position, or paste coordinates) and set a radius, 50 m by default. The guard's phone reads GPS while the scan screen is open and sends its position with each scan, including scans made offline. The server records how far that was from the checkpoint:
+
+| Status | Meaning |
+|---|---|
+| At checkpoint | within the radius, allowing for the phone's stated accuracy (up to 100 m extra) |
+| far | further than that; the guard sees a warning, the supervisor sees the distance |
+| No GPS | the phone had no position less than a minute old (permission off, indoors, older app) |
+| Checkpoint not pinned | the checkpoint has no location yet |
+
+Scans that are far away are **flagged, not rejected**: GPS is often weak or missing in basements and stairwells, and blocking those scans would stop honest guards. The distance is stored with the scan, so moving a checkpoint later doesn't rewrite history. Limits: a phone with a GPS-spoofing app can fake its position, and indoor readings can be off by tens of metres, so treat a single "far" as a question, not proof.
 
 Row Level Security: guards read only their own profile, scans and reports; supervisors read everything. Guards never see manual codes. No table accepts writes from the app directly: every write goes through a function that checks the caller.
 

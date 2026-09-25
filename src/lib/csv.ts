@@ -11,6 +11,11 @@ export function scansToCsv(rows: ScanRow[]): string {
 		"checkpoint",
 		"report_note",
 		"report_photos",
+		"location_status",
+		"distance_m",
+		"latitude",
+		"longitude",
+		"accuracy_m",
 	];
 	const lines = rows.map((r) =>
 		[
@@ -20,6 +25,11 @@ export function scansToCsv(rows: ScanRow[]): string {
 			r.checkpointName,
 			r.report?.note ?? "",
 			String(r.report?.photos.length ?? 0),
+			r.locationStatus,
+			r.distanceM === null ? "" : String(r.distanceM),
+			r.location ? String(r.location.lat) : "",
+			r.location ? String(r.location.lng) : "",
+			r.location ? String(Math.round(r.location.accuracyM)) : "",
 		]
 			.map(cell)
 			.join(","),

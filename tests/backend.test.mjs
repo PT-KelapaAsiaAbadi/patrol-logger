@@ -386,6 +386,124 @@ section("checkpoint management");
 	);
 }
 
+section("location checks");
+{
+	// ~111 m per 0.001 degree of latitude.
+	const pin = { p_lat: -6.2, p_lng: 106.8, p_radius_m: 50 };
+	const { error: ge } = await guard.rpc("set_checkpoint_location", {
+		p_id: cps[5].id,
+		...pin,
+	});
+	ok(
+		ge?.message === "not_allowed",
+		"guards cannot pin checkpoints",
+		ge?.message,
+	);
+	const { data: pinned, error: pe2 } = await sup.rpc(
+		"set_checkpoint_location",
+		{
+			p_id: cps[5].id,
+			...pin,
+		},
+	);
+	ok(
+		!pe2 && pinned.latitude === -6.2 && pinned.radius_m === 50,
+		"supervisor pins a checkpoint",
+		pe2?.message,
+	);
+	const { error: bad } = await sup.rpc("set_checkpoint_location", {
+		p_id: cps[5].id,
+		p_lat: 95,
+		p_lng: 106.8,
+		p_radius_m: 50,
+	});
+	ok(!!bad, "impossible coordinates are refused");
+
+	const scanAt = async (cp, lat, lng, accuracy) => {
+		const args = {
+			p_id: randomUUID(),
+			p_code: cp.manual_code,
+			p_scanned_at: now,
+		};
+		if (lat !== undefined)
+			Object.assign(args, {
+				p_lat: lat,
+				p_lng: lng,
+				p_accuracy_m: accuracy,
+			});
+		const { data, error } = await guard.rpc("submit_scan", args);
+		if (error) throw new Error(error.message);
+		return data.scan;
+	};
+	const near = await scanAt(cps[5], -6.2001, 106.8, 10);
+	ok(
+		near.location_status === "ok" &&
+			near.distance_m >= 10 &&
+			near.distance_m <= 12,
+		"11 m away is at the checkpoint",
+		JSON.stringify(near),
+	);
+	ok(
+		near.latitude === -6.2001 && near.accuracy_m === 10,
+		"the scan keeps the phone's position",
+	);
+	const far = await scanAt(cps[5], -6.21, 106.8, 10);
+	ok(
+		far.location_status === "far" && far.distance_m > 1000,
+		"1.1 km away is flagged as far",
+		JSON.stringify(far),
+	);
+	const fuzzy = await scanAt(cps[5], -6.2011, 106.8, 80);
+	ok(
+		fuzzy.location_status === "ok",
+		"122 m with ±80 m accuracy gets the benefit of the doubt",
+	);
+	const vague = await scanAt(cps[5], -6.2016, 106.8, 500);
+	ok(
+		vague.location_status === "far",
+		"the accuracy allowance is capped at 100 m",
+	);
+	const none = await scanAt(cps[5]);
+	ok(
+		none.location_status === "no_fix" && none.latitude === null,
+		"no position gives no_fix",
+	);
+	const unpinned = await scanAt(cps[6], -6.2, 106.8, 10);
+	ok(
+		unpinned.location_status === "not_set" && unpinned.distance_m === null,
+		"an unpinned checkpoint gives not_set",
+	);
+
+	const { data: row } = await sup
+		.from("scan_rows")
+		.select("*")
+		.eq("id", far.id)
+		.single();
+	ok(
+		row.location_status === "far" && row.checkpoint_latitude === -6.2,
+		"the log shows the flag and where the checkpoint is",
+	);
+	const { data: cleared } = await sup.rpc("set_checkpoint_location", {
+		p_id: cps[5].id,
+		p_lat: null,
+		p_lng: null,
+		p_radius_m: null,
+	});
+	ok(
+		cleared.latitude === null && cleared.radius_m === 50,
+		"a location can be removed",
+	);
+	const { data: stillFar } = await sup
+		.from("scans")
+		.select("location_status")
+		.eq("id", far.id)
+		.single();
+	ok(
+		stillFar.location_status === "far",
+		"past scans keep their result when the checkpoint moves",
+	);
+}
+
 section("accounts: create, reset, deactivate");
 {
 	const newEmail = `guard${Date.now()}@patroli.test`;

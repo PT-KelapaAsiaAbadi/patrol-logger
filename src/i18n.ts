@@ -179,6 +179,48 @@ const id = {
 		'Stiker dan kode lama untuk "{name}" langsung tidak berlaku. Cetak dan tempel stiker baru sekarang. Lanjutkan?',
 	reissued:
 		'Stiker baru untuk "{name}" siap dan sudah dipilih untuk dicetak.',
+	locFinding: "Mencari lokasi...",
+	locFound: "Lokasi ditemukan (±{m} m)",
+	locOff: "Lokasi tidak diizinkan. Scan tetap tercatat, tapi tanpa lokasi. Izinkan lokasi di pengaturan browser.",
+	locUnavailable: "Belum ada sinyal GPS. Scan tetap tercatat.",
+	scanFar:
+		"Posisi Anda sekitar {d} dari titik ini. Scan tetap tercatat dan ditandai untuk supervisor.",
+	colLocation: "Lokasi",
+	locationNotSet: "Belum diatur",
+	setLocation: "Atur lokasi",
+	editLocation: "Ubah lokasi",
+	setLocationOptional: "Atur lokasi (opsional)",
+	pickerTitle: "Lokasi: {name}",
+	pickerNewCheckpoint: "titik baru",
+	pickerHint:
+		"Ketuk peta untuk menaruh penanda, atau geser penandanya. Bisa juga cari alamat, pakai lokasi Anda sekarang, atau tempel koordinat.",
+	searchAddress: "Cari alamat atau tempat",
+	search: "Cari",
+	searching: "Mencari...",
+	noPlaces:
+		"Tidak ditemukan. Coba tulis lebih lengkap, misalnya dengan nama kota.",
+	searchFailed: "Pencarian alamat gagal. Periksa koneksi lalu coba lagi.",
+	useMyLocation: "Pakai lokasi saya sekarang",
+	myLocationFailed:
+		"Lokasi Anda tidak bisa dibaca. Izinkan lokasi di browser, atau ketuk peta.",
+	coordinates: "Koordinat",
+	coordinatesHint: "Contoh: -6.2088, 106.8456",
+	coordinatesInvalid:
+		"Tulis dua angka: lintang, bujur. Contoh: -6.2088, 106.8456",
+	go: "Pergi",
+	radius: "Radius (meter)",
+	radiusHint:
+		"Scan yang lebih jauh dari ini ditandai. 50 m cocok untuk kebanyakan gedung.",
+	pickedAddress: "Dekat: {address}",
+	noPointYet: "Belum ada titik. Ketuk peta.",
+	removeLocation: "Hapus lokasi",
+	locStatus_ok: "Di lokasi",
+	locStatus_far: "{d} jauhnya",
+	locStatus_no_fix: "Tanpa GPS",
+	locStatus_not_set: "Titik belum diatur",
+	locDetail: "{d} dari titik (akurasi ±{a} m)",
+	openScanInMap: "Posisi scan di peta",
+	openCheckpointInMap: "Titik di peta",
 	notFound: "Halaman tidak ditemukan.",
 };
 
@@ -360,6 +402,47 @@ const en: Record<Key, string> = {
 	reissueConfirm:
 		'The old sticker and code for "{name}" stop working immediately. Print and put up the new sticker straight away. Continue?',
 	reissued: 'New sticker for "{name}" is ready and selected for printing.',
+	locFinding: "Finding your location...",
+	locFound: "Location found (±{m} m)",
+	locOff: "Location is blocked. Scans still count, but without a location. Allow location in the browser settings.",
+	locUnavailable: "No GPS signal yet. Scans still count.",
+	scanFar:
+		"You seem to be about {d} from this checkpoint. The scan is saved and flagged for your supervisor.",
+	colLocation: "Location",
+	locationNotSet: "Not set",
+	setLocation: "Set location",
+	editLocation: "Edit location",
+	setLocationOptional: "Set location (optional)",
+	pickerTitle: "Location: {name}",
+	pickerNewCheckpoint: "new checkpoint",
+	pickerHint:
+		"Tap the map to place the pin, or drag it. You can also search an address, use where you are now, or paste coordinates.",
+	searchAddress: "Search an address or place",
+	search: "Search",
+	searching: "Searching...",
+	noPlaces: "No places found. Try adding more, like the city name.",
+	searchFailed: "Address search failed. Check the connection and try again.",
+	useMyLocation: "Use my current location",
+	myLocationFailed:
+		"Couldn't read your location. Allow location in the browser, or tap the map.",
+	coordinates: "Coordinates",
+	coordinatesHint: "Example: -6.2088, 106.8456",
+	coordinatesInvalid:
+		"Enter two numbers: latitude, longitude. Example: -6.2088, 106.8456",
+	go: "Go",
+	radius: "Radius (metres)",
+	radiusHint:
+		"Scans further away than this get flagged. 50 m suits most buildings.",
+	pickedAddress: "Near: {address}",
+	noPointYet: "No point yet. Tap the map.",
+	removeLocation: "Remove location",
+	locStatus_ok: "At checkpoint",
+	locStatus_far: "{d} away",
+	locStatus_no_fix: "No GPS",
+	locStatus_not_set: "Checkpoint not pinned",
+	locDetail: "{d} from the checkpoint (accuracy ±{a} m)",
+	openScanInMap: "Scan position on map",
+	openCheckpointInMap: "Checkpoint on map",
 	notFound: "Page not found.",
 };
 

@@ -183,6 +183,63 @@ img {
 		opacity: 0.35;
 		cursor: not-allowed;
 	}
+	.loc-ok {
+		color: var(--ok);
+		font-weight: 600;
+	}
+	.loc-far {
+		color: var(--warn);
+		font-weight: 600;
+	}
+	.picker {
+		width: min(46rem, calc(100vw - 2rem));
+		max-height: calc(100dvh - 2rem);
+		overflow-y: auto;
+		padding: 1.25rem;
+		border: 1px solid var(--line);
+		border-radius: 8px;
+		background: var(--surface);
+		color: var(--ink);
+	}
+	.picker::backdrop {
+		background: rgb(0 0 0 / 0.5);
+	}
+	.picker-map {
+		height: min(22rem, 45dvh);
+		border: 1px solid var(--line);
+		border-radius: 6px;
+	}
+	.picker-results {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		max-height: 12rem;
+		overflow-y: auto;
+	}
+	.picker-results button {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 0.5rem 0.75rem;
+		background: none;
+		cursor: pointer;
+		font-size: 0.875rem;
+	}
+	.picker-results li + li {
+		border-top: 1px solid var(--line);
+	}
+	.picker-results button:hover {
+		background: var(--sunken);
+	}
+	.map-pin {
+		background: var(--accent);
+		border: 3px solid #fff;
+		border-radius: 50% 50% 50% 0;
+		transform: rotate(-45deg);
+		box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+	}
 	.link {
 		text-decoration: underline;
 		text-underline-offset: 3px;

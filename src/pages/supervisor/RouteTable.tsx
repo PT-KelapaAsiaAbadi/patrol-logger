@@ -1,7 +1,11 @@
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
-import type { Checkpoint } from "../../types";
+import type { Checkpoint, CheckpointLocation } from "../../types";
+import { LocationPicker } from "../../components/LocationPicker";
+
+export const formatLocation = (l: CheckpointLocation) =>
+	`${l.lat.toFixed(5)}, ${l.lng.toFixed(5)} (${l.radiusM} m)`;
 
 type Notice = { kind: "reissued"; name: string } | { kind: "error" } | null;
 
@@ -22,6 +26,7 @@ export function RouteTable({
 		null,
 	);
 	const [notice, setNotice] = useState<Notice>(null);
+	const [picking, setPicking] = useState<Checkpoint | null>(null);
 
 	async function run(action: () => Promise<void>) {
 		setBusy(true);
@@ -88,6 +93,7 @@ export function RouteTable({
 							<th scope="col">{t("checkpointName")}</th>
 							<th scope="col">{t("colCode")}</th>
 							<th scope="col">{t("colStatus")}</th>
+							<th scope="col">{t("colLocation")}</th>
 							<th scope="col">
 								<span class="sr-only">{t("colActions")}</span>
 							</th>
@@ -183,6 +189,26 @@ export function RouteTable({
 									)}
 								</td>
 								<td class="whitespace-nowrap">
+									<span
+										class={`block ${cp.location ? "font-mono text-sm" : "text-muted"}`}>
+										{cp.location
+											? formatLocation(cp.location)
+											: t("locationNotSet")}
+									</span>
+									<button
+										type="button"
+										class="link-btn"
+										disabled={busy}
+										aria-label={`${t(cp.location ? "editLocation" : "setLocation")}: ${cp.name}`}
+										onClick={() => setPicking(cp)}>
+										{t(
+											cp.location
+												? "editLocation"
+												: "setLocation",
+										)}
+									</button>
+								</td>
+								<td class="whitespace-nowrap">
 									<span class="inline-flex flex-wrap gap-x-4 gap-y-1">
 										<button
 											type="button"
@@ -227,6 +253,17 @@ export function RouteTable({
 					</tbody>
 				</table>
 			</div>
+			{picking && (
+				<LocationPicker
+					name={picking.name}
+					initial={picking.location}
+					onSave={async (location) => {
+						await api.setCheckpointLocation(picking.id, location);
+						onChanged();
+					}}
+					onClose={() => setPicking(null)}
+				/>
+			)}
 		</section>
 	);
 }

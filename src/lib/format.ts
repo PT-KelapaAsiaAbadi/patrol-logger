@@ -24,6 +24,12 @@ export const formatDateTime = (iso: string, lang: Lang) =>
 		minute: "2-digit",
 	});
 
+/** "85 m" up to a kilometre, then "5.6 km". */
+export const formatDistance = (metres: number, lang: Lang) =>
+	metres < 1000
+		? `${Math.round(metres)} m`
+		: `${(metres / 1000).toLocaleString(locale(lang), { maximumFractionDigits: 1 })} km`;
+
 export const formatLongDate = (key: string, lang: Lang) =>
 	new Date(`${key}T12:00:00`).toLocaleDateString(locale(lang), {
 		weekday: "long",

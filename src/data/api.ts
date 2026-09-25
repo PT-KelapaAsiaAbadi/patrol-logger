@@ -10,12 +10,14 @@ import { isOnline, onNetworkChange } from "./network";
 import { newId } from "../lib/id";
 import { localDateKey } from "../lib/format";
 import type {
+	CheckpointLocation,
 	NewGuard,
 	PendingScan,
 	PublicCheckpoint,
 	Report,
 	Scan,
 	ScanOutcome,
+	ScanLocation,
 	ScanQuery,
 	User,
 } from "../types";
@@ -189,15 +191,18 @@ const recentNames = new Map<string, string>();
 export const checkpointNameForScan = (scanId: string) =>
 	recentNames.get(scanId) ?? null;
 
+/** `location` is the phone's position at the moment of scanning, if it had a fresh one. */
 export async function scan(
 	code: string,
 	guardId: string,
+	location?: ScanLocation,
 ): Promise<ScanOutcome> {
 	const pending: PendingScan = {
 		id: newId(),
 		guardId,
 		code: code.trim(),
 		scannedAt: new Date().toISOString(),
+		...(location && { location }),
 	};
 
 	if (isOnline()) {
@@ -362,6 +367,11 @@ export const createCheckpoint = (name: string) =>
 export const updateCheckpoint = (
 	cp: Parameters<typeof backend.updateCheckpoint>[0],
 ) => needsNetwork(() => backend.updateCheckpoint(cp));
+
+export const setCheckpointLocation = (
+	id: string,
+	location: CheckpointLocation | null,
+) => needsNetwork(() => backend.setCheckpointLocation(id, location));
 
 export const moveCheckpoint = (id: string, up: boolean) =>
 	needsNetwork(() => backend.moveCheckpoint(id, up));

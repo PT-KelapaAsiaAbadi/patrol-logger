@@ -2,8 +2,9 @@ import { Link } from "wouter-preact";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";
 import * as api from "../../data/api";
-import { formatDateTime } from "../../lib/format";
+import { formatDateTime, formatDistance } from "../../lib/format";
 import { LoadError } from "./Log";
+import { LocationBadge, mapLink } from "../../components/LocationBadge";
 
 export function ScanDetail({ id }: { id: string }) {
 	const { t, lang } = useApp();
@@ -44,6 +45,53 @@ export function ScanDetail({ id }: { id: string }) {
 						<dt>{t("receivedAt")}</dt>
 						<dd class="tabular-nums">
 							{formatDateTime(s.receivedAt, lang)}
+						</dd>
+						<dt>{t("colLocation")}</dt>
+						<dd>
+							<LocationBadge scan={s} />
+							{s.location && (
+								<>
+									{s.distanceM !== null && (
+										<span class="text-muted">
+											{" "}
+											{t("locDetail", {
+												d: formatDistance(
+													s.distanceM,
+													lang,
+												),
+												a: Math.round(
+													s.location.accuracyM,
+												),
+											})}
+										</span>
+									)}{" "}
+									<a
+										class="link"
+										href={mapLink(
+											s.location.lat,
+											s.location.lng,
+										)}
+										target="_blank"
+										rel="noopener noreferrer">
+										{t("openScanInMap")}
+									</a>
+								</>
+							)}
+							{s.checkpointLocation && (
+								<>
+									{" · "}
+									<a
+										class="link"
+										href={mapLink(
+											s.checkpointLocation.lat,
+											s.checkpointLocation.lng,
+										)}
+										target="_blank"
+										rel="noopener noreferrer">
+										{t("openCheckpointInMap")}
+									</a>
+								</>
+							)}
 						</dd>
 					</dl>
 					{delayMin >= 5 && (

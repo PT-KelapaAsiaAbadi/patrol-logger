@@ -45,7 +45,33 @@ const browser = await chromium.launch({
 	headless: true,
 	...(channel ? { channel } : {}),
 });
-const context = await browser.newContext();
+const context = await browser.newContext({
+	// Where the guard's phone "is". Matches the second checkpoint once it's pinned below.
+	permissions: ["geolocation"],
+	geolocation: { latitude: -6.21, longitude: 106.81, accuracy: 10 },
+});
+// Map tiles and address lookups are faked: tests shouldn't lean on OpenStreetMap's servers.
+const BLANK_PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+	"base64",
+);
+await context.route("https://tile.openstreetmap.org/**", (r) =>
+	r.fulfill({ contentType: "image/png", body: BLANK_PNG }),
+);
+await context.route("https://nominatim.openstreetmap.org/search**", (r) =>
+	r.fulfill({
+		json: [
+			{
+				display_name: "Jl. Contoh 1, Jakarta",
+				lat: "-6.2",
+				lon: "106.8",
+			},
+		],
+	}),
+);
+await context.route("https://nominatim.openstreetmap.org/reverse**", (r) =>
+	r.fulfill({ json: { display_name: "Jl. Contoh 1, Jakarta" } }),
+);
 await context.addInitScript(() => localStorage.setItem("patrol-lang", "en"));
 const page = await context.newPage();
 const errors = [];
@@ -90,6 +116,14 @@ try {
 	);
 
 	await page.getByLabel("Checkpoint name").fill("Pos belakang");
+	await page.getByRole("button", { name: "Set location (optional)" }).click();
+	const picker = page.getByRole("dialog");
+	await picker.locator(".leaflet-container").waitFor({ timeout: 15000 });
+	await picker.locator(".picker-map").click(); // drop the pin by tapping the map
+	await picker.getByText(/^-?\d+\.\d{6}, -?\d+\.\d{6}$/).waitFor();
+	await picker.getByText("Near: Jl. Contoh 1, Jakarta").waitFor();
+	ok(true, "tapping the map drops a pin and shows the nearest address");
+	await picker.getByRole("button", { name: "Save" }).click();
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
 	await text("1 of 9 selected");
 	ok(true, "new checkpoint added and pre-selected for printing");
@@ -127,6 +161,42 @@ try {
 		{ timeout: 15000 },
 	);
 	ok(true, "replacing a sticker issues a new code");
+	const newFirstCode = (await firstCode.textContent()).trim();
+	const lastRowLocation = route
+		.locator("tbody tr")
+		.last()
+		.locator("td")
+		.nth(4);
+	ok(
+		/-?\d+\.\d{5}, -?\d+\.\d{5} \(50 m\)/.test(
+			await lastRowLocation.textContent(),
+		),
+		"a checkpoint added with a location keeps it",
+	);
+
+	const firstRow = route.locator("tbody tr").first();
+	await firstRow.getByRole("button", { name: /Set location/ }).click();
+	await picker.getByRole("searchbox").fill("Jl Contoh");
+	await picker.getByRole("button", { name: "Search", exact: true }).click();
+	await picker.getByRole("button", { name: "Jl. Contoh 1, Jakarta" }).click();
+	await picker.getByText("-6.200000, 106.800000").waitFor();
+	await picker.getByLabel("Radius (metres)").fill("60");
+	await picker.getByRole("button", { name: "Save" }).click();
+	await firstRow
+		.getByText("-6.20000, 106.80000 (60 m)")
+		.waitFor({ timeout: 15000 });
+	ok(true, "checkpoint pinned by searching an address");
+
+	const secondRow = route.locator("tbody tr").nth(1);
+	await secondRow.getByRole("button", { name: /Set location/ }).click();
+	await picker.getByLabel("Coordinates").fill("-6.21, 106.81");
+	await picker.getByRole("button", { name: "Go" }).click();
+	await picker.getByText("-6.210000, 106.810000").waitFor();
+	await picker.getByRole("button", { name: "Save" }).click();
+	await secondRow
+		.getByText("-6.21000, 106.81000 (50 m)")
+		.waitFor({ timeout: 15000 });
+	ok(true, "checkpoint pinned by pasting coordinates");
 
 	section("accounts");
 	await page.getByRole("link", { name: "Accounts" }).click();
@@ -239,11 +309,48 @@ try {
 		.getByText("scans not sent yet")
 		.waitFor({ state: "detached", timeout: 15000 });
 	ok(true, "queued scan syncs when the server is reachable again");
+
+	section("location");
+	await context.setGeolocation({
+		latitude: -6.2,
+		longitude: 106.8,
+		accuracy: 10,
+	});
+	await page.getByRole("link", { name: "Scan checkpoint" }).click();
+	await text("Location found (±10 m)");
+	ok(true, "the scan screen shows the GPS fix");
+	await page.getByLabel("Code under the QR sticker").fill(newFirstCode);
+	await page.getByRole("button", { name: "Log scan" }).click();
+	await text("Logged", { exact: true });
+	ok(
+		!(await page.getByText("flagged for your supervisor").isVisible()),
+		"a scan at the pinned spot isn't flagged",
+	);
+	await page.getByRole("link", { name: "Back to round" }).click();
+
+	await context.setGeolocation({
+		latitude: -6.26,
+		longitude: 106.81,
+		accuracy: 10,
+	});
+	await page.getByRole("link", { name: "Scan checkpoint" }).click();
+	await text("Location found (±10 m)");
+	await page.getByLabel("Code under the QR sticker").fill(codes[1].trim());
+	await page.getByRole("button", { name: "Log scan" }).click();
+	await text("flagged for your supervisor");
+	ok(true, "a scan 5 km from its checkpoint is flagged on the phone");
+	await page.getByRole("link", { name: "Back to round" }).click();
 	await signOut();
 
 	section("supervisor sees it");
 	await signIn(SEED.supervisor, SEED.password);
 	await page.waitForURL(/#\/supervisor$/);
+	await text("At checkpoint");
+	await page
+		.getByText(/^[\d.,]+ (m|km) away$/)
+		.first()
+		.waitFor({ timeout: 15000 });
+	ok(true, "the log shows at-checkpoint and far scans");
 	await page.getByRole("link", { name: "View report" }).first().click();
 	await text("Lampu koridor mati.");
 	const photo = page.locator("article ul img").first();
