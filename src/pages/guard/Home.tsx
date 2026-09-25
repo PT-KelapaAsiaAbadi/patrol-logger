@@ -4,6 +4,8 @@ import { useApp } from "../../state";
 import { useAsync, useOnline, useOutbox } from "../../hooks";
 import * as api from "../../data/api";
 import { formatTime } from "../../lib/format";
+import { ICON, IconButton } from "../../components/IconButton";
+import { LogOut, RotateCcw, ScanLine, Trash2, X } from "lucide-preact";
 
 export function GuardHome() {
 	const { t, lang, user, setUser } = useApp();
@@ -47,6 +49,10 @@ export function GuardHome() {
 						setUser(null);
 						navigate("/login");
 					}}>
+					<LogOut
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{t("signOut")}
 				</button>
 			</header>
@@ -58,12 +64,12 @@ export function GuardHome() {
 				{outbox.rejected > 0 && (
 					<div class="notice notice-warn mb-4 flex items-start justify-between gap-3">
 						<p>{t("rejectedScans", { n: outbox.rejected })}</p>
-						<button
-							type="button"
-							class="link-btn shrink-0"
-							onClick={api.clearRejected}>
-							{t("dismiss")}
-						</button>
+						<IconButton
+							icon={X}
+							label={t("dismiss")}
+							class="shrink-0"
+							onClick={api.clearRejected}
+						/>
 					</div>
 				)}
 
@@ -83,6 +89,10 @@ export function GuardHome() {
 								class="link-btn"
 								disabled={!online}
 								onClick={() => void api.retryFailed()}>
+								<RotateCcw
+									size={ICON}
+									aria-hidden="true"
+								/>
 								{t("retry")}
 							</button>
 							<button
@@ -98,6 +108,10 @@ export function GuardHome() {
 									)
 										api.discardFailed(user!.id);
 								}}>
+								<Trash2
+									size={ICON}
+									aria-hidden="true"
+								/>
 								{t("discard")}
 							</button>
 						</div>
@@ -176,6 +190,10 @@ export function GuardHome() {
 				<Link
 					href="/scan"
 					class="btn btn-primary btn-xl w-full">
+					<ScanLine
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{t("scanCheckpoint")}
 				</Link>
 			</div>

@@ -14,6 +14,15 @@ import {
 	type LocationWatch,
 } from "../../lib/geo";
 import type { ScanOutcome } from "../../types";
+import { ICON } from "../../components/IconButton";
+import {
+	ArrowLeft,
+	Check,
+	FilePlus,
+	Keyboard,
+	RotateCcw,
+	X,
+} from "lucide-preact";
 
 type CameraState = "starting" | "running" | ScannerError;
 
@@ -135,11 +144,19 @@ export function ScanPage() {
 					<Link
 						href={`/report/${outcome.scan.id}`}
 						class="btn btn-quiet btn-lg">
+						<FilePlus
+							size={ICON}
+							aria-hidden="true"
+						/>
 						{t("addReport")}
 					</Link>
 					<Link
 						href="/"
 						class="btn btn-primary btn-lg">
+						<ArrowLeft
+							size={ICON}
+							aria-hidden="true"
+						/>
 						{t("backToRound")}
 					</Link>
 				</div>
@@ -188,6 +205,10 @@ export function ScanPage() {
 							type="button"
 							class="link-btn"
 							onClick={() => geoRef.current?.retry()}>
+							<RotateCcw
+								size={ICON}
+								aria-hidden="true"
+							/>
 							{t("retry")}
 						</button>
 					)}
@@ -223,6 +244,10 @@ export function ScanPage() {
 						<button
 							class="btn btn-primary btn-lg"
 							disabled={busy || !manual.trim()}>
+							<Check
+								size={ICON}
+								aria-hidden="true"
+							/>
 							{busy ? t("checking") : t("logScan")}
 						</button>
 					</form>
@@ -231,6 +256,10 @@ export function ScanPage() {
 						type="button"
 						class="btn btn-quiet btn-lg w-full mt-4"
 						onClick={() => setShowManual(true)}>
+						<Keyboard
+							size={ICON}
+							aria-hidden="true"
+						/>
 						{t("typeCode")}
 					</button>
 				)}
@@ -238,6 +267,10 @@ export function ScanPage() {
 					type="button"
 					class="btn btn-ghost w-full mt-2"
 					onClick={() => navigate("/")}>
+					<X
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{t("cancel")}
 				</button>
 			</div>

@@ -8,6 +8,15 @@ import {
 } from "../lib/geocode";
 import type { PickerMap } from "../lib/map";
 import type { CheckpointLocation } from "../types";
+import { ICON, IconButton } from "../components/IconButton";
+import {
+	ArrowRight,
+	Check,
+	LocateFixed,
+	Search,
+	Trash2,
+	X,
+} from "lucide-preact";
 
 const DEFAULT_RADIUS_M = 50;
 
@@ -158,11 +167,14 @@ export function LocationPicker({
 					value={query}
 					onInput={(e) => setQuery(e.currentTarget.value)}
 				/>
-				<button
-					class="btn btn-quiet"
-					disabled={searching || !query.trim()}>
-					{searching ? t("searching") : t("search")}
-				</button>
+				<IconButton
+					icon={Search}
+					type="submit"
+					label={t("search")}
+					tip={t("searchTip")}
+					class={`icon-btn-lg ${searching ? "is-spinning" : ""}`}
+					disabled={searching || !query.trim()}
+				/>
 			</form>
 			{results &&
 				(results.length === 0 ? (
@@ -189,6 +201,10 @@ export function LocationPicker({
 					type="button"
 					class="btn btn-quiet"
 					onClick={useMyLocation}>
+					<LocateFixed
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{t("useMyLocation")}
 				</button>
 				<form
@@ -207,11 +223,14 @@ export function LocationPicker({
 							onInput={(e) => setCoords(e.currentTarget.value)}
 						/>
 					</label>
-					<button
-						class="btn btn-quiet"
-						disabled={!coords.trim()}>
-						{t("go")}
-					</button>
+					<IconButton
+						icon={ArrowRight}
+						type="submit"
+						label={t("go")}
+						tip={t("goTip")}
+						class="icon-btn-lg"
+						disabled={!coords.trim()}
+					/>
 				</form>
 			</div>
 
@@ -286,6 +305,10 @@ export function LocationPicker({
 							radiusM: radius,
 						})
 					}>
+					<Check
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{busy ? t("saving") : t("save")}
 				</button>
 				{initial && (
@@ -294,6 +317,10 @@ export function LocationPicker({
 						class="btn btn-quiet"
 						disabled={busy}
 						onClick={() => void save(null)}>
+						<Trash2
+							size={ICON}
+							aria-hidden="true"
+						/>
 						{t("removeLocation")}
 					</button>
 				)}
@@ -301,6 +328,10 @@ export function LocationPicker({
 					type="button"
 					class="btn btn-ghost"
 					onClick={onClose}>
+					<X
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{t("cancel")}
 				</button>
 			</div>

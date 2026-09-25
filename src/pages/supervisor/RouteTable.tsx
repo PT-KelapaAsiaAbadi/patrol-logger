@@ -3,6 +3,19 @@ import { useApp } from "../../state";
 import * as api from "../../data/api";
 import type { Checkpoint, CheckpointLocation } from "../../types";
 import { LocationPicker } from "../../components/LocationPicker";
+import { ICON, IconButton } from "../../components/IconButton";
+import {
+	Check,
+	ChevronDown,
+	ChevronUp,
+	Eye,
+	EyeOff,
+	MapPinPen,
+	MapPinPlus,
+	Pencil,
+	RefreshCw,
+	X,
+} from "lucide-preact";
 
 export const formatLocation = (l: CheckpointLocation) =>
 	`${l.lat.toFixed(5)}, ${l.lng.toFixed(5)} (${l.radiusM} m)`;
@@ -106,31 +119,27 @@ export function RouteTable({
 								class={cp.active ? "" : "text-muted"}>
 								<td class="tabular-nums whitespace-nowrap">
 									<span class="inline-flex items-center gap-1">
-										<button
-											type="button"
-											class="icon-btn"
-											aria-label={t("moveUp", {
+										<IconButton
+											icon={ChevronUp}
+											label={t("moveUp", {
 												name: cp.name,
 											})}
+											tip={t("moveUpTip")}
 											disabled={busy || i === 0}
-											onClick={() => void move(cp, true)}>
-											↑
-										</button>
-										<button
-											type="button"
-											class="icon-btn"
-											aria-label={t("moveDown", {
+											onClick={() => void move(cp, true)}
+										/>
+										<IconButton
+											icon={ChevronDown}
+											label={t("moveDown", {
 												name: cp.name,
 											})}
+											tip={t("moveDownTip")}
 											disabled={
 												busy ||
 												i === checkpoints.length - 1
 											}
-											onClick={() =>
-												void move(cp, false)
-											}>
-											↓
-										</button>
+											onClick={() => void move(cp, false)}
+										/>
 										<span class="ml-1">
 											{cp.routeOrder}
 										</span>
@@ -139,7 +148,7 @@ export function RouteTable({
 								<td>
 									{editing?.id === cp.id ? (
 										<form
-											class="flex flex-wrap gap-2"
+											class="flex flex-wrap items-center gap-2"
 											onSubmit={(e) => {
 												e.preventDefault();
 												void save(cp, {
@@ -161,18 +170,20 @@ export function RouteTable({
 												}
 											/>
 											<button
-												class="btn btn-primary"
+												class="icon-btn"
+												aria-label={t("save")}
+												data-tip={t("save")}
 												disabled={busy}>
-												{t("save")}
+												<Check
+													size={ICON}
+													aria-hidden="true"
+												/>
 											</button>
-											<button
-												type="button"
-												class="btn btn-quiet"
-												onClick={() =>
-													setEditing(null)
-												}>
-												{t("cancel")}
-											</button>
+											<IconButton
+												icon={X}
+												label={t("cancel")}
+												onClick={() => setEditing(null)}
+											/>
 										</form>
 									) : (
 										cp.name
@@ -189,62 +200,72 @@ export function RouteTable({
 									)}
 								</td>
 								<td class="whitespace-nowrap">
-									<span
-										class={`block ${cp.location ? "font-mono text-sm" : "text-muted"}`}>
-										{cp.location
-											? formatLocation(cp.location)
-											: t("locationNotSet")}
+									<span class="inline-flex items-center gap-2">
+										<span
+											class={
+												cp.location
+													? "font-mono text-sm"
+													: "text-muted"
+											}>
+											{cp.location
+												? formatLocation(cp.location)
+												: t("locationNotSet")}
+										</span>
+										<IconButton
+											icon={
+												cp.location
+													? MapPinPen
+													: MapPinPlus
+											}
+											label={`${t(cp.location ? "editLocation" : "setLocation")}: ${cp.name}`}
+											tip={t(
+												cp.location
+													? "editLocation"
+													: "setLocation",
+											)}
+											disabled={busy}
+											onClick={() => setPicking(cp)}
+										/>
 									</span>
-									<button
-										type="button"
-										class="link-btn"
-										disabled={busy}
-										aria-label={`${t(cp.location ? "editLocation" : "setLocation")}: ${cp.name}`}
-										onClick={() => setPicking(cp)}>
-										{t(
-											cp.location
-												? "editLocation"
-												: "setLocation",
-										)}
-									</button>
 								</td>
 								<td class="whitespace-nowrap">
-									<span class="inline-flex flex-wrap gap-x-4 gap-y-1">
-										<button
-											type="button"
-											class="link-btn"
+									<span class="icon-row">
+										<IconButton
+											icon={Pencil}
+											label={`${t("rename")}: ${cp.name}`}
+											tip={t("rename")}
 											disabled={busy}
 											onClick={() =>
 												setEditing({
 													id: cp.id,
 													name: cp.name,
 												})
-											}>
-											{t("rename")}
-										</button>
-										<button
-											type="button"
-											class="link-btn"
+											}
+										/>
+										<IconButton
+											icon={cp.active ? EyeOff : Eye}
+											label={`${t(cp.active ? "deactivate" : "activate")}: ${cp.name}`}
+											tip={t(
+												cp.active
+													? "checkpointOffTip"
+													: "checkpointOnTip",
+											)}
 											disabled={busy}
 											onClick={() =>
 												void save(cp, {
 													active: !cp.active,
 												})
-											}>
-											{t(
-												cp.active
-													? "deactivate"
-													: "activate",
-											)}
-										</button>
+											}
+										/>
 										{cp.active && (
-											<button
-												type="button"
-												class="link-btn"
+											<IconButton
+												icon={RefreshCw}
+												class="icon-btn-danger"
+												label={`${t("reissue")}: ${cp.name}`}
+												tip={t("reissueTip")}
 												disabled={busy}
-												onClick={() => reissue(cp)}>
-												{t("reissue")}
-											</button>
+												onClick={() => reissue(cp)}
+											/>
 										)}
 									</span>
 								</td>

@@ -8,6 +8,8 @@ import type { OverviewItem, OverviewMap } from "../../lib/map";
 import type { Key } from "../../i18n";
 import type { Checkpoint, ScanRow } from "../../types";
 import { LoadError } from "./Log";
+import { IconButton } from "../../components/IconButton";
+import { RefreshCw } from "lucide-preact";
 
 /** Popups are built as DOM with textContent, so names typed by people can't inject HTML. */
 function popup(lines: (string | { text: string; href: string })[]) {
@@ -183,13 +185,14 @@ export function MapView() {
 					</select>
 				</label>
 				<div class="flex items-end">
-					<button
-						type="button"
-						class="btn btn-quiet"
+					<IconButton
+						icon={RefreshCw}
+						label={t("refresh")}
+						tip={t("refreshTip")}
+						class={`icon-btn-lg ${data.loading ? "is-spinning" : ""}`}
 						disabled={data.loading}
-						onClick={data.reload}>
-						{data.loading ? t("loading") : t("refresh")}
-					</button>
+						onClick={data.reload}
+					/>
 				</div>
 			</div>
 

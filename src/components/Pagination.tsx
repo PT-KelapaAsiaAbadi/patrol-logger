@@ -1,4 +1,6 @@
 import { useApp } from "../state";
+import { IconButton } from "../components/IconButton";
+import { ChevronLeft, ChevronRight } from "lucide-preact";
 
 interface Props {
 	page: number;
@@ -22,23 +24,25 @@ export function Pagination({ page, pageSize, total, onPage, busy }: Props) {
 				{t("showing", { from, to, total })}
 			</p>
 			<div class="flex items-center gap-2">
-				<button
-					type="button"
-					class="btn btn-quiet"
+				<IconButton
+					icon={ChevronLeft}
+					label={t("prev")}
+					tip={t("prevTip")}
+					class="icon-btn-lg"
 					disabled={busy || page <= 1}
-					onClick={() => onPage(page - 1)}>
-					{t("prev")}
-				</button>
+					onClick={() => onPage(page - 1)}
+				/>
 				<span class="tabular-nums px-1">
 					{t("pageOf", { page, pages })}
 				</span>
-				<button
-					type="button"
-					class="btn btn-quiet"
+				<IconButton
+					icon={ChevronRight}
+					label={t("next")}
+					tip={t("nextTip")}
+					class="icon-btn-lg"
 					disabled={busy || page >= pages}
-					onClick={() => onPage(page + 1)}>
-					{t("next")}
-				</button>
+					onClick={() => onPage(page + 1)}
+				/>
 			</div>
 		</nav>
 	);

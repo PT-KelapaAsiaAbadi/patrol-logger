@@ -146,6 +146,34 @@ try {
 		.waitFor({ timeout: 15000 });
 	ok(true, "checkpoint renamed from the round table");
 
+	// Icon-only buttons: every one has a name for screen readers and help text on hover.
+	const unlabelled = await page
+		.locator(".icon-btn")
+		.evaluateAll(
+			(els) =>
+				els.filter(
+					(el) => !el.getAttribute("aria-label") || !el.dataset.tip,
+				).length,
+		);
+	ok(
+		unlabelled === 0,
+		"every icon button has a label and help text",
+		`${unlabelled} without`,
+	);
+	await route
+		.locator("tbody tr")
+		.nth(1)
+		.getByRole("button", { name: /^Rename/ })
+		.hover();
+	await page
+		.locator(".tooltip:not([hidden])")
+		.getByText("Rename", { exact: true })
+		.waitFor({ timeout: 5000 });
+	ok(true, "hovering an icon button shows what it does");
+	await page.mouse.move(0, 0);
+	await page.locator(".tooltip").waitFor({ state: "hidden", timeout: 5000 });
+	ok(true, "and the help text goes away when the mouse leaves");
+
 	acceptNextDialog();
 	await route
 		.locator("tbody tr")

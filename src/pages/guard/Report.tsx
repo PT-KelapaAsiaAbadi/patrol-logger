@@ -3,6 +3,8 @@ import { Link } from "wouter-preact";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
 import { compressImage } from "../../lib/image";
+import { ICON, IconButton } from "../../components/IconButton";
+import { ArrowLeft, ImagePlus, Send, Trash2 } from "lucide-preact";
 
 const MAX_PHOTOS = 5;
 
@@ -55,6 +57,10 @@ export function ReportPage({ scanId }: { scanId: string }) {
 				<Link
 					href="/"
 					class="btn btn-primary btn-lg mt-auto">
+					<ArrowLeft
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{t("backToRound")}
 				</Link>
 			</main>
@@ -66,6 +72,10 @@ export function ReportPage({ scanId }: { scanId: string }) {
 			<Link
 				href="/"
 				class="link-btn">
+				<ArrowLeft
+					size={ICON}
+					aria-hidden="true"
+				/>
 				{t("back")}
 			</Link>
 			<h1 class="text-2xl font-bold mt-3 mb-5">
@@ -100,16 +110,16 @@ export function ReportPage({ scanId }: { scanId: string }) {
 									alt=""
 									class="aspect-square object-cover w-full border border-line"
 								/>
-								<button
-									type="button"
-									class="link-btn text-left"
+								<IconButton
+									icon={Trash2}
+									class="icon-btn-danger justify-self-start"
+									label={t("removePhoto")}
 									onClick={() =>
 										setPhotos((p) =>
 											p.filter((_, j) => j !== i),
 										)
-									}>
-									{t("removePhoto")}
-								</button>
+									}
+								/>
 							</li>
 						))}
 					</ul>
@@ -117,6 +127,10 @@ export function ReportPage({ scanId }: { scanId: string }) {
 				{photos.length < MAX_PHOTOS && (
 					<label
 						class={`btn btn-quiet w-full ${processing ? "opacity-60 pointer-events-none" : ""}`}>
+						<ImagePlus
+							size={ICON}
+							aria-hidden="true"
+						/>
 						{processing ? t("processingPhotos") : t("addPhotos")}
 						<input
 							type="file"
@@ -144,6 +158,10 @@ export function ReportPage({ scanId }: { scanId: string }) {
 				class="btn btn-primary btn-lg w-full mt-6"
 				disabled={busy || processing}
 				onClick={() => void send()}>
+				<Send
+					size={ICON}
+					aria-hidden="true"
+				/>
 				{busy ? t("sending") : t("sendReport")}
 			</button>
 		</main>

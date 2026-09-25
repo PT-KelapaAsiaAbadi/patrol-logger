@@ -2,6 +2,8 @@ import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
 import type { Account } from "../../types";
+import { IconButton } from "../../components/IconButton";
+import { KeyRound, UserCheck, UserX } from "lucide-preact";
 
 type Notice =
 	| { kind: "password"; name: string; password: string }
@@ -117,29 +119,38 @@ export function AccountsTable({
 									</td>
 									<td class="whitespace-nowrap">
 										{!self && (
-											<span class="inline-flex flex-wrap gap-x-4 gap-y-1">
-												<button
-													type="button"
-													class="link-btn"
+											<span class="icon-row">
+												<IconButton
+													icon={KeyRound}
+													label={`${t("newPassword")}: ${a.name}`}
+													tip={t("newPasswordTip")}
 													disabled={busy || !a.active}
 													onClick={() =>
 														resetPassword(a)
-													}>
-													{t("newPassword")}
-												</button>
-												<button
-													type="button"
-													class="link-btn"
+													}
+												/>
+												<IconButton
+													icon={
+														a.active
+															? UserX
+															: UserCheck
+													}
+													class={
+														a.active
+															? "icon-btn-danger"
+															: ""
+													}
+													label={`${t(a.active ? "deactivate" : "activate")}: ${a.name}`}
+													tip={t(
+														a.active
+															? "accountOffTip"
+															: "accountOnTip",
+													)}
 													disabled={busy}
 													onClick={() =>
 														toggleActive(a)
-													}>
-													{t(
-														a.active
-															? "deactivate"
-															: "activate",
-													)}
-												</button>
+													}
+												/>
 											</span>
 										)}
 									</td>

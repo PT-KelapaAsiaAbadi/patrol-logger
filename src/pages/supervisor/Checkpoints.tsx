@@ -10,6 +10,8 @@ import { LocationPicker } from "../../components/LocationPicker";
 import { formatLocation } from "./RouteTable";
 import { LoadError } from "./Log";
 import { RouteTable } from "./RouteTable";
+import { ICON } from "../../components/IconButton";
+import { Download, MapPinPen, MapPinPlus, Plus, Printer } from "lucide-preact";
 
 export function Checkpoints() {
 	const { t } = useApp();
@@ -132,6 +134,10 @@ export function Checkpoints() {
 									onClick={() =>
 										printDocument(labelsDocument(chosen))
 									}>
+									<Printer
+										size={ICON}
+										aria-hidden="true"
+									/>
 									{t("printSelected", { n: chosen.length })}
 								</button>
 								<button
@@ -139,6 +145,10 @@ export function Checkpoints() {
 									class="btn btn-quiet"
 									disabled={chosen.length === 0}
 									onClick={download}>
+									<Download
+										size={ICON}
+										aria-hidden="true"
+									/>
 									{t("downloadLabels")}
 								</button>
 								{saved && (
@@ -245,6 +255,10 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 				<button
 					class="btn btn-primary"
 					disabled={busy}>
+					<Plus
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{busy ? t("saving") : t("addCheckpoint")}
 				</button>
 			</form>
@@ -258,6 +272,17 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 					type="button"
 					class="link-btn"
 					onClick={() => setPicking(true)}>
+					{location ? (
+						<MapPinPen
+							size={ICON}
+							aria-hidden="true"
+						/>
+					) : (
+						<MapPinPlus
+							size={ICON}
+							aria-hidden="true"
+						/>
+					)}
 					{location ? t("editLocation") : t("setLocationOptional")}
 				</button>
 			</div>

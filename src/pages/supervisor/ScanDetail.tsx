@@ -5,6 +5,8 @@ import * as api from "../../data/api";
 import { formatDateTime, formatDistance } from "../../lib/format";
 import { LoadError } from "./Log";
 import { LocationBadge, mapLink } from "../../components/LocationBadge";
+import { ICON } from "../../components/IconButton";
+import { ArrowLeft, MapPin } from "lucide-preact";
 
 export function ScanDetail({ id }: { id: string }) {
 	const { t, lang } = useApp();
@@ -21,6 +23,10 @@ export function ScanDetail({ id }: { id: string }) {
 			<Link
 				href="/supervisor"
 				class="link-btn">
+				<ArrowLeft
+					size={ICON}
+					aria-hidden="true"
+				/>
 				{t("back")}
 			</Link>
 			{scan.error && (
@@ -73,6 +79,10 @@ export function ScanDetail({ id }: { id: string }) {
 										)}
 										target="_blank"
 										rel="noopener noreferrer">
+										<MapPin
+											size={ICON}
+											aria-hidden="true"
+										/>
 										{t("openScanInMap")}
 									</a>
 								</>
@@ -88,6 +98,10 @@ export function ScanDetail({ id }: { id: string }) {
 										)}
 										target="_blank"
 										rel="noopener noreferrer">
+										<MapPin
+											size={ICON}
+											aria-hidden="true"
+										/>
 										{t("openCheckpointInMap")}
 									</a>
 								</>

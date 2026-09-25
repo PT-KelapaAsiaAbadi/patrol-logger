@@ -2,6 +2,8 @@ import type { ComponentChildren } from "preact";
 import { Link, useLocation } from "wouter-preact";
 import { useApp } from "../state";
 import * as api from "../data/api";
+import { ICON } from "../components/IconButton";
+import { ClipboardList, LogOut, Map, QrCode, Users } from "lucide-preact";
 
 export function SupervisorShell({ children }: { children: ComponentChildren }) {
 	const { t, user, setUser } = useApp();
@@ -10,6 +12,7 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
 		{
 			href: "/supervisor",
 			label: t("navLog"),
+			icon: ClipboardList,
 			active:
 				location === "/supervisor" ||
 				location.startsWith("/supervisor/scans"),
@@ -17,16 +20,19 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
 		{
 			href: "/supervisor/map",
 			label: t("navMap"),
+			icon: Map,
 			active: location === "/supervisor/map",
 		},
 		{
 			href: "/supervisor/guards",
 			label: t("navGuards"),
+			icon: Users,
 			active: location === "/supervisor/guards",
 		},
 		{
 			href: "/supervisor/checkpoints",
 			label: t("navCheckpoints"),
+			icon: QrCode,
 			active: location === "/supervisor/checkpoints",
 		},
 	];
@@ -43,6 +49,10 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
 								href={n.href}
 								class={`tab ${n.active ? "is-active" : ""}`}
 								aria-current={n.active ? "page" : undefined}>
+								<n.icon
+									size={ICON}
+									aria-hidden="true"
+								/>
 								{n.label}
 							</Link>
 						))}
@@ -56,6 +66,10 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
 							setUser(null);
 							navigate("/login");
 						}}>
+						<LogOut
+							size={ICON}
+							aria-hidden="true"
+						/>
 						{t("signOut")}
 					</button>
 				</div>

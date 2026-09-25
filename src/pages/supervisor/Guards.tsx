@@ -12,6 +12,8 @@ import { saveFile } from "../../lib/download";
 import type { GuardImportResult, NewGuard, Role } from "../../types";
 import { LoadError } from "./Log";
 import { AccountsTable } from "./AccountsTable";
+import { ICON } from "../../components/IconButton";
+import { Download, Upload, UserPlus, X } from "lucide-preact";
 
 const PREVIEW_ROWS = 50;
 
@@ -154,6 +156,10 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 				<button
 					class="btn btn-primary"
 					disabled={busy}>
+					<UserPlus
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{busy ? t("saving") : t("addGuard")}
 				</button>
 			</form>
@@ -202,11 +208,19 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 						"text/csv",
 					)
 				}>
+				<Download
+					size={ICON}
+					aria-hidden="true"
+				/>
 				{t("downloadTemplate")}
 			</button>
 
 			<label
 				class={`btn btn-quiet w-full mt-3 ${busy ? "opacity-60 pointer-events-none" : ""}`}>
+				<Upload
+					size={ICON}
+					aria-hidden="true"
+				/>
 				{t("chooseCsv")}
 				<input
 					type="file"
@@ -294,6 +308,10 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 							class="btn btn-primary"
 							disabled={busy || csv.guards.length === 0}
 							onClick={() => void submit()}>
+							<UserPlus
+								size={ICON}
+								aria-hidden="true"
+							/>
 							{busy
 								? t("saving")
 								: t("addGuards", { n: csv.guards.length })}
@@ -303,6 +321,10 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 							class="btn btn-quiet"
 							disabled={busy}
 							onClick={() => setFile(null)}>
+							<X
+								size={ICON}
+								aria-hidden="true"
+							/>
 							{t("cancel")}
 						</button>
 					</div>
@@ -368,6 +390,10 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 								"text/csv",
 							)
 						}>
+						<Download
+							size={ICON}
+							aria-hidden="true"
+						/>
 						{t("downloadPasswords")}
 					</button>
 				</div>

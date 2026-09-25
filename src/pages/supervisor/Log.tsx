@@ -1,5 +1,4 @@
 import { useState } from "preact/hooks";
-import { Link } from "wouter-preact";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";
 import * as api from "../../data/api";
@@ -8,6 +7,8 @@ import { scansToCsv } from "../../lib/csv";
 import { saveFile } from "../../lib/download";
 import { Pagination } from "../../components/Pagination";
 import { LocationBadge } from "../../components/LocationBadge";
+import { ICON, IconLink } from "../../components/IconButton";
+import { Download, FileText, RotateCcw } from "lucide-preact";
 
 const PAGE_SIZE = 12;
 
@@ -169,6 +170,10 @@ export function SupervisorLog() {
 							type="button"
 							class="btn btn-quiet"
 							onClick={() => void download()}>
+							<Download
+								size={ICON}
+								aria-hidden="true"
+							/>
 							{t("downloadCsv")}
 						</button>
 						{saved && (
@@ -221,11 +226,13 @@ export function SupervisorLog() {
 												</td>
 												<td>
 													{r.report ? (
-														<Link
+														<IconLink
+															icon={FileText}
 															href={`/supervisor/scans/${r.id}`}
-															class="link">
-															{t("viewReport")}
-														</Link>
+															label={t(
+																"viewReport",
+															)}
+														/>
 													) : (
 														<span
 															class="text-muted"
@@ -279,6 +286,10 @@ export function LoadError({ onRetry }: { onRetry: () => void }) {
 				type="button"
 				class="link-btn"
 				onClick={onRetry}>
+				<RotateCcw
+					size={ICON}
+					aria-hidden="true"
+				/>
 				{t("retry")}
 			</button>
 		</div>

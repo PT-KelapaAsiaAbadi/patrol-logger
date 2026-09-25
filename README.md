@@ -72,6 +72,7 @@ From then on, supervisors add guards (and other supervisors) from the Accounts t
 | Offline / install | vite-plugin-pwa | caches the app shell, adds manifest |
 | Backend | Supabase | Postgres + Row Level Security, Auth, Storage, two Edge Functions |
 | Offline queue | idb-keyval | IndexedDB holds hundreds of MB, so queued report photos fit |
+| Icons | Lucide (`lucide-preact`) | vector icons, each imported on its own; icon-only buttons have an aria-label and hover/focus help text (`src/lib/tooltip.ts`). No emoji anywhere |
 | Checkpoint map | Leaflet + OpenStreetMap tiles | free, no API key; loaded only when a supervisor opens the map |
 | Address search | Nominatim (OpenStreetMap) | free, no API key; searches only on "Search", as its usage policy asks |
 

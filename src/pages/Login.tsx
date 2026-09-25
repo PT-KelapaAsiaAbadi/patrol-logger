@@ -2,6 +2,8 @@ import { useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { useApp } from "../state";
 import * as api from "../data/api";
+import { ICON } from "../components/IconButton";
+import { LogIn } from "lucide-preact";
 
 export function Login() {
 	const { t, setUser } = useApp();
@@ -78,6 +80,10 @@ export function Login() {
 				<button
 					class="btn btn-primary btn-lg"
 					disabled={busy}>
+					<LogIn
+						size={ICON}
+						aria-hidden="true"
+					/>
 					{busy ? t("signingIn") : t("signIn")}
 				</button>
 			</form>
