@@ -263,6 +263,12 @@ const id = {
 	refreshTip: "Muat ulang data peta",
 	searchTip: "Cari alamat ini",
 	goTip: "Tampilkan koordinat ini di peta",
+	select: "Pilih",
+	selectAllCheckpoints: "Pilih semua titik",
+	removeSelected: "Hapus yang dipilih ({n})",
+	removeConfirm:
+		"Hapus {n} titik: {names}? Titik ini hilang dari putaran, daftar, dan peta. Scan lama tetap tersimpan dengan namanya.",
+	removed: "Titik dihapus: {n}.",
 	notFound: "Halaman tidak ditemukan.",
 };
 
@@ -529,6 +535,12 @@ const en: Record<Key, string> = {
 	refreshTip: "Reload the map data",
 	searchTip: "Search this address",
 	goTip: "Show these coordinates on the map",
+	select: "Select",
+	selectAllCheckpoints: "Select all checkpoints",
+	removeSelected: "Remove selected ({n})",
+	removeConfirm:
+		"Remove {n} checkpoints: {names}? They disappear from the round, the lists and the map. Past scans are kept, with their names.",
+	removed: "Checkpoints removed: {n}.",
 	notFound: "Page not found.",
 };
 

@@ -168,6 +168,10 @@ Open work before real use. `TODO:` comments in the code are highlighted by the T
 - [ ] How one-time passwords reach guards, and when the password CSV is deleted.
 - [ ] One-page guard guide (Indonesian) and a supervisor guide.
 
+### Supervisor screens
+
+- [ ] Refactor the log filters into one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status), and add a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
+
 ### Decisions (not built)
 
 - [ ] Shifts: "missed checkpoints" is per calendar day, so a night shift over midnight is split and rounds within a shift aren't tracked.

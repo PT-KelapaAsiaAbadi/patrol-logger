@@ -5,7 +5,14 @@ import { useAsync, useOnline, useOutbox } from "../../hooks";
 import * as api from "../../data/api";
 import { formatTime } from "../../lib/format";
 import { ICON, IconButton } from "../../components/IconButton";
-import { LogOut, RotateCcw, ScanLine, Trash2, X } from "lucide-preact";
+import {
+	CircleCheck,
+	LogOut,
+	RotateCcw,
+	ScanLine,
+	Trash2,
+	X,
+} from "lucide-preact";
 
 export function GuardHome() {
 	const { t, lang, user, setUser } = useApp();
@@ -155,7 +162,13 @@ export function GuardHome() {
 									{cp.routeOrder}
 								</span>
 								<span class="flex-1">{cp.name}</span>
-								<span class="status tabular-nums">
+								<span class="status tabular-nums inline-flex items-center justify-end gap-1">
+									{v && !v.queued && (
+										<CircleCheck
+											size={ICON}
+											aria-hidden="true"
+										/>
+									)}
 									{!v
 										? t("notYet")
 										: v.queued

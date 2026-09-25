@@ -386,6 +386,9 @@ export const setCheckpointLocation = (
 	location: CheckpointLocation | null,
 ) => needsNetwork(() => backend.setCheckpointLocation(id, location));
 
+export const removeCheckpoints = (ids: string[]) =>
+	needsNetwork(() => backend.removeCheckpoints(ids));
+
 export const moveCheckpoint = (id: string, up: boolean) =>
 	needsNetwork(() => backend.moveCheckpoint(id, up));
 

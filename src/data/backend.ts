@@ -404,10 +404,23 @@ export async function createGuards(
 	return data;
 }
 
+/** Every checkpoint that hasn't been removed, in round order. */
 export async function allCheckpoints(): Promise<Checkpoint[]> {
 	return must(
-		await supabase.from("checkpoints").select("*").order("route_order"),
+		await supabase
+			.from("checkpoints")
+			.select("*")
+			.is("removed_at", null)
+			.order("route_order"),
 	).map(toCheckpoint);
+}
+
+/**
+ * Removes checkpoints: they leave the round, the lists and the map, but old scans keep pointing
+ * at them (and keep their names). Returns how many were removed.
+ */
+export async function removeCheckpoints(ids: string[]): Promise<number> {
+	return must(await supabase.rpc("remove_checkpoints", { p_ids: ids }));
 }
 
 /** Appends a checkpoint to the end of the route. The server picks the id and a unique manual code. */

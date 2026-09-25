@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
 import type { Checkpoint, CheckpointLocation } from "../../types";
@@ -14,13 +14,18 @@ import {
 	MapPinPlus,
 	Pencil,
 	RefreshCw,
+	Trash2,
 	X,
 } from "lucide-preact";
 
 export const formatLocation = (l: CheckpointLocation) =>
 	`${l.lat.toFixed(5)}, ${l.lng.toFixed(5)} (${l.radiusM} m)`;
 
-type Notice = { kind: "reissued"; name: string } | { kind: "error" } | null;
+type Notice =
+	| { kind: "reissued"; name: string }
+	| { kind: "removed"; n: number }
+	| { kind: "error" }
+	| null;
 
 /**
  * The round as supervisors manage it: order, rename, take in or out of use, replace a sticker.
@@ -28,9 +33,14 @@ type Notice = { kind: "reissued"; name: string } | { kind: "error" } | null;
  */
 export function RouteTable({
 	checkpoints,
+	selected,
+	onSelect,
 	onChanged,
 }: {
 	checkpoints: Checkpoint[];
+	/** Shared with the label sheet: pick checkpoints once, then print or remove them. */
+	selected: Set<string>;
+	onSelect: (next: Set<string>) => void;
 	onChanged: (reissued?: Checkpoint) => void;
 }) {
 	const { t } = useApp();
@@ -39,6 +49,36 @@ export function RouteTable({
 		null,
 	);
 	const [notice, setNotice] = useState<Notice>(null);
+	const chosen = checkpoints.filter((cp) => selected.has(cp.id));
+	const allChosen =
+		checkpoints.length > 0 && chosen.length === checkpoints.length;
+	const allBox = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		if (allBox.current)
+			allBox.current.indeterminate = chosen.length > 0 && !allChosen;
+	});
+
+	function toggle(id: string) {
+		const next = new Set(selected);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		onSelect(next);
+	}
+
+	function removeChosen() {
+		const names = chosen.map((cp) => cp.name).join(", ");
+		if (!confirm(t("removeConfirm", { n: chosen.length, names }))) return;
+		void run(async () => {
+			const removed = await api.removeCheckpoints(
+				chosen.map((cp) => cp.id),
+			);
+			const next = new Set(selected);
+			for (const cp of chosen) next.delete(cp.id);
+			onSelect(next);
+			setNotice({ kind: "removed", n: removed });
+			onChanged();
+		});
+	}
 	const [picking, setPicking] = useState<Checkpoint | null>(null);
 
 	async function run(action: () => Promise<void>) {
@@ -84,6 +124,34 @@ export function RouteTable({
 				class="text-lg font-semibold mb-3">
 				{t("routeTitle")}
 			</h2>
+			<div class="label-toolbar mb-3">
+				<span
+					class="text-muted tabular-nums"
+					aria-live="polite">
+					{t("selectedCount", {
+						n: chosen.length,
+						total: checkpoints.length,
+					})}
+				</span>
+				<button
+					type="button"
+					class="btn btn-quiet btn-danger sm:ml-auto"
+					disabled={busy || chosen.length === 0}
+					onClick={removeChosen}>
+					<Trash2
+						size={ICON}
+						aria-hidden="true"
+					/>
+					{t("removeSelected", { n: chosen.length })}
+				</button>
+			</div>
+			{notice?.kind === "removed" && (
+				<p
+					class="notice notice-ok mb-3"
+					role="status">
+					{t("removed", { n: notice.n })}
+				</p>
+			)}
 			{notice?.kind === "reissued" && (
 				<p
 					class="notice notice-ok mb-3"
@@ -102,6 +170,27 @@ export function RouteTable({
 				<table class="log-table">
 					<thead>
 						<tr>
+							<th scope="col">
+								<input
+									ref={allBox}
+									type="checkbox"
+									class="size-5"
+									aria-label={t("selectAllCheckpoints")}
+									data-tip={t("selectAllCheckpoints")}
+									checked={allChosen}
+									onChange={() =>
+										onSelect(
+											allChosen
+												? new Set()
+												: new Set(
+														checkpoints.map(
+															(cp) => cp.id,
+														),
+													),
+										)
+									}
+								/>
+							</th>
 							<th scope="col">{t("colStop")}</th>
 							<th scope="col">{t("checkpointName")}</th>
 							<th scope="col">{t("colCode")}</th>
@@ -117,6 +206,15 @@ export function RouteTable({
 							<tr
 								key={cp.id}
 								class={cp.active ? "" : "text-muted"}>
+								<td>
+									<input
+										type="checkbox"
+										class="size-5"
+										aria-label={`${t("select")}: ${cp.name}`}
+										checked={selected.has(cp.id)}
+										onChange={() => toggle(cp.id)}
+									/>
+								</td>
 								<td class="tabular-nums whitespace-nowrap">
 									<span class="inline-flex items-center gap-1">
 										<IconButton

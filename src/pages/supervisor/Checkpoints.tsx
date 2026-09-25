@@ -86,6 +86,8 @@ export function Checkpoints() {
 					<>
 						<RouteTable
 							checkpoints={all.map(({ cp }) => cp)}
+							selected={selected}
+							onSelect={select}
 							onChanged={(reissued) => {
 								// A replaced sticker must be printed straight away.
 								if (reissued)

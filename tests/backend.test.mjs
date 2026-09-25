@@ -504,6 +504,60 @@ section("location checks");
 	);
 }
 
+section("removing checkpoints");
+{
+	const { data: list } = await sup
+		.from("checkpoints")
+		.select("id, name, manual_code, route_order")
+		.is("removed_at", null)
+		.order("route_order");
+	const [a, b, c] = list.slice(-3);
+	const { error: ge } = await guard.rpc("remove_checkpoints", {
+		p_ids: [c.id],
+	});
+	ok(
+		ge?.message === "not_allowed",
+		"guards cannot remove checkpoints",
+		ge?.message,
+	);
+	const { data: n, error } = await sup.rpc("remove_checkpoints", {
+		p_ids: [b.id, c.id],
+	});
+	ok(
+		!error && n === 2,
+		"supervisor removes two checkpoints",
+		error?.message ?? n,
+	);
+	const { data: again } = await sup.rpc("remove_checkpoints", {
+		p_ids: [b.id],
+	});
+	ok(again === 0, "removing twice does nothing");
+	const { data: round } = await guard.rpc("route_checkpoints");
+	ok(
+		!round.some((r) => r.id === b.id || r.id === c.id),
+		"removed checkpoints leave the guard's round",
+	);
+	const { data: r } = await guard.rpc("submit_scan", {
+		p_id: randomUUID(),
+		p_code: c.manual_code,
+		p_scanned_at: now,
+	});
+	ok(
+		r.ok === false && r.reason === "inactive",
+		"a removed checkpoint's sticker says no longer in use",
+	);
+	await sup.rpc("move_checkpoint", { p_id: a.id, p_up: false });
+	const { data: aAfter } = await sup
+		.from("checkpoints")
+		.select("route_order")
+		.eq("id", a.id)
+		.single();
+	ok(
+		aAfter.route_order === a.route_order,
+		"moving down past removed checkpoints does nothing",
+	);
+}
+
 section("accounts: create, reset, deactivate");
 {
 	const newEmail = `guard${Date.now()}@patroli.test`;

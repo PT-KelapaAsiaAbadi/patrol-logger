@@ -45,6 +45,7 @@ export type Database = {
           name: string
           qr_version: number
           radius_m: number
+          removed_at: string | null
           route_order: number
         }
         Insert: {
@@ -57,6 +58,7 @@ export type Database = {
           name: string
           qr_version?: number
           radius_m?: number
+          removed_at?: string | null
           route_order: number
         }
         Update: {
@@ -69,6 +71,7 @@ export type Database = {
           name?: string
           qr_version?: number
           radius_m?: number
+          removed_at?: string | null
           route_order?: number
         }
         Relationships: []
@@ -245,6 +248,7 @@ export type Database = {
           name: string
           qr_version: number
           radius_m: number
+          removed_at: string | null
           route_order: number
         }
         SetofOptions: {
@@ -275,6 +279,7 @@ export type Database = {
           name: string
           qr_version: number
           radius_m: number
+          removed_at: string | null
           route_order: number
         }[]
         SetofOptions: {
@@ -301,6 +306,7 @@ export type Database = {
           name: string
           qr_version: number
           radius_m: number
+          removed_at: string | null
           route_order: number
         }
         SetofOptions: {
@@ -310,6 +316,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      remove_checkpoints: { Args: { p_ids: string[] }; Returns: number }
       route_checkpoints: {
         Args: never
         Returns: {
@@ -335,6 +342,7 @@ export type Database = {
           name: string
           qr_version: number
           radius_m: number
+          removed_at: string | null
           route_order: number
         }
         SetofOptions: {
@@ -377,6 +385,7 @@ export type Database = {
           name: string
           qr_version: number
           radius_m: number
+          removed_at: string | null
           route_order: number
         }
         SetofOptions: {

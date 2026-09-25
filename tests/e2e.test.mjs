@@ -127,7 +127,7 @@ try {
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
 	await text("1 of 9 selected");
 	ok(true, "new checkpoint added and pre-selected for printing");
-	await page.getByLabel("Select all").check();
+	await page.getByLabel("Select all", { exact: true }).check();
 	await text("9 of 9 selected");
 	ok(
 		await page.getByRole("button", { name: "Print QR (9)" }).isEnabled(),
@@ -182,7 +182,7 @@ try {
 		.click();
 	await text(`New sticker for "${names[0].trim()}" is ready`);
 	// The table reloads just after the message appears.
-	const firstCode = route.locator("tbody tr").first().locator("td").nth(2);
+	const firstCode = route.locator("tbody tr").first().locator("td").nth(3);
 	await page.waitForFunction(
 		([el, old]) => el.textContent.trim() !== old,
 		[await firstCode.elementHandle(), codes[0].trim()],
@@ -194,7 +194,7 @@ try {
 		.locator("tbody tr")
 		.last()
 		.locator("td")
-		.nth(4);
+		.nth(5);
 	ok(
 		/-?\d+\.\d{5}, -?\d+\.\d{5} \(50 m\)/.test(
 			await lastRowLocation.textContent(),
@@ -296,6 +296,10 @@ try {
 	await page.getByRole("link", { name: "Back to round" }).click();
 	await text("1 of 9 checkpoints checked today");
 	ok(true, "report with photo sent, round progress updates");
+	ok(
+		(await page.locator(".route li.is-done svg").count()) === 1,
+		"a checked stop shows a check mark",
+	);
 
 	section("offline queue");
 	await context.setOffline(true);
@@ -433,6 +437,43 @@ try {
 		)
 		.catch(() => false);
 	ok(loaded, "report note and photo visible to the supervisor");
+
+	section("remove checkpoints");
+	await page.getByRole("link", { name: "Checkpoints and QR" }).click();
+	const round = page.locator("section", {
+		has: page.getByRole("heading", { name: "Round order" }),
+	});
+	await round.locator("tbody tr").first().waitFor({ timeout: 20000 });
+	const before = await round.locator("tbody tr").count();
+	await round
+		.getByRole("checkbox", { name: "Select: Atap dan tandon air" })
+		.check();
+	await round
+		.getByRole("checkbox", { name: "Select: Pos jaga gerbang" })
+		.check();
+	await page.getByText(`2 of ${before} selected`).first().waitFor();
+	ok(
+		await page.getByRole("button", { name: "Print QR (2)" }).isEnabled(),
+		"the round table and the label sheet share one selection",
+	);
+	page.once("dialog", (d) => void d.accept());
+	await round.getByRole("button", { name: "Remove selected (2)" }).click();
+	await page.getByText("Checkpoints removed: 2.").waitFor({ timeout: 15000 });
+	await page.waitForFunction(
+		(n) =>
+			[...document.querySelectorAll("section")].some(
+				(s) =>
+					s.querySelector("h2")?.textContent === "Round order" &&
+					s.querySelectorAll("tbody tr").length === n,
+			),
+		before - 2,
+		{ timeout: 15000 },
+	);
+	ok(
+		!(await round.getByText("Atap dan tandon air").isVisible()) &&
+			!(await round.getByText("Pos jaga gerbang").isVisible()),
+		"two selected checkpoints removed",
+	);
 
 	await page.getByRole("link", { name: "Accounts" }).click();
 	const row = page.locator("tr", {

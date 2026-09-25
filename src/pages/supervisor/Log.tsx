@@ -116,6 +116,12 @@ export function SupervisorLog() {
 					{t("navLog")}
 				</h2>
 
+				{/*
+					TODO: refactor the filters into one filter bar shared with the Map tab (guard,
+					checkpoint, date or date range, location status), and add a search box (guard or
+					checkpoint name, report text). Search has to run on the server (e.g. ilike on
+					scan_rows, or a full-text index) so it works with paging and the CSV export.
+				*/}
 				<div class="filters">
 					<label>
 						<span>{t("guard")}</span>

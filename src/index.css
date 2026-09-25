@@ -209,8 +209,13 @@ img {
 		width: 2.75rem;
 		height: 2.75rem;
 	}
-	.icon-btn-danger {
+	.icon-btn-danger,
+	.btn-danger {
 		color: var(--warn);
+	}
+	.log-table input[type="checkbox"] {
+		accent-color: var(--accent);
+		vertical-align: middle;
 	}
 	.icon-row {
 		display: inline-flex;
