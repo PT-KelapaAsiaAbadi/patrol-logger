@@ -26,3 +26,6 @@ Thumbs.db
 
 # Browser test failure screenshot
 e2e-failure.png
+
+# Netlify CLI link (local only)
+.netlify/
