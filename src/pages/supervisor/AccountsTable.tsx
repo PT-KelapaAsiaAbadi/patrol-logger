@@ -1,19 +1,33 @@
 /**
- * The account list on the Accounts tab: every guard and supervisor, with buttons to give someone a
- * new password or to switch their account off and on again.
+ * The account list on the Accounts tab: every guard and supervisor with their sign-in phone number,
+ * and buttons to change that number, confirm it with a one-time code, give someone a new password,
+ * or switch their account off and on again.
  */
 
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
+import { formatPhone } from "../../lib/phone";
 import type { Account } from "../../types";
-import { IconButton } from "../../components/IconButton";
-import { KeyRound, UserCheck, UserX } from "lucide-preact";
+import { ICON, IconButton } from "../../components/IconButton";
+import { PhoneCode } from "./PhoneCode";
+import {
+	KeyRound,
+	Save,
+	ShieldCheck,
+	Smartphone,
+	UserCheck,
+	UserX,
+	X,
+} from "lucide-preact";
 
 type Notice =
 	| { kind: "password"; name: string; password: string }
 	| { kind: "error" }
 	| null;
+
+/** The form or code step open above the table, for one account at a time. */
+type Panel = { kind: "phone" | "code"; account: Account } | null;
 
 /**
  * Lists every account, with a new-password and a deactivate/reactivate action.
@@ -29,10 +43,12 @@ export function AccountsTable({
 	const { t, user } = useApp();
 	const [busy, setBusy] = useState(false);
 	const [notice, setNotice] = useState<Notice>(null);
+	const [panel, setPanel] = useState<Panel>(null);
 
 	async function run(action: () => Promise<void>) {
 		setBusy(true);
 		setNotice(null);
+		setPanel(null);
 		try {
 			await action();
 		} catch {
@@ -64,8 +80,48 @@ export function AccountsTable({
 		});
 	}
 
+	/** Opens the change-number form or the code step for one account (only one at a time). */
+	function open(kind: "phone" | "code", a: Account) {
+		setNotice(null);
+		setPanel({ kind, account: a });
+	}
+
 	return (
 		<>
+			{panel?.kind === "phone" && (
+				<ChangePhone
+					key={panel.account.id}
+					account={panel.account}
+					onClose={() => setPanel(null)}
+					onSaved={onChanged}
+				/>
+			)}
+			{panel?.kind === "code" && panel.account.phone && (
+				<section
+					class="panel mb-3 grid gap-2"
+					aria-label={`${t("confirmNumber")}: ${panel.account.name}`}>
+					<div class="flex items-center justify-between gap-3">
+						<h3 class="font-semibold">
+							{t("confirmNumber")}: {panel.account.name}
+						</h3>
+						<IconButton
+							icon={X}
+							label={t("cancel")}
+							onClick={() => setPanel(null)}
+						/>
+					</div>
+					<PhoneCode
+						key={panel.account.id}
+						account={{
+							id: panel.account.id,
+							name: panel.account.name,
+							phone: panel.account.phone,
+						}}
+						alreadySent={false}
+						onConfirmed={onChanged}
+					/>
+				</section>
+			)}
 			{notice?.kind === "password" && (
 				<div
 					class="notice notice-ok mb-3"
@@ -91,7 +147,7 @@ export function AccountsTable({
 					<thead>
 						<tr>
 							<th scope="col">{t("fullName")}</th>
-							<th scope="col">{t("email")}</th>
+							<th scope="col">{t("phone")}</th>
 							<th scope="col">{t("colRole")}</th>
 							<th scope="col">{t("colStatus")}</th>
 							<th scope="col">
@@ -115,7 +171,25 @@ export function AccountsTable({
 											</span>
 										)}
 									</td>
-									<td>{a.email}</td>
+									<td class="whitespace-nowrap">
+										{a.phone ? (
+											<>
+												{formatPhone(a.phone)}
+												<span class="block text-sm text-muted">
+													{t(
+														a.phoneVerified
+															? "phoneConfirmed"
+															: "phoneUnconfirmed",
+													)}
+												</span>
+											</>
+										) : (
+											// An account from before phone sign-in: it can't sign in yet.
+											<span class="text-warn">
+												{t("noPhone")}
+											</span>
+										)}
+									</td>
 									<td>
 										{t(
 											a.role === "supervisor"
@@ -131,41 +205,74 @@ export function AccountsTable({
 										)}
 									</td>
 									<td class="whitespace-nowrap">
-										{!self && (
-											<span class="icon-row">
-												<IconButton
-													icon={KeyRound}
-													label={`${t("newPassword")}: ${a.name}`}
-													tip={t("newPasswordTip")}
-													disabled={busy || !a.active}
-													onClick={() =>
-														resetPassword(a)
-													}
-												/>
-												<IconButton
-													icon={
-														a.active
-															? UserX
-															: UserCheck
-													}
-													class={
-														a.active
-															? "icon-btn-danger"
-															: ""
-													}
-													label={`${t(a.active ? "deactivate" : "activate")}: ${a.name}`}
-													tip={t(
-														a.active
-															? "accountOffTip"
-															: "accountOnTip",
-													)}
-													disabled={busy}
-													onClick={() =>
-														toggleActive(a)
-													}
-												/>
-											</span>
-										)}
+										<span class="icon-row">
+											{a.phone &&
+												!a.phoneVerified &&
+												a.active && (
+													<IconButton
+														icon={ShieldCheck}
+														label={`${t("confirmNumber")}: ${a.name}`}
+														tip={t(
+															"confirmPhoneTip",
+														)}
+														disabled={busy}
+														onClick={() =>
+															open("code", a)
+														}
+													/>
+												)}
+											{/* Not for your own row: you could lock yourself out. */}
+											{!self && (
+												<>
+													<IconButton
+														icon={Smartphone}
+														label={`${t(a.phone ? "changePhone" : "addPhone")}: ${a.name}`}
+														tip={t(
+															"changePhoneTip",
+														)}
+														disabled={busy}
+														onClick={() =>
+															open("phone", a)
+														}
+													/>
+													<IconButton
+														icon={KeyRound}
+														label={`${t("newPassword")}: ${a.name}`}
+														tip={t(
+															"newPasswordTip",
+														)}
+														disabled={
+															busy || !a.active
+														}
+														onClick={() =>
+															resetPassword(a)
+														}
+													/>
+													<IconButton
+														icon={
+															a.active
+																? UserX
+																: UserCheck
+														}
+														class={
+															a.active
+																? "icon-btn-danger"
+																: ""
+														}
+														label={`${t(a.active ? "deactivate" : "activate")}: ${a.name}`}
+														tip={t(
+															a.active
+																? "accountOffTip"
+																: "accountOnTip",
+														)}
+														disabled={busy}
+														onClick={() =>
+															toggleActive(a)
+														}
+													/>
+												</>
+											)}
+										</span>
 									</td>
 								</tr>
 							);
@@ -174,5 +281,116 @@ export function AccountsTable({
 				</table>
 			</div>
 		</>
+	);
+}
+
+/** Gives an account a new sign-in number (or a first one). The number must not belong to anyone else. */
+function ChangePhone({
+	account,
+	onClose,
+	onSaved,
+}: {
+	account: Account;
+	onClose: () => void;
+	onSaved: () => void;
+}) {
+	const { t } = useApp();
+	const [phone, setPhone] = useState("");
+	const [busy, setBusy] = useState(false);
+	const [result, setResult] = useState<
+		| { kind: "saved"; phone: string }
+		| { kind: "problem"; key: "invalidPhone" | "phoneExists" | "saveError" }
+		| null
+	>(null);
+
+	async function save() {
+		setBusy(true);
+		setResult(null);
+		try {
+			const saved = await api.changePhone(account.id, phone);
+			setResult({ kind: "saved", phone: saved });
+			onSaved();
+		} catch (e) {
+			const why = api.refusalCode(e);
+			setResult({
+				kind: "problem",
+				key:
+					why === "invalid_phone"
+						? "invalidPhone"
+						: why === "phone_exists"
+							? "phoneExists"
+							: "saveError",
+			});
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<section
+			class="panel mb-3 grid gap-3"
+			aria-label={t("newPhoneFor", { name: account.name })}>
+			<div class="flex items-center justify-between gap-3">
+				<h3 class="font-semibold">
+					{t("newPhoneFor", { name: account.name })}
+				</h3>
+				<IconButton
+					icon={X}
+					label={t("cancel")}
+					onClick={onClose}
+				/>
+			</div>
+			{result?.kind === "saved" ? (
+				<p
+					class="notice notice-ok"
+					role="status">
+					{t("phoneSaved", {
+						name: account.name,
+						phone: formatPhone(result.phone),
+					})}
+				</p>
+			) : (
+				<form
+					class="flex flex-wrap items-end gap-3"
+					onSubmit={(e) => {
+						e.preventDefault();
+						void save();
+					}}>
+					<label class="grid gap-1">
+						<span class="font-medium">{t("phone")}</span>
+						<input
+							class="field"
+							type="tel"
+							inputMode="tel"
+							autoComplete="off"
+							placeholder={
+								account.phone
+									? formatPhone(account.phone)
+									: "0812-3456-7890"
+							}
+							required
+							value={phone}
+							onInput={(e) => setPhone(e.currentTarget.value)}
+						/>
+					</label>
+					<button
+						class="btn btn-primary"
+						disabled={busy}>
+						<Save
+							size={ICON}
+							aria-hidden="true"
+						/>
+						{busy ? t("saving") : t("save")}
+					</button>
+				</form>
+			)}
+			{result?.kind === "problem" && (
+				<p
+					class="notice notice-warn"
+					role="alert">
+					{t(result.key)}
+				</p>
+			)}
+		</section>
 	);
 }

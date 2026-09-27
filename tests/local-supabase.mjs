@@ -35,11 +35,19 @@ export function localStack() {
 	};
 }
 
-/** Accounts from supabase/seed.sql. */
+/**
+ * Accounts from supabase/seed.sql, by phone number as Supabase stores it (digits, country code,
+ * no "+"). The *Typed forms are how a person would type them, to exercise the app's normalising.
+ */
 export const SEED = {
 	password: "patroli-local-1",
-	supervisor: "supervisor@patroli.test",
-	guard: "guard@patroli.test",
+	supervisor: "6281100000001",
+	guard: "6281100000002",
+	supervisorTyped: "0811-0000-0001",
+	guardTyped: "0811 0000 0002",
+	// [auth.sms.test_otp] in supabase/config.toml: these always get this code, and nothing is texted.
+	codePhones: ["6281100000901", "6281100000902"],
+	code: "123456",
 };
 
 const noPersist = { auth: { persistSession: false, autoRefreshToken: false } };
@@ -52,13 +60,14 @@ export function makeClients(stack) {
 		anon: client,
 		/** Bypasses Row Level Security. Only for setting up test state. */
 		admin: () => createClient(stack.url, stack.serviceRoleKey, noPersist),
-		async signedIn(email, password = SEED.password) {
+		/** Signs in with a phone number in the stored form ("6281..."). */
+		async signedIn(phone, password = SEED.password) {
 			const c = client();
 			const { error } = await c.auth.signInWithPassword({
-				email,
+				phone: `+${phone}`,
 				password,
 			});
-			if (error) throw new Error(`sign in ${email}: ${error.message}`);
+			if (error) throw new Error(`sign in ${phone}: ${error.message}`);
 			return c;
 		},
 	};

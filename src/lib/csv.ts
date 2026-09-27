@@ -1,8 +1,9 @@
 /**
- * CSV in and out: the scan-log download, reading a list of guards to import (with per-row
- * problems), and the one-time passwords file for newly created guards.
+ * CSV in and out: the scan-log download, reading a list of guards to import (name and phone
+ * number, with per-row problems), and the one-time passwords file for newly created guards.
  */
 import type { CreatedGuard, NewGuard, ScanRow } from "../types";
+import { formatPhone, normalizePhone } from "./phone";
 
 const cell = (v: string) =>
 	/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
@@ -44,18 +45,17 @@ export function scansToCsv(rows: ScanRow[]): string {
 
 // ---------- guard import ----------
 
+// The dashes keep Excel from reading the number as a number and dropping its leading 0.
 export const GUARDS_CSV_TEMPLATE =
-	"\uFEFFfull_name,email\nBudi Santoso,budi@example.com\n";
+	"\uFEFFfull_name,phone\nBudi Santoso,0812-3456-7890\n";
 
 export type CsvProblemReason =
-	"missing_name" | "invalid_email" | "duplicate_email";
+	"missing_name" | "invalid_phone" | "duplicate_phone";
 
 export interface GuardsCsv {
 	guards: NewGuard[];
 	problems: { line: number; reason: CsvProblemReason }[];
 }
-
-export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 /** Splits CSV text into rows of cells. Handles quoted cells, doubled quotes, CRLF and a BOM. */
 function parseRows(text: string, sep: string): string[][] {
@@ -91,9 +91,10 @@ function parseRows(text: string, sep: string): string[][] {
 }
 
 /**
- * Reads a guard list: full name and email per row, in that order unless a header row
- * says otherwise. Accepts commas or semicolons (Excel uses ";" in Indonesian locales).
- * Bad rows are reported, not thrown, so the supervisor can fix just those.
+ * Reads a guard list: full name and phone number per row, in that order unless a header row
+ * says otherwise. Accepts commas or semicolons (Excel uses ";" in Indonesian locales), and
+ * numbers in any common format. Bad rows are reported, not thrown, so the supervisor can fix
+ * just those.
  */
 export function parseGuardsCsv(text: string): GuardsCsv {
 	const body = text.replace(/^\uFEFF/, "");
@@ -106,13 +107,16 @@ export function parseGuardsCsv(text: string): GuardsCsv {
 		.filter((r) => r.cells.some(Boolean));
 
 	let nameCol = 0;
-	let emailCol = 1;
+	let phoneCol = 1;
 	const head = rows[0]?.cells;
-	const isEmailHeader = (c: string) => /e-?mail/i.test(c);
-	if (head && !head.some(isEmail) && head.some(isEmailHeader)) {
-		emailCol = head.findIndex(isEmailHeader);
+	// Header words people use for the number, in English and Indonesian ("nomor HP", "no WA").
+	const isPhoneHeader = (c: string) =>
+		/phone|telepon|telp|\bhp\b|nomor|\bwa\b|whatsapp/i.test(c);
+	const isNumber = (c: string) => normalizePhone(c) !== null;
+	if (head && !head.some(isNumber) && head.some(isPhoneHeader)) {
+		phoneCol = head.findIndex(isPhoneHeader);
 		const n = head.findIndex((c) => /name|nama/i.test(c));
-		nameCol = n >= 0 ? n : emailCol === 0 ? 1 : 0;
+		nameCol = n >= 0 ? n : phoneCol === 0 ? 1 : 0;
 		rows.shift();
 	}
 
@@ -121,15 +125,14 @@ export function parseGuardsCsv(text: string): GuardsCsv {
 	const seen = new Set<string>();
 	for (const { line, cells } of rows) {
 		const name = (cells[nameCol] ?? "").replace(/\s+/g, " ");
-		const email = (cells[emailCol] ?? "").toLowerCase();
+		const phone = normalizePhone(cells[phoneCol] ?? "");
 		if (!name) problems.push({ line, reason: "missing_name" });
-		else if (!isEmail(email))
-			problems.push({ line, reason: "invalid_email" });
-		else if (seen.has(email))
-			problems.push({ line, reason: "duplicate_email" });
+		else if (!phone) problems.push({ line, reason: "invalid_phone" });
+		else if (seen.has(phone))
+			problems.push({ line, reason: "duplicate_phone" });
 		else {
-			seen.add(email);
-			guards.push({ name, email });
+			seen.add(phone);
+			guards.push({ name, phone });
 		}
 	}
 	return { guards, problems };
@@ -138,7 +141,9 @@ export function parseGuardsCsv(text: string): GuardsCsv {
 /** New guards and their one-time passwords, for the supervisor to print or share. */
 export function passwordsToCsv(created: CreatedGuard[]): string {
 	const lines = created.map(({ user, password }) =>
-		[user.name, user.email, password].map(cell).join(","),
+		[user.name, user.phone ? formatPhone(user.phone) : "", password]
+			.map(cell)
+			.join(","),
 	);
-	return "\uFEFF" + ["full_name,email,password", ...lines].join("\n");
+	return "\uFEFF" + ["full_name,phone,password", ...lines].join("\n");
 }

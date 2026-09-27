@@ -1,6 +1,6 @@
 /**
- * The sign-in screen (email and password). Afterwards guards go to their round and supervisors
- * to the log.
+ * The sign-in screen (phone number and password). Afterwards guards go to their round and
+ * supervisors to the log. There's no sign-up: a supervisor creates every account.
  */
 import { useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
@@ -16,7 +16,7 @@ export function Login() {
 	const { t, setUser } = useApp();
 	const [, navigate] = useLocation();
 
-	const [email, setEmail] = useState("");
+	const [phone, setPhone] = useState("");
 	const [password, setPassword] = useState("");
 
 	const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export function Login() {
 		setBusy(true);
 		setError(null);
 		try {
-			const user = await api.signIn(email, password);
+			const user = await api.signIn(phone, password);
 			if (!user) {
 				setError("wrong");
 				return;
@@ -51,16 +51,17 @@ export function Login() {
 					void submit();
 				}}>
 				<label class="grid gap-1">
-					<span class="font-medium">{t("email")}</span>
+					<span class="font-medium">{t("phone")}</span>
+					{/* "username" so password managers save the number with the password */}
 					<input
 						class="field"
-						type="email"
+						type="tel"
+						inputMode="tel"
 						autoComplete="username"
-						autoCapitalize="none"
-						spellcheck={false}
+						placeholder="0812-3456-7890"
 						required
-						value={email}
-						onInput={(e) => setEmail(e.currentTarget.value)}
+						value={phone}
+						onInput={(e) => setPhone(e.currentTarget.value)}
 					/>
 				</label>
 				<label class="grid gap-1">

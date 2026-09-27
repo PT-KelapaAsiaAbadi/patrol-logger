@@ -93,7 +93,7 @@ try {
 	section("camera scan");
 	const before = await scansHere();
 	await page.goto(BASE + "#/login");
-	await page.getByLabel("Email").fill(SEED.guard);
+	await page.getByLabel("Phone number").fill(SEED.guardTyped);
 	await page.getByLabel("Password").fill(SEED.password);
 	await page.getByRole("button", { name: "Sign in" }).click();
 	await page.waitForURL(/#\/$/, { timeout: 15000 });

@@ -1,10 +1,11 @@
 /**
  * BACKEND (Supabase)
  * ------------------
- *   - signIn / signOut   -> Supabase Auth (email + password)
+ *   - signIn / signOut   -> Supabase Auth (phone number + password)
  *   - reads              -> tables and the scan_rows view, filtered by Row Level Security
  *   - writes             -> SECURITY DEFINER functions that check the caller (supabase/migrations)
  *   - createGuards       -> the create-guards Edge Function (needs the service-role key)
+ *   - phone numbers      -> the staff-phone Edge Function (change a number, send and check a code)
  *   - report photos      -> the private report-photos Storage bucket
  *
  * The UI never imports this file directly. It goes through `api.ts`.
@@ -29,6 +30,7 @@ import type {
 	User,
 } from "../types";
 import type { Tables } from "../../database.types";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 
 const PHOTO_BUCKET = "report-photos"; // private: photos are only shown through signed URLs
@@ -42,7 +44,7 @@ const EXPORT_BATCH = 1000; // PostgREST's default maximum rows per request
 const iso = (t: string) => new Date(t).toISOString();
 
 // Row shapes, taken from the generated database types so a schema change shows up as a type error.
-type ProfileRow = Pick<Tables<"profiles">, "id" | "name" | "role" | "email">;
+type ProfileRow = Pick<Tables<"profiles">, "id" | "name" | "role" | "phone">;
 type ScanRecord = Tables<"scans">;
 type ReportRecord = Omit<Tables<"reports">, "created_at"> & {
 	created_at: string;
@@ -58,7 +60,7 @@ const toUser = (p: ProfileRow): User => ({
 	id: p.id,
 	name: p.name,
 	role: p.role as Role,
-	email: p.email,
+	phone: p.phone,
 });
 
 /** A checkpoint's pin, or null when it has none. 50 m is the database's default radius. */
@@ -195,13 +197,16 @@ export async function qrPayloadFor(checkpointId: string): Promise<string> {
 
 // ---------- auth ----------
 
-/** Returns null for a wrong email or password, or an account without an active profile. */
+/**
+ * Returns null for a wrong phone number or password, or an account without an active profile.
+ * `phone` is already normalised (digits with country code, see lib/phone.ts).
+ */
 export async function signIn(
-	email: string,
+	phone: string,
 	password: string,
 ): Promise<User | null> {
 	const { data, error } = await supabase.auth.signInWithPassword({
-		email: email.trim().toLowerCase(), // pasted emails often carry spaces or capitals
+		phone: `+${phone}`,
 		password,
 	});
 	if (error) {
@@ -211,7 +216,7 @@ export async function signIn(
 	// The password was right; now check the account has a profile and is still active.
 	const { data: profile, error: profileError } = await supabase
 		.from("profiles")
-		.select("id, name, role, email, active")
+		.select("id, name, role, phone, active")
 		.eq("id", data.user.id)
 		.maybeSingle();
 	if (profileError) throw new Error(profileError.message);
@@ -379,7 +384,7 @@ export async function listGuards(): Promise<User[]> {
 	return must(
 		await supabase
 			.from("profiles")
-			.select("id, name, role, email")
+			.select("id, name, role, phone")
 			.eq("role", "guard")
 			.order("name"),
 	).map(toUser);
@@ -390,10 +395,14 @@ export async function listAccounts(): Promise<Account[]> {
 	return must(
 		await supabase
 			.from("profiles")
-			.select("id, name, role, email, active")
+			.select("id, name, role, phone, active, phone_verified_at")
 			.order("active", { ascending: false })
 			.order("name"),
-	).map((p) => ({ ...toUser(p), active: p.active }));
+	).map((p) => ({
+		...toUser(p),
+		active: p.active,
+		phoneVerified: p.phone_verified_at !== null,
+	}));
 }
 
 /** Deactivated accounts can't sign in; reactivating restores everything. Not for your own account. */
@@ -419,20 +428,64 @@ export async function resetPassword(userId: string): Promise<string> {
 }
 
 /**
- * Creates one guard account per email, each with a generated password returned once.
- * Emails that already have an account are skipped and returned in `existing`.
+ * Creates one account per phone number, each with a generated password returned once.
+ * Numbers that already have an account are skipped and returned in `existing`.
+ * With `sendCode`, each new number is also texted a one-time code (see `verifyPhoneCode`).
  * Runs in the create-guards Edge Function, which holds the service-role key.
  */
 export async function createGuards(
 	guards: NewGuard[],
+	sendCode = false,
 ): Promise<GuardImportResult> {
 	const { data, error } = await supabase.functions.invoke<GuardImportResult>(
 		"create-guards",
-		{ body: { guards } },
+		{ body: { guards, sendCode } },
 	);
 	if (error || !data)
 		throw new Error(error?.message ?? "create_guards_failed");
 	return data;
+}
+
+/**
+ * Calls the staff-phone Edge Function. Its refusals come back as ServerError with the function's
+ * own code (e.g. "wrong_code", "phone_exists", "too_soon"), so screens can say what went wrong.
+ */
+async function staffPhone<T>(body: Record<string, string>): Promise<T> {
+	const { data, error } = await supabase.functions.invoke<T>("staff-phone", {
+		body,
+	});
+	if (error instanceof FunctionsHttpError) {
+		const reply = (await error.context.json().catch(() => ({}))) as {
+			error?: string;
+		};
+		const code = reply.error ?? "staff_phone_failed";
+		throw new ServerError(code, code);
+	}
+	if (error || !data) throw new Error(error?.message ?? "staff_phone_failed");
+	return data;
+}
+
+/** Gives someone a new sign-in number (or a first one). It counts as not confirmed until a code is checked. */
+export async function changePhone(
+	userId: string,
+	phone: string,
+): Promise<string> {
+	return (
+		await staffPhone<{ phone: string }>({ action: "change", userId, phone })
+	).phone;
+}
+
+/** Texts a one-time code to the account's number, so the person can prove it's theirs. */
+export async function sendPhoneCode(userId: string): Promise<void> {
+	await staffPhone({ action: "send_code", userId });
+}
+
+/** Checks the code the person read out, and marks their number as confirmed. */
+export async function verifyPhoneCode(
+	userId: string,
+	code: string,
+): Promise<void> {
+	await staffPhone({ action: "verify_code", userId, code });
 }
 
 /** Every checkpoint that hasn't been removed, in round order. */

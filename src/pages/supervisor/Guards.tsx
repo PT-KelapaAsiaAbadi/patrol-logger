@@ -1,6 +1,8 @@
 /**
  * The Accounts tab: add one guard or supervisor, or import many from a CSV, then show their
- * one-time passwords to hand out. The list of existing accounts is AccountsTable.
+ * one-time passwords to hand out. Every account signs in with its phone number; when adding one,
+ * the supervisor can also text a one-time code to confirm the number (PhoneCode).
+ * The list of existing accounts is AccountsTable. Nobody can sign themselves up.
  */
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
@@ -13,9 +15,11 @@ import {
 	type GuardsCsv,
 } from "../../lib/csv";
 import { saveFile } from "../../lib/download";
+import { formatPhone, normalizePhone } from "../../lib/phone";
 import type { GuardImportResult, NewGuard, Role } from "../../types";
 import { LoadError } from "./Log";
 import { AccountsTable } from "./AccountsTable";
+import { PhoneCode } from "./PhoneCode";
 import { ICON } from "../../components/IconButton";
 import { Download, Upload, UserPlus, X } from "lucide-preact";
 
@@ -64,11 +68,14 @@ function useCreateGuards(onAdded: () => void) {
 	const [busy, setBusy] = useState(false);
 	const [outcome, setOutcome] = useState<Outcome | null>(null);
 
-	async function create(guards: NewGuard[]): Promise<boolean> {
+	async function create(
+		guards: NewGuard[],
+		sendCode = false,
+	): Promise<boolean> {
 		setBusy(true);
 		setOutcome(null);
 		try {
-			const result = await api.createGuards(guards);
+			const result = await api.createGuards(guards, sendCode);
 			setOutcome({ kind: "done", result });
 			if (result.created.length) onAdded();
 			return true;
@@ -86,22 +93,34 @@ function useCreateGuards(onAdded: () => void) {
 function AddGuard({ onAdded }: { onAdded: () => void }) {
 	const { t } = useApp();
 	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
+	const [phone, setPhone] = useState("");
 	const [role, setRole] = useState<Role>("guard");
-	const { busy, outcome, create } = useCreateGuards(onAdded);
+	const [sendCode, setSendCode] = useState(false);
+	const [badPhone, setBadPhone] = useState(false);
+	const { busy, outcome, create, clear } = useCreateGuards(onAdded);
 
 	async function submit() {
-		const ok = await create([
-			{
-				name: name.trim().replace(/\s+/g, " "),
-				email: email.trim().toLowerCase(),
-				role,
-			},
-		]);
+		const normalised = normalizePhone(phone);
+		setBadPhone(!normalised);
+		if (!normalised) {
+			clear();
+			return;
+		}
+		const ok = await create(
+			[
+				{
+					name: name.trim().replace(/\s+/g, " "),
+					phone: normalised,
+					role,
+				},
+			],
+			sendCode,
+		);
 		if (ok) {
 			setName("");
-			setEmail("");
+			setPhone("");
 			setRole("guard");
+			setSendCode(false);
 		}
 	}
 
@@ -131,18 +150,29 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 					/>
 				</label>
 				<label class="grid gap-1">
-					<span class="font-medium">{t("email")}</span>
+					<span class="font-medium">{t("phone")}</span>
 					<input
 						class="field"
-						type="email"
+						type="tel"
+						inputMode="tel"
 						required
 						autoComplete="off"
-						autoCapitalize="none"
-						spellcheck={false}
-						value={email}
-						onInput={(e) => setEmail(e.currentTarget.value)}
+						placeholder="0812-3456-7890"
+						aria-invalid={badPhone}
+						value={phone}
+						onInput={(e) => {
+							setPhone(e.currentTarget.value);
+							setBadPhone(false);
+						}}
 					/>
 				</label>
+				{badPhone && (
+					<p
+						class="notice notice-warn"
+						role="alert">
+						{t("invalidPhone")}
+					</p>
+				)}
 				<label class="grid gap-1">
 					<span class="font-medium">{t("colRole")}</span>
 					<select
@@ -157,6 +187,20 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 						</option>
 					</select>
 				</label>
+				<label class="flex items-start gap-2">
+					<input
+						type="checkbox"
+						class="mt-1"
+						checked={sendCode}
+						onChange={(e) => setSendCode(e.currentTarget.checked)}
+					/>
+					<span>
+						{t("sendCodeOption")}
+						<span class="block text-muted">
+							{t("sendCodeCost")}
+						</span>
+					</span>
+				</label>
 				<button
 					class="btn btn-primary"
 					disabled={busy}>
@@ -167,7 +211,10 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 					{busy ? t("saving") : t("addGuard")}
 				</button>
 			</form>
-			<CreateOutcome outcome={outcome} />
+			<CreateOutcome
+				outcome={outcome}
+				onChanged={onAdded}
+			/>
 		</section>
 	);
 }
@@ -258,16 +305,18 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 									<thead>
 										<tr>
 											<th scope="col">{t("fullName")}</th>
-											<th scope="col">{t("email")}</th>
+											<th scope="col">{t("phone")}</th>
 										</tr>
 									</thead>
 									<tbody>
 										{csv.guards
 											.slice(0, PREVIEW_ROWS)
 											.map((g) => (
-												<tr key={g.email}>
+												<tr key={g.phone}>
 													<td>{g.name}</td>
-													<td>{g.email}</td>
+													<td class="whitespace-nowrap">
+														{formatPhone(g.phone)}
+													</td>
 												</tr>
 											))}
 									</tbody>
@@ -334,12 +383,28 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 					</div>
 				</div>
 			)}
-			<CreateOutcome outcome={outcome} />
+			<CreateOutcome
+				outcome={outcome}
+				onChanged={onAdded}
+			/>
 		</section>
 	);
 }
 
-function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
+/** Shows a number as "+62 812-3456-7890" if it can be read as one, else as the server returned it. */
+const showPhone = (p: string) => {
+	const n = normalizePhone(p);
+	return n ? formatPhone(n) : p;
+};
+
+function CreateOutcome({
+	outcome,
+	onChanged,
+}: {
+	outcome: Outcome | null;
+	/** Reloads the account list, e.g. once a number is confirmed. */
+	onChanged: () => void;
+}) {
 	const { t } = useApp();
 	if (!outcome) return null;
 	if (outcome.kind === "error") {
@@ -367,7 +432,7 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 							<thead>
 								<tr>
 									<th scope="col">{t("fullName")}</th>
-									<th scope="col">{t("email")}</th>
+									<th scope="col">{t("phone")}</th>
 									<th scope="col">{t("password")}</th>
 								</tr>
 							</thead>
@@ -375,7 +440,10 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 								{created.map(({ user, password }) => (
 									<tr key={user.id}>
 										<td>{user.name}</td>
-										<td>{user.email}</td>
+										<td class="whitespace-nowrap">
+											{user.phone &&
+												formatPhone(user.phone)}
+										</td>
 										<td class="font-mono whitespace-nowrap">
 											{password}
 										</td>
@@ -402,14 +470,39 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 					</button>
 				</div>
 			)}
+			{/* Only offered when adding one account, so this is at most one code step. */}
+			{created.map(({ user, codeSent }) =>
+				codeSent === undefined || !user.phone ? null : codeSent ? (
+					<PhoneCode
+						key={user.id}
+						account={{
+							id: user.id,
+							name: user.name,
+							phone: user.phone,
+						}}
+						alreadySent
+						onConfirmed={onChanged}
+					/>
+				) : (
+					<p
+						key={user.id}
+						class="notice notice-warn">
+						{t("codeNotSent")}
+					</p>
+				),
+			)}
 			{existing.length > 0 && (
 				<p class="notice notice-warn">
-					{t("guardsExisting", { list: existing.join(", ") })}
+					{t("guardsExisting", {
+						list: existing.map(showPhone).join(", "),
+					})}
 				</p>
 			)}
 			{failed.length > 0 && (
 				<p class="notice notice-warn">
-					{t("guardsFailed", { list: failed.join(", ") })}
+					{t("guardsFailed", {
+						list: failed.map(showPhone).join(", "),
+					})}
 				</p>
 			)}
 		</div>

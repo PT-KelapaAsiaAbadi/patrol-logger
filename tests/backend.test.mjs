@@ -19,15 +19,25 @@ section("signed out");
 	const { error } = await c.rpc("route_checkpoints");
 	ok(!!error, "cannot call route_checkpoints");
 	const { error: e2 } = await c.auth.signInWithPassword({
-		email: SEED.guard,
+		phone: `+${SEED.guard}`,
 		password: "wrong-password",
 	});
 	ok(e2?.status === 400, "wrong password gives 400", e2?.status);
 	const { error: e3 } = await c.auth.signUp({
-		email: "stranger@example.com",
+		phone: "+6281100000999",
 		password: "stranger-pass-1",
 	});
 	ok(!!e3, "public sign-up is disabled");
+	const { error: e4 } = await c.auth.signUp({
+		email: "stranger@example.com",
+		password: "stranger-pass-1",
+	});
+	ok(!!e4, "public sign-up by email is disabled too");
+	const { error: e5 } = await c.auth.signInWithOtp({
+		phone: "+6281100000999",
+		options: { shouldCreateUser: false },
+	});
+	ok(!!e5, "a code can't be requested for a number without an account");
 }
 
 const sup = await signedIn(SEED.supervisor);
@@ -78,9 +88,9 @@ const { data: route } = await guard.rpc("route_checkpoints");
 		.eq("id", guardId)
 		.single();
 	ok(me.role === "guard", "cannot promote themselves");
-	for (const fn of ["create-guards", "reset-password"]) {
+	for (const fn of ["create-guards", "reset-password", "staff-phone"]) {
 		const { error } = await guard.functions.invoke(fn, {
-			body: { guards: [], userId: supId },
+			body: { guards: [], userId: supId, action: "send_code" },
 		});
 		ok(
 			error?.context?.status === 403,
@@ -560,20 +570,25 @@ section("removing checkpoints");
 
 section("accounts: create, reset, deactivate");
 {
-	const newEmail = `guard${Date.now()}@patroli.test`;
-	const supEmail = `sup${Date.now()}@patroli.test`;
+	// Unique per run, typed the way a supervisor would (local format with spaces and dashes).
+	const tail = String(Date.now()).slice(-8);
+	const newPhone = `62812${tail}`;
+	const supPhone = `62813${tail}`;
 	const { data, error } = await sup.functions.invoke("create-guards", {
 		body: {
 			guards: [
-				{ name: "Agus Pratama", email: newEmail },
-				{ name: "Rina Dua", email: supEmail, role: "supervisor" },
-				{ name: "Dup", email: SEED.guard },
-				{ name: "", email: "bad" },
 				{
-					name: "Wrong role",
-					email: `x${Date.now()}@patroli.test`,
-					role: "admin",
+					name: "Agus Pratama",
+					phone: `0812-${tail.slice(0, 4)}-${tail.slice(4)}`,
 				},
+				{
+					name: "Rina Dua",
+					phone: `+62 813 ${tail}`,
+					role: "supervisor",
+				},
+				{ name: "Dup", phone: SEED.guardTyped },
+				{ name: "", phone: "bad" },
+				{ name: "Wrong role", phone: `0814${tail}`, role: "admin" },
 			],
 		},
 	});
@@ -586,20 +601,39 @@ section("accounts: create, reset, deactivate");
 		JSON.stringify(data ?? error?.message),
 	);
 	const created = Object.fromEntries(
-		(data?.created ?? []).map((c) => [c.user.email, c]),
+		(data?.created ?? []).map((c) => [c.user.phone, c]),
 	);
 	ok(
-		created[supEmail]?.user.role === "supervisor",
+		created[newPhone] && created[supPhone],
+		"typed numbers are stored in one form",
+		JSON.stringify(Object.keys(created)),
+	);
+	ok(
+		created[supPhone]?.user.role === "supervisor",
 		"a supervisor can add another supervisor",
 	);
 	ok(
 		/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/.test(
-			created[newEmail]?.password ?? "",
+			created[newPhone]?.password ?? "",
 		),
 		"generated password format",
 	);
+	ok(
+		created[newPhone]?.codeSent === undefined,
+		"no code is sent unless asked for",
+	);
+	const { data: newProfile } = await sup
+		.from("profiles")
+		.select("phone, email, phone_verified_at")
+		.eq("phone", newPhone)
+		.single();
+	ok(
+		newProfile?.email === null && newProfile?.phone_verified_at === null,
+		"new profile has a phone, no email, and an unconfirmed number",
+		JSON.stringify(newProfile),
+	);
 
-	const g2 = await signedIn(newEmail, created[newEmail].password);
+	const g2 = await signedIn(newPhone, created[newPhone].password);
 	const g2Id = (await g2.auth.getUser()).data.user.id;
 	const { data: others } = await g2.from("scans").select("*");
 	ok(others.length === 0, "new guard cannot see another guard's scans");
@@ -623,11 +657,11 @@ section("accounts: create, reset, deactivate");
 		"supervisor resets a password",
 		rpe?.message,
 	);
-	const oldLogin = await signedIn(newEmail, created[newEmail].password).catch(
+	const oldLogin = await signedIn(newPhone, created[newPhone].password).catch(
 		(e) => e,
 	);
 	ok(oldLogin instanceof Error, "old password no longer works");
-	const newLogin = await signedIn(newEmail, reset.password).catch((e) => e);
+	const newLogin = await signedIn(newPhone, reset.password).catch((e) => e);
 	ok(!(newLogin instanceof Error), "new password works");
 	const { error: selfReset } = await sup.functions.invoke("reset-password", {
 		body: { userId: supId },
@@ -657,7 +691,7 @@ section("accounts: create, reset, deactivate");
 		"a deactivated guard's open session gets nothing",
 	);
 	const { data: afterOff } = await (
-		await signedIn(newEmail, reset.password)
+		await signedIn(newPhone, reset.password)
 	)
 		.from("profiles")
 		.select("active")
@@ -670,6 +704,133 @@ section("accounts: create, reset, deactivate");
 	await sup.rpc("set_account_active", { p_id: g2Id, p_active: true });
 	const { error: back } = await g2.rpc("route_checkpoints");
 	ok(!back, "reactivating restores access");
+}
+
+section("accounts: phone numbers and one-time codes");
+{
+	/** Calls staff-phone and returns { status, body } whether it succeeded or not. */
+	const staffPhone = async (body) => {
+		const { data, error } = await sup.functions.invoke("staff-phone", {
+			body,
+		});
+		if (!error) return { status: 200, body: data };
+		return {
+			status: error.context?.status,
+			body: await error.context?.json?.().catch(() => null),
+		};
+	};
+	const [codePhone, otherCodePhone] = SEED.codePhones;
+
+	const { data, error } = await sup.functions.invoke("create-guards", {
+		body: {
+			guards: [{ name: "Dewi Kode", phone: codePhone }],
+			sendCode: true,
+		},
+	});
+	const made = data?.created?.[0];
+	ok(
+		!error && made?.codeSent === true,
+		"a code is sent when asked for on creation",
+		JSON.stringify(data ?? error?.message),
+	);
+	const id = made.user.id;
+
+	const wrong = await staffPhone({
+		action: "verify_code",
+		userId: id,
+		code: "000000",
+	});
+	ok(
+		wrong.status === 400 && wrong.body?.error === "wrong_code",
+		"a wrong code is refused",
+		JSON.stringify(wrong),
+	);
+	const right = await staffPhone({
+		action: "verify_code",
+		userId: id,
+		code: SEED.code,
+	});
+	ok(
+		right.status === 200 && !!right.body?.verifiedAt,
+		"the right code confirms the number",
+	);
+	const { data: verified } = await sup
+		.from("profiles")
+		.select("phone_verified_at")
+		.eq("id", id)
+		.single();
+	ok(
+		!!verified?.phone_verified_at,
+		"the profile records when it was confirmed",
+	);
+	const stillWorks = await signedIn(codePhone, made.password).catch((e) => e);
+	ok(
+		!(stillWorks instanceof Error),
+		"confirming doesn't change the password",
+	);
+
+	const taken = await staffPhone({
+		action: "change",
+		userId: id,
+		phone: SEED.guardTyped,
+	});
+	ok(
+		taken.status === 409 && taken.body?.error === "phone_exists",
+		"a number another account has is refused",
+		JSON.stringify(taken),
+	);
+	const bad = await staffPhone({
+		action: "change",
+		userId: id,
+		phone: "12ab",
+	});
+	ok(bad.body?.error === "invalid_phone", "an unreadable number is refused");
+	const changed = await staffPhone({
+		action: "change",
+		userId: id,
+		phone: `+${otherCodePhone}`,
+	});
+	ok(
+		changed.status === 200 && changed.body?.phone === otherCodePhone,
+		"a supervisor changes someone's number",
+		JSON.stringify(changed),
+	);
+	const { data: afterChange } = await sup
+		.from("profiles")
+		.select("phone, phone_verified_at")
+		.eq("id", id)
+		.single();
+	ok(
+		afterChange?.phone === otherCodePhone &&
+			afterChange?.phone_verified_at === null,
+		"a new number starts unconfirmed",
+		JSON.stringify(afterChange),
+	);
+	const oldNumber = await signedIn(codePhone, made.password).catch((e) => e);
+	ok(oldNumber instanceof Error, "the old number no longer signs in");
+	const newNumber = await signedIn(otherCodePhone, made.password).catch(
+		(e) => e,
+	);
+	ok(!(newNumber instanceof Error), "the new number signs in");
+
+	const self = await staffPhone({
+		action: "change",
+		userId: supId,
+		phone: "0811 0000 0999",
+	});
+	ok(
+		self.status === 403 && self.body?.error === "cannot_change_self",
+		"supervisors cannot change their own number here",
+	);
+
+	const sent = await staffPhone({ action: "send_code", userId: id });
+	ok(sent.status === 200, "a code can be sent later from the account list");
+	const again = await staffPhone({ action: "send_code", userId: id });
+	ok(
+		again.status === 429 && again.body?.error === "too_soon",
+		"sending again straight away is refused",
+		JSON.stringify(again),
+	);
 }
 
 done();

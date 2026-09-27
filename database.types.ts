@@ -80,25 +80,31 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
-          email: string
+          email: string | null
           id: string
           name: string
+          phone: string | null
+          phone_verified_at: string | null
           role: Database["public"]["Enums"]["app_role"]
         }
         Insert: {
           active?: boolean
           created_at?: string
-          email: string
+          email?: string | null
           id: string
           name: string
+          phone?: string | null
+          phone_verified_at?: string | null
           role?: Database["public"]["Enums"]["app_role"]
         }
         Update: {
           active?: boolean
           created_at?: string
-          email?: string
+          email?: string | null
           id?: string
           name?: string
+          phone?: string | null
+          phone_verified_at?: string | null
           role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
