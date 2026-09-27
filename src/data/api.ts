@@ -1,7 +1,8 @@
 /**
  * The only data module pages import.
- * It decides whether to talk to the backend now or park work in the offline outbox.
- * When you move to Supabase, `backend.ts` changes; this file and the pages mostly don't.
+ * It decides whether to talk to the backend (Supabase, via `backend.ts`) now or park work in the
+ * offline outbox (`queue.ts`), and keeps small localStorage caches so the guard's screens work with
+ * no signal. Supervisor functions need a connection and simply pass through to the backend.
  */
 import * as backend from "./backend";
 import * as outbox from "./queue";
@@ -22,10 +23,12 @@ import type {
 	User,
 } from "../types";
 
-const SESSION_KEY = "patrol-session-v1";
-const ROUTE_KEY = "patrol-route-v1";
-const TODAY_KEY = "patrol-today-v1";
+// localStorage keys. The -v1 suffix lets a future change of shape start from a clean cache.
+const SESSION_KEY = "patrol-session-v1"; // the signed-in user
+const ROUTE_KEY = "patrol-route-v1"; // the checkpoints on the round
+const TODAY_KEY = "patrol-today-v1"; // this guard's scans today
 
+/** Reads a cached value. Returns null when it's missing, unreadable, or storage is blocked. */
 const readJson = <T>(key: string): T | null => {
 	try {
 		const raw = localStorage.getItem(key);
@@ -35,6 +38,7 @@ const readJson = <T>(key: string): T | null => {
 	}
 };
 
+/** Saves a cached value. Failures (storage full or blocked) are ignored: caches are optional. */
 const writeJson = (key: string, v: unknown) => {
 	try {
 		localStorage.setItem(key, JSON.stringify(v));
@@ -48,8 +52,10 @@ const writeJson = (key: string, v: unknown) => {
 // picking screens and showing a name, including offline. Editing it in DevTools gains nothing:
 // every read and write is checked against the session's user by Row Level Security.
 
+/** The signed-in user as last cached, or null. Reads storage only, so it works offline. */
 export const currentUser = () => readJson<User>(SESSION_KEY);
 
+/** Signs in and caches the user. Returns null for a wrong email or password, or an inactive account. */
 export async function signIn(
 	email: string,
 	password: string,
@@ -59,6 +65,7 @@ export async function signIn(
 	return user;
 }
 
+/** Clears the cached user and their today cache, so the next person on this phone starts clean. */
 function forgetUser() {
 	try {
 		localStorage.removeItem(SESSION_KEY);
@@ -68,6 +75,10 @@ function forgetUser() {
 	}
 }
 
+/**
+ * Signs out straight away on this phone; the server sign-out finishes in the background.
+ * The outbox is kept: unsent items go out when their guard signs in again.
+ */
 export function signOut() {
 	forgetUser();
 	void backend.signOut();
@@ -76,7 +87,7 @@ export function signOut() {
 /** Calls `onEnd` when the Supabase session is gone, so the app can return to the login screen. */
 export function onSessionEnd(onEnd: () => void): () => void {
 	return backend.onSessionEnd(() => {
-		if (!currentUser()) return;
+		if (!currentUser()) return; // already signed out here: nothing to do
 		forgetUser();
 		onEnd();
 	});
@@ -84,6 +95,7 @@ export function onSessionEnd(onEnd: () => void): () => void {
 
 // ---------- route (cached so the guard app works offline) ----------
 
+/** The round's checkpoints: fresh from the server when online (and re-cached), else the cached copy. */
 export async function loadRoute(): Promise<PublicCheckpoint[]> {
 	if (isOnline()) {
 		try {
@@ -98,8 +110,9 @@ export async function loadRoute(): Promise<PublicCheckpoint[]> {
 }
 
 /**
- * Offline best effort: read the checkpoint id out of a QR payload. The signature is checked later by the server.
- *
+ * Offline best effort: read the checkpoint id out of a QR payload (`PTRL1:<id>:<signature>`) and
+ * find it in the cached route. The signature is checked later by the server.
+ * Manual codes can't be looked up here: guards never receive them (see ARCHITECTURE.md).
  */
 function localLookup(code: string): PublicCheckpoint | null {
 	const [prefix, id] = code.trim().split(":");
@@ -111,36 +124,48 @@ function localLookup(code: string): PublicCheckpoint | null {
 	);
 }
 
+/** Shape of a typed manual code, e.g. "K7P-4QX" (dash optional). Only the server knows if it's real. */
 const looksLikeManualCode = (code: string) =>
 	/^[A-Z0-9]{3}-?[A-Z0-9]{3}$/i.test(code.trim());
 
 // ---------- today's visits (cached per guard for offline display) ----------
 
+/** This guard's scans today, as the server last reported them. */
 interface TodayCache {
-	date: string;
-	guardId: string;
+	date: string; // local YYYY-MM-DD, so the cache resets at midnight
+	guardId: string; // so another guard on the same phone never sees these
 	scans: Scan[];
 }
 
+/** Adds a just-sent scan to today's cache, so the round ticks it off even if signal drops next. */
 function rememberScan(saved: Scan) {
 	const c = readJson<TodayCache>(TODAY_KEY);
 	const today = localDateKey();
+	// Only extend a cache that's for today and this guard; a stale one is replaced on the next load.
 	if (c && c.date === today && c.guardId === saved.guardId) {
-		if (!c.scans.some((s) => s.id === saved.id))
+		if (!c.scans.some((s) => s.id === saved.id)) {
 			writeJson(TODAY_KEY, { ...c, scans: [...c.scans, saved] });
+		}
 	}
 }
 
+/** The latest scan of one checkpoint today. */
 export interface Visit {
-	at: string;
-	queued: boolean;
-}
-export interface Progress {
-	route: PublicCheckpoint[];
-	visits: Record<string, Visit>;
-	unmatchedPending: number;
+	at: string; // when it was scanned (phone time, ISO)
+	queued: boolean; // true while it's still waiting in the outbox
 }
 
+/** What the guard's round screen shows. */
+export interface Progress {
+	route: PublicCheckpoint[];
+	visits: Record<string, Visit>; // by checkpoint id; missing = not visited yet today
+	unmatchedPending: number; // queued manual codes, which can't be matched to a checkpoint offline
+}
+
+/**
+ * Today's round for one guard: server scans (or the cached copy offline) plus scans still in
+ * the outbox, so a scan made in a basement shows as done straight away.
+ */
 export async function todayProgress(guardId: string): Promise<Progress> {
 	const today = localDateKey();
 	const route = await loadRoute();
@@ -163,12 +188,14 @@ export async function todayProgress(guardId: string): Promise<Progress> {
 			serverScans = c.scans;
 	}
 
+	// Keep the latest scan per checkpoint.
 	const visits: Record<string, Visit> = {};
 	for (const s of serverScans) {
 		if (!visits[s.checkpointId] || visits[s.checkpointId].at < s.scannedAt)
 			visits[s.checkpointId] = { at: s.scannedAt, queued: false };
 	}
 
+	// Add this guard's unsent scans. QR scans can be matched locally; manual codes only get counted.
 	let unmatchedPending = 0;
 	for (const item of outbox.outboxItems()) {
 		if (item.kind !== "scan" || item.scan.guardId !== guardId) continue;
@@ -192,13 +219,16 @@ export const checkpointNameForScan = (scanId: string) =>
 	recentNames.get(scanId) ?? null;
 
 /**
- * TODO: Describe what the function does.
+ * Records one scan. Sends it now when online; otherwise (or if the server can't be reached)
+ * saves it in the outbox to send later. The id is made here, so a resend is never stored twice.
  *
- * @param code TODO
- * @param guardId TODO
- * @param location the phone's position at the moment of scanning, if it had a fresh one.
+ * @param code What the camera read (a QR payload) or what the guard typed (a manual code).
+ * @param guardId The signed-in guard.
+ * @param location The phone's position at the moment of scanning, if it had a fresh one.
  *
- * @returns where the scan was conducted and its estimated accuracy (e.g. radius).
+ * @returns `ok: true` with `queued: false` when the server saved it, or `queued: true` when it
+ *   waits in the outbox. `ok: false` with a reason when it was refused: an unknown code, a
+ *   checkpoint taken out of use (shown to the guard at once, so they can act) or a server error.
  */
 export async function scan(
 	code: string,
@@ -209,7 +239,7 @@ export async function scan(
 		id: newId(),
 		guardId,
 		code: code.trim(),
-		scannedAt: new Date().toISOString(),
+		scannedAt: new Date().toISOString(), // phone time: when the guard was really there
 		...(location && { location }),
 	};
 
@@ -217,7 +247,7 @@ export async function scan(
 	if (isOnline()) {
 		try {
 			const r = await backend.submitScan(pending);
-			if (!r.ok) return r;
+			if (!r.ok) return r; // unknown code or checkpoint out of use: the guard sees why right away
 			rememberScan(r.scan);
 			recentNames.set(r.scan.id, r.checkpoint.name);
 			return {
@@ -236,6 +266,7 @@ export async function scan(
 		}
 	}
 
+	// Offline: reject obvious junk now, while the guard is still standing at the sticker.
 	const cp = localLookup(pending.code);
 	if (!cp && !looksLikeManualCode(pending.code))
 		return { ok: false, reason: "unknown_code" };
@@ -244,8 +275,13 @@ export async function scan(
 	return { ok: true, queued: true, scan: pending, checkpoint: cp };
 }
 
-// Photos stay as data URLs on the phone and in the outbox. backend.submitReport uploads them to
-// Storage when the report is sent, and the server keeps only the object paths.
+/**
+ * Attaches a note and photos to a scan. Sends it now when possible, else queues it.
+ * Photos stay as data URLs on the phone and in the outbox. backend.submitReport uploads them to
+ * Storage when the report is sent, and the server keeps only the object paths.
+ *
+ * @returns "sent" when the server has it, "queued" when it waits in the outbox.
+ */
 export async function addReport(
 	scanId: string,
 	note: string,
@@ -258,6 +294,7 @@ export async function addReport(
 		photos,
 		createdAt: new Date().toISOString(),
 	};
+	// A report can't reach the server before its scan does, so it queues behind it.
 	const scanStillQueued = outbox
 		.outboxItems()
 		.some((i) => i.kind === "scan" && i.scan.id === scanId);
@@ -269,17 +306,24 @@ export async function addReport(
 			/* fall through */
 		}
 	}
+	// guardId is saved with the report so it's only sent while that guard is signed in.
 	outbox.enqueue({ kind: "report", report, guardId: currentUser()?.id });
 	return "queued";
 }
 
 // ---------- background sync ----------
 
+/** The send in progress, if any. Callers share it, so two sends never run at once. */
 let flushing: Promise<void> | null = null;
 
 /**
  * Sends the signed-in guard's outbox items, oldest first. Stops at the first network failure.
  * Items another guard queued on this phone wait until that guard signs in again.
+ *
+ * Two kinds of refusal:
+ *   - rejected: the server said the scan itself is invalid (e.g. unknown code). It's removed and
+ *     counted, so the guard is told to scan those checkpoints again.
+ *   - failed: the server errored. It stays with the error attached, for Try again or Discard.
  */
 export function flushOutbox(): Promise<void> {
 	if (flushing) return flushing;
@@ -288,9 +332,11 @@ export function flushOutbox(): Promise<void> {
 		const otherGuardsScanIds = new Set<string>();
 		const me = currentUser()?.id;
 
+		// Iterate a copy: sending removes items from the outbox as it goes.
 		for (const item of [...outbox.outboxItems()] as OutboxItem[]) {
 			if (!isOnline()) break;
 
+			// Another guard's scan, and any report on it, is sent under their own session later.
 			if (item.kind === "scan" && item.scan.guardId !== me) {
 				otherGuardsScanIds.add(item.scan.id);
 				continue;
@@ -340,6 +386,10 @@ export function flushOutbox(): Promise<void> {
 	return flushing;
 }
 
+/**
+ * Sends queued items whenever the phone comes back online, every 20 seconds in case that
+ * moment was missed, and once now. Called once at start-up (main.tsx).
+ */
 export function startAutoSync() {
 	const tick = () => {
 		if (isOnline() && outbox.outboxItems().length) {
@@ -354,6 +404,7 @@ export function startAutoSync() {
 // ---------- supervisor ----------
 // These need a connection; the dashboard is used at a desk, not on patrol.
 
+/** Fails fast with Error("offline") instead of waiting for a request that can't succeed. */
 async function needsNetwork<T>(fn: () => Promise<T>): Promise<T> {
 	if (!isOnline()) throw new Error("offline");
 	return fn();
@@ -410,8 +461,12 @@ export const guardSummaries = (date: string) =>
 export const missedCheckpoints = (date: string) =>
 	needsNetwork(() => backend.missedCheckpoints(date));
 
+/** The signed text for a checkpoint's QR sticker. Not wrapped: the request fails by itself offline. */
 export const qrPayloadFor = backend.qrPayloadFor;
 
+// ---------- the guard's queued items ----------
+
+/** Whether an outbox item belongs to this guard. Reports queued without a guardId count as theirs. */
 const isMine = (i: OutboxItem, guardId: string) =>
 	i.kind === "scan"
 		? i.scan.guardId === guardId
@@ -442,6 +497,7 @@ export const unsentCount = (guardId: string) =>
 				: (i.guardId ?? guardId) === guardId,
 		).length;
 
+// Outbox reads for the screens, passed straight through so pages still import only this file.
 export {
 	loadOutbox,
 	outboxItems,

@@ -31,21 +31,24 @@ import type {
 import type { Tables } from "../../database.types";
 import { supabase } from "../supabaseClient";
 
-const PHOTO_BUCKET = "report-photos";
-const SIGNED_URL_SECONDS = 60 * 60;
+const PHOTO_BUCKET = "report-photos"; // private: photos are only shown through signed URLs
+const SIGNED_URL_SECONDS = 60 * 60; // a signed photo link works for an hour, then expires
 const EXPORT_BATCH = 1000; // PostgREST's default maximum rows per request
 
 // ---------- mapping ----------
+// Each to* function turns one database row (snake_case) into the app's shape (camelCase, types.ts).
 
 /** Postgres returns "+00:00" and microseconds; the app compares ISO strings, so normalise them. */
 const iso = (t: string) => new Date(t).toISOString();
 
+// Row shapes, taken from the generated database types so a schema change shows up as a type error.
 type ProfileRow = Pick<Tables<"profiles">, "id" | "name" | "role" | "email">;
 type ScanRecord = Tables<"scans">;
 type ReportRecord = Omit<Tables<"reports">, "created_at"> & {
 	created_at: string;
 };
 type CheckpointRecord = Tables<"checkpoints">;
+/** What guards may see of a checkpoint: no manual code, no location. */
 type PublicCheckpointRecord = Pick<
 	CheckpointRecord,
 	"id" | "name" | "route_order" | "active"
@@ -58,6 +61,7 @@ const toUser = (p: ProfileRow): User => ({
 	email: p.email,
 });
 
+/** A checkpoint's pin, or null when it has none. 50 m is the database's default radius. */
 const toCheckpointLocation = (
 	lat: number | null,
 	lng: number | null,
@@ -81,6 +85,7 @@ const toPublicCheckpoint = (c: PublicCheckpointRecord): PublicCheckpoint => ({
 	active: c.active,
 });
 
+/** A scan, with the phone's position (if it sent one) and how that compared with the checkpoint. */
 const toScan = (s: ScanRecord): Scan => ({
 	id: s.id,
 	checkpointId: s.checkpoint_id,
@@ -117,8 +122,9 @@ type ScanRowRecord = ScanRecord & {
 	checkpoint_radius_m: number | null;
 };
 
+/** A scan_rows row: the scan plus guard and checkpoint names, its report, and the checkpoint's pin. */
 const toScanRow = (r: Tables<"scan_rows">): ScanRow => {
-	const v = r as unknown as ScanRowRecord;
+	const v = r as unknown as ScanRowRecord; // the view's columns are never null in practice
 	return {
 		...toScan(v),
 		guardName: v.guard_name,
@@ -154,11 +160,13 @@ export class ServerError extends Error {
 	}
 }
 
+/** The { data, error } pair every Supabase call returns. */
 type Result<T> = {
 	data: T | null;
 	error: { message: string; code?: string } | null;
 };
 
+/** An error with a code came from the server (ServerError); one without means it wasn't reached. */
 function toError(e: { message: string; code?: string }): Error {
 	return e.code ? new ServerError(e.message, e.code) : new Error(e.message);
 }
@@ -193,13 +201,14 @@ export async function signIn(
 	password: string,
 ): Promise<User | null> {
 	const { data, error } = await supabase.auth.signInWithPassword({
-		email: email.trim().toLowerCase(),
+		email: email.trim().toLowerCase(), // pasted emails often carry spaces or capitals
 		password,
 	});
 	if (error) {
 		if (error.status === 400) return null; // invalid_credentials and friends
 		throw error; // network or server trouble: the login screen says so
 	}
+	// The password was right; now check the account has a profile and is still active.
 	const { data: profile, error: profileError } = await supabase
 		.from("profiles")
 		.select("id, name, role, email, active")
@@ -207,7 +216,7 @@ export async function signIn(
 		.maybeSingle();
 	if (profileError) throw new Error(profileError.message);
 	if (!profile || !profile.active) {
-		await supabase.auth.signOut({ scope: "local" });
+		await supabase.auth.signOut({ scope: "local" }); // don't leave a half-signed-in session behind
 		return null;
 	}
 	return toUser(profile);
@@ -229,6 +238,7 @@ export async function sessionUserId(): Promise<string | null> {
  * (signed out elsewhere, refresh token revoked).
  */
 export function onSessionEnd(onEnd: () => void): () => void {
+	// Check once now, then listen for later sign-outs. Returns a function that stops listening.
 	void supabase.auth.getSession().then(({ data }) => {
 		if (!data.session) onEnd();
 	});
@@ -247,10 +257,12 @@ export async function publicCheckpoints(): Promise<PublicCheckpoint[]> {
 	);
 }
 
+/** A saved scan and its checkpoint, or why the server didn't accept the code. */
 export type SubmitResult =
 	| { ok: true; scan: Scan; checkpoint: PublicCheckpoint }
 	| { ok: false; reason: "unknown_code" | "inactive" };
 
+/** The same answer as submit_scan returns it, before mapping to camelCase. */
 type SubmitScanJson =
 	| { ok: true; scan: ScanRecord; checkpoint: PublicCheckpointRecord }
 	| { ok: false; reason: "unknown_code" | "inactive" };
@@ -262,11 +274,18 @@ type SubmitScanJson =
  * The server records the signed-in user as the guard, so a scan queued by someone else
  * on this phone is refused here and stays in the outbox until they sign in again.
  *
- * @param pending a QR-code scan waiting to be verified.
- * @returns
+ * The server checks the QR signature or manual code, and compares the phone's position with the
+ * checkpoint's pin (a scan too far away is still saved, marked "far").
+ *
+ * @param pending A scan made on the phone: its id, the code read or typed, the phone's time and,
+ *   if it had one, the phone's position.
+ * @returns The saved scan and its checkpoint, or `ok: false` with "unknown_code" (not a real
+ *   checkpoint, or an old sticker) or "inactive" (a checkpoint taken out of use).
+ * @throws ServerError("session_mismatch") if the signed-in guard isn't the one who scanned.
  */
 export async function submitScan(pending: PendingScan): Promise<SubmitResult> {
-	// TODO: Update doc.
+	// The server records whoever is signed in as the guard, so without this check another
+	// guard's queued scan would be saved under the wrong name.
 	if ((await sessionUserId()) !== pending.guardId) {
 		throw new ServerError("not_allowed", "session_mismatch");
 	}
@@ -276,13 +295,14 @@ export async function submitScan(pending: PendingScan): Promise<SubmitResult> {
 			p_id: pending.id,
 			p_code: pending.code,
 			p_scanned_at: pending.scannedAt,
+			// Position is optional: GPS often has nothing indoors.
 			...(pending.location && {
 				p_lat: pending.location.lat,
 				p_lng: pending.location.lng,
 				p_accuracy_m: pending.location.accuracyM,
 			}),
 		}),
-	) as unknown as SubmitScanJson;
+	) as unknown as SubmitScanJson; // the function returns jsonb, which the generated types can't describe
 
 	if (!r.ok) return { ok: false, reason: r.reason };
 
@@ -313,8 +333,10 @@ export async function submitReport(report: Report): Promise<void> {
 			paths.push(photo); // already a Storage path
 			continue;
 		}
+		// The same report always gives the same path, so a retry lands on the file already there.
+		// The first folder is the uploader's id: Storage rules only let each user write their own.
 		const path = `${uid}/${report.id}/${i + 1}.jpg`;
-		const blob = await (await fetch(photo)).blob();
+		const blob = await (await fetch(photo)).blob(); // data URL back to a file
 		const { error } = await supabase.storage
 			.from(PHOTO_BUCKET)
 			.upload(path, blob, { contentType: "image/jpeg", upsert: false });
@@ -484,6 +506,7 @@ export async function reissueCheckpoint(id: string): Promise<Checkpoint> {
 	);
 }
 
+/** The scan log query with the supervisor's filters applied, newest first. Shared by the page and the export. */
 function scanRowsQuery(
 	q: Omit<ScanQuery, "page" | "pageSize">,
 	count: boolean,
@@ -503,7 +526,7 @@ function scanRowsQuery(
 
 /** Newest first. `count: 'exact'` gives the total for the pager. */
 export async function listScans(q: ScanQuery): Promise<Page<ScanRow>> {
-	const from = (q.page - 1) * q.pageSize;
+	const from = (q.page - 1) * q.pageSize; // pages start at 1; rows at 0
 	const { data, error, count } = await scanRowsQuery(q, true).range(
 		from,
 		from + q.pageSize - 1,
@@ -527,7 +550,7 @@ export async function exportScans(
 			await scanRowsQuery(q, false).range(from, from + EXPORT_BATCH - 1),
 		);
 		rows.push(...batch.map(toScanRow));
-		if (batch.length < EXPORT_BATCH) return rows;
+		if (batch.length < EXPORT_BATCH) return rows; // a short batch is the last one
 	}
 }
 
@@ -544,6 +567,7 @@ export async function getScan(id: string): Promise<ScanRow | null> {
 				.from(PHOTO_BUCKET)
 				.createSignedUrls(row.report.photos, SIGNED_URL_SECONDS),
 		);
+		// A photo that couldn't be signed (e.g. its file is missing) is left out rather than shown broken.
 		row.report.photos = signed.flatMap((s) =>
 			s.signedUrl ? [s.signedUrl] : [],
 		);
@@ -551,6 +575,7 @@ export async function getScan(id: string): Promise<ScanRow | null> {
 	return row;
 }
 
+/** Every active guard with their scan count and last scan time on `date`, including guards with none. */
 export async function guardSummaries(date: string): Promise<GuardSummary[]> {
 	const { from, to } = dayRange(date);
 	return must(
