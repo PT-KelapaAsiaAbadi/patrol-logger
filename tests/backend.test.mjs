@@ -823,8 +823,15 @@ section("accounts: phone numbers and one-time codes");
 		"supervisors cannot change their own number here",
 	);
 
+	// Supabase allows one code per account every 5 s locally ([auth.sms] max_frequency), counted
+	// from the code sent at creation. A fast machine gets here sooner, so wait the window out.
+	await new Promise((r) => setTimeout(r, 6000));
 	const sent = await staffPhone({ action: "send_code", userId: id });
-	ok(sent.status === 200, "a code can be sent later from the account list");
+	ok(
+		sent.status === 200,
+		"a code can be sent later from the account list",
+		JSON.stringify(sent),
+	);
 	const again = await staffPhone({ action: "send_code", userId: id });
 	ok(
 		again.status === 429 && again.body?.error === "too_soon",
