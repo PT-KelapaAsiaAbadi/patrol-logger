@@ -31,3 +31,6 @@ e2e-failure.png
 
 # Netlify CLI link (local only)
 .netlify/
+
+# AI coding assistants' local settings (Qwen Code)
+.qwen/
