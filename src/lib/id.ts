@@ -1,4 +1,6 @@
 /**
+ * Random ids (UUID v4) made on the phone, so a scan sent twice is still stored once.
+ *
  * crypto.randomUUID only exists from Chrome 92. Older phones fall back to getRandomValues,
  * which every browser with camera access supports.
  */

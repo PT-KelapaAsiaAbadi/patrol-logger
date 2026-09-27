@@ -1,6 +1,10 @@
 /**
  * Shrinks a camera photo before upload. A 12 MP phone photo is 3 to 6 MB;
  * this brings it to roughly 150 to 300 KB, which matters on prepaid data and on Supabase's free storage.
+ *
+ * @param file TODO
+ * @param maxSide TODO
+ * @param quality TODO
  */
 export async function compressImage(
 	file: File,

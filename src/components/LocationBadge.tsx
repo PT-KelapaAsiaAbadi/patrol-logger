@@ -1,3 +1,7 @@
+/**
+ * Location marks on the supervisor's screens: a badge saying whether a scan was near its
+ * checkpoint, too far, or had no location, and a link that opens a point on OpenStreetMap.
+ */
 import { useApp } from "../state";
 import { formatDistance } from "../lib/format";
 import type { Scan } from "../types";

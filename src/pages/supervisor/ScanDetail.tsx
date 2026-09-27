@@ -1,3 +1,7 @@
+/**
+ * One scan in full, for supervisors: guard, checkpoint, scan and received times, the location
+ * check with map links, and the guard's report note and photos.
+ */
 import { Link } from "wouter-preact";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";

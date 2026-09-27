@@ -1,3 +1,7 @@
+/**
+ * Shared Preact hooks: load data with loading and error state, follow online/offline, and
+ * follow the offline outbox (what is still waiting to send, and how many the server refused).
+ */
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { isOnline, onNetworkChange } from "./data/network";
 import { onOutboxChange, outboxItems, rejectedCount } from "./data/api";

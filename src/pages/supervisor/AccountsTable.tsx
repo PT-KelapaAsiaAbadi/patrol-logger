@@ -1,3 +1,8 @@
+/**
+ * The account list on the Accounts tab: every guard and supervisor, with buttons to give someone a
+ * new password or to switch their account off and on again.
+ */
+
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
@@ -10,7 +15,10 @@ type Notice =
 	| { kind: "error" }
 	| null;
 
-/** Every account, with a new-password and a deactivate/reactivate action. Not for your own row. */
+/**
+ * Lists every account, with a new-password and a deactivate/reactivate action.
+ * Not for your own row.
+ */
 export function AccountsTable({
 	accounts,
 	onChanged,
@@ -36,15 +44,20 @@ export function AccountsTable({
 
 	function resetPassword(a: Account) {
 		if (!confirm(t("passwordResetConfirm", { name: a.name }))) return;
+
 		void run(async () => {
+			// set new password (auto-generated).
 			const password = await api.resetPassword(a.id);
 			setNotice({ kind: "password", name: a.name, password });
 		});
 	}
 
+	// supervisors can toggle other accounts' active state.
+	// temporary: business rule assumes 1 supervisor for now (and 1 IT admin).
 	function toggleActive(a: Account) {
 		if (a.active && !confirm(t("deactivateConfirm", { name: a.name })))
 			return;
+
 		void run(async () => {
 			await api.setAccountActive(a.id, !a.active);
 			onChanged();

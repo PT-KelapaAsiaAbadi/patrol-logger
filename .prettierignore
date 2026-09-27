@@ -1,3 +1,6 @@
+# Files Prettier skips: build output, dependencies, the lock file, generated database types,
+# Supabase temp files and Markdown.
+
 dist/
 dev-dist/
 node_modules/

@@ -1,3 +1,7 @@
+/**
+ * The checkpoint table on the Checkpoints tab: reorder the round, rename, take in or out of use,
+ * replace a sticker, set a location, and select checkpoints to print or remove.
+ */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";

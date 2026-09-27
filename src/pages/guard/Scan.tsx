@@ -1,3 +1,8 @@
+/**
+ * The scan screen: opens the back camera, reads a checkpoint's QR sticker (or takes a typed manual
+ * code), attaches the phone's GPS position and records exactly one scan. Works with no signal.
+ */
+
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Link, useLocation } from "wouter-preact";
 import { useApp } from "../../state";
@@ -34,37 +39,56 @@ const LOCATION_TEXT = {
 	insecure: "locInsecure",
 } as const;
 
+/**
+ * Guard-facing QR-scanning screen.
+ */
 export function ScanPage() {
 	const { t, lang, user } = useApp();
 	const [, navigate] = useLocation();
+
+	// "Scanning" is done by taking frames of during video and finding a frame where
+	// the QR-code is decodable.
+
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const handleRef = useRef<ScannerHandle | null>(null);
 	const geoRef = useRef<LocationWatch | null>(null);
+
+	// Location is recorded - where the scan was done (which could differ from actual checkpoint location).
 	const [location, setLocation] = useState<LocationState>({
 		kind: "finding",
 	});
-	// The camera reads the same sticker several times a second. While a scan is being sent, and
+
+	// The camera reads the same QR-code sticker several times a second. While a scan is being sent, and
 	// for good once one has succeeded, further reads are ignored: frames still being decoded when
 	// the camera stops would otherwise record the same checkpoint a second time.
 	const busyRef = useRef(false);
 
 	const [camera, setCamera] = useState<CameraState>("starting");
+
 	const [showManual, setShowManual] = useState(false);
 	const [manual, setManual] = useState("");
+
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<
 		"unknown_code" | "inactive" | "server_error" | null
 	>(null);
+
 	const [outcome, setOutcome] = useState<Extract<
 		ScanOutcome,
 		{ ok: true }
 	> | null>(null);
 
+	/**
+	 * Submit a scan of the QR-code sticker.
+	 *
+	 * @param code the decoded QR-code.
+	 */
 	async function submit(code: string) {
 		if (busyRef.current) return;
 		busyRef.current = true;
 		setBusy(true);
 		setError(null);
+
 		const r = await api.scan(code, user!.id, geoRef.current?.latest());
 		setBusy(false);
 		if (!r.ok) {
@@ -75,7 +99,7 @@ export function ScanPage() {
 		// Success: busyRef stays set, so this page never records another scan.
 		handleRef.current?.stop();
 		handleRef.current = null;
-		navigator.vibrate?.(80); // short buzz so the guard knows without looking
+		navigator.vibrate?.(80); // short buzz/vibration so the guard knows without looking
 		setOutcome(r);
 	}
 

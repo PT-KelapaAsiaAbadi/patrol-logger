@@ -1,3 +1,7 @@
+/**
+ * The one Supabase client, set up from VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY and
+ * typed against database.types.ts. Only src/data/backend.ts imports it.
+ */
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types.ts";
 

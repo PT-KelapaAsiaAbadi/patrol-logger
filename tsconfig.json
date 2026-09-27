@@ -1,3 +1,5 @@
+// Root TypeScript config: tsconfig.app.json covers the app in src/, tsconfig.node.json covers
+// vite.config.ts. `npm run typecheck` checks both.
 {
 	"files": [],
 	"references": [

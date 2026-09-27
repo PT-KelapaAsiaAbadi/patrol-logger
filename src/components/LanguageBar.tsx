@@ -1,3 +1,4 @@
+/** The language switch shown above every page. The choice is remembered on this device (state.tsx). */
 import { useApp } from "../state";
 
 /** Bahasa Indonesia / English switch, shown above every page. */

@@ -1,3 +1,7 @@
+/**
+ * Icon-only buttons and links. Each has a label that screen readers announce and the tooltip
+ * shows; ICON is the one icon size the whole app uses.
+ */
 import type { JSX } from "preact";
 import { Link } from "wouter-preact";
 import type { LucideIcon } from "lucide-preact";

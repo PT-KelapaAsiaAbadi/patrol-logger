@@ -1,3 +1,7 @@
+/**
+ * The Checkpoints tab: add a checkpoint, manage the round (RouteTable), and print or download
+ * QR sticker sheets for the selected checkpoints.
+ */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";

@@ -1,3 +1,5 @@
+// TypeScript settings for the app in src/: strict checks, Preact JSX, bundler-style imports.
+// It only type-checks; Vite does the building.
 {
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",

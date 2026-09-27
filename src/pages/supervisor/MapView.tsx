@@ -1,3 +1,4 @@
+/** The Map tab: one day's checkpoints and scans on a map, and one chosen guard's route in order. */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Link } from "wouter-preact";
 import { useApp } from "../../state";

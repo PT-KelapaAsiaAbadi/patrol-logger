@@ -1,3 +1,7 @@
+/**
+ * App-wide state shared through `useApp()`: the signed-in user, the chosen language (remembered
+ * on this device) and `t()`, which looks up a UI string in that language.
+ */
 import { createContext } from "preact";
 import type { ComponentChildren } from "preact";
 import { useCallback, useContext, useEffect, useState } from "preact/hooks";

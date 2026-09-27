@@ -1,3 +1,7 @@
+/**
+ * The guard's home screen: today's round with each checkpoint ticked once scanned, the Scan button,
+ * and anything still waiting to send, with Try again and Discard for scans the server refused.
+ */
 import { Link, useLocation } from "wouter-preact";
 import { useEffect } from "preact/hooks";
 import { useApp } from "../../state";
@@ -14,6 +18,9 @@ import {
 	X,
 } from "lucide-preact";
 
+/**
+ * Guard-facing dashboard/home page.
+ */
 export function GuardHome() {
 	const { t, lang, user, setUser } = useApp();
 	const [, navigate] = useLocation();

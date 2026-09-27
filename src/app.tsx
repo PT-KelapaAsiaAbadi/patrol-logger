@@ -1,3 +1,8 @@
+/**
+ * The app's routes (hash URLs such as #/scan) and who may open each: signed-out people go to
+ * the sign-in screen, guards to their round, supervisors to the log. The language bar sits above
+ * every page.
+ */
 import type { ComponentChildren } from "preact";
 import { Redirect, Route, Router, Switch } from "wouter-preact";
 import { useHashLocation } from "wouter-preact/use-hash-location";

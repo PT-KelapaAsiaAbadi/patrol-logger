@@ -1,3 +1,7 @@
+/**
+ * Dates, times and distances the way people in Indonesia read them, in Indonesian or English
+ * (17:40, "85 m", "5.6 km"), plus the local-date key that groups a day's scans.
+ */
 import type { Lang } from "../i18n";
 
 const locale = (lang: Lang) => (lang === "id" ? "id-ID" : "en-AU");

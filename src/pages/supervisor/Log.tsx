@@ -1,3 +1,8 @@
+/**
+ * The supervisor's main screen: today's summary (guards on duty, checkpoints not yet visited) and
+ * the scan log, filtered by date, guard and checkpoint, paged, and downloadable as CSV.
+ * Also exports LoadError, the "couldn't load" message the other supervisor screens reuse.
+ */
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";

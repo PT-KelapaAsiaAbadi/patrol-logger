@@ -1,3 +1,6 @@
+# Runs on every push and pull request: lint, format check, type check and build, then the
+# backend and browser tests against a local Supabase stack.
+
 name: CI
 
 on:

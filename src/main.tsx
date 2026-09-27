@@ -1,3 +1,7 @@
+/**
+ * Start-up: loads the offline outbox from the phone's storage, then starts background sending,
+ * update checks and tooltips, and draws the app.
+ */
 import { render } from "preact";
 import "./index.css";
 import { AppProvider } from "./state";

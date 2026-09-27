@@ -1,3 +1,4 @@
+/** Previous / next page controls with "showing X to Y of Z", used under the supervisor's scan log. */
 import { useApp } from "../state";
 import { IconButton } from "../components/IconButton";
 import { ChevronLeft, ChevronRight } from "lucide-preact";

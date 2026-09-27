@@ -1,3 +1,4 @@
+// Extensions VS Code suggests for this project: TODO Highlight, which colours TODO and FIXME.
 {
 	"recommendations": ["wayou.vscode-todo-highlight"]
 }

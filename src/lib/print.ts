@@ -1,3 +1,4 @@
+/** Prints a generated page (the sticker sheet) through a hidden frame, so no pop-up window opens. */
 let frame: HTMLIFrameElement | null = null;
 
 /** Opens the print dialog for a standalone HTML document, via a hidden iframe so no pop-up is needed. */

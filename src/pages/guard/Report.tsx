@@ -1,3 +1,7 @@
+/**
+ * After a scan, the guard can add a report: a note and up to 5 photos, shrunk before upload.
+ * With no signal the report waits in the outbox like a scan.
+ */
 import { useState } from "preact/hooks";
 import { Link } from "wouter-preact";
 import { useApp } from "../../state";
@@ -6,23 +10,47 @@ import { compressImage } from "../../lib/image";
 import { ICON, IconButton } from "../../components/IconButton";
 import { ArrowLeft, ImagePlus, Send, Trash2 } from "lucide-preact";
 
+/**
+ * Photo submission during report is limited to 5 unless changed in future updates.
+ */
 const MAX_PHOTOS = 5;
 
+/**
+ * Guard-facing report submission page (after a scan).
+ *
+ * @param param0 scanId object -TODO
+ */
 export function ReportPage({ scanId }: { scanId: string }) {
 	const { t } = useApp();
+
+	/**
+	 * The note to be submitted with a report.
+	 */
 	const [note, setNote] = useState("");
+	/**
+	 * Photo submission is optional. Max=5.
+	 */
 	const [photos, setPhotos] = useState<string[]>([]);
+
 	const [processing, setProcessing] = useState(false);
 	const [busy, setBusy] = useState(false);
+
 	const [problem, setProblem] = useState(false);
 	const [result, setResult] = useState<"sent" | "queued" | null>(null);
+
 	const name = api.checkpointNameForScan(scanId) ?? t("unknownCheckpoint");
 
+	/**
+	 * Handle file addition before submitting report.
+	 * @param files
+	 */
 	async function addFiles(files: FileList | null) {
 		if (!files?.length) return;
 		setProcessing(true);
+
 		const room = MAX_PHOTOS - photos.length;
 		const picked = [...files].slice(0, room);
+
 		// One at a time: decoding several 12 MP photos at once can crash a low-memory phone's tab.
 		const out: string[] = [];
 		for (const f of picked) {
@@ -30,12 +58,16 @@ export function ReportPage({ scanId }: { scanId: string }) {
 				out.push(await compressImage(f));
 			} catch {
 				/* skip unreadable file */
+				// TODO: implement Error handling / catch handling
 			}
 		}
 		setPhotos((p) => [...p, ...out].slice(0, MAX_PHOTOS));
 		setProcessing(false);
 	}
 
+	/**
+	 * Send report after a scan.
+	 */
 	async function send() {
 		if (!note.trim() && photos.length === 0) {
 			setProblem(true);
@@ -46,6 +78,7 @@ export function ReportPage({ scanId }: { scanId: string }) {
 		setBusy(false);
 	}
 
+	// Report sent successfully.
 	if (result) {
 		return (
 			<main
@@ -67,6 +100,7 @@ export function ReportPage({ scanId }: { scanId: string }) {
 		);
 	}
 
+	// Sending unsuccessful.
 	return (
 		<main class="px-5 pt-6 pb-10 max-w-xl mx-auto w-full">
 			<Link
@@ -124,6 +158,7 @@ export function ReportPage({ scanId }: { scanId: string }) {
 						))}
 					</ul>
 				)}
+				{/* limit photo submission to 5 */}
 				{photos.length < MAX_PHOTOS && (
 					<label
 						class={`btn btn-quiet w-full ${processing ? "opacity-60 pointer-events-none" : ""}`}>

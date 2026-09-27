@@ -1,3 +1,7 @@
+/**
+ * The frame around every supervisor screen: a header with the Log, Map, Accounts and Checkpoints
+ * tabs and the sign-out button.
+ */
 import type { ComponentChildren } from "preact";
 import { Link, useLocation } from "wouter-preact";
 import { useApp } from "../state";

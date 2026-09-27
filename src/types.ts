@@ -26,7 +26,7 @@ export interface Checkpoint {
 	location: CheckpointLocation | null; // null until a supervisor pins it on the map
 }
 
-/** The phone's GPS position when it scanned. */
+/** The phone's GPS position (coordinates) and accuracy when scan was taken. */
 export interface ScanLocation {
 	lat: number;
 	lng: number;
@@ -127,7 +127,10 @@ export interface PendingScan {
 	location?: ScanLocation; // missing when the phone had no fresh position
 }
 
-/** Result of scanning a QR code or typing a manual code. */
+/**
+ * Result of scanning a QR code or typing a manual code.
+ *
+ */
 export type ScanOutcome =
 	| {
 			ok: true;

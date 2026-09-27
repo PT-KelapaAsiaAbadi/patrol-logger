@@ -257,13 +257,20 @@ type SubmitScanJson =
 
 /**
  * Accepts either a signed QR payload or a printed manual code.
+ *
  * Idempotent: sending the same scan id twice returns the first result.
  * The server records the signed-in user as the guard, so a scan queued by someone else
  * on this phone is refused here and stays in the outbox until they sign in again.
+ *
+ * @param pending a QR-code scan waiting to be verified.
+ * @returns
  */
 export async function submitScan(pending: PendingScan): Promise<SubmitResult> {
-	if ((await sessionUserId()) !== pending.guardId)
+	// TODO: Update doc.
+	if ((await sessionUserId()) !== pending.guardId) {
 		throw new ServerError("not_allowed", "session_mismatch");
+	}
+
 	const r = must(
 		await supabase.rpc("submit_scan", {
 			p_id: pending.id,
@@ -276,7 +283,9 @@ export async function submitScan(pending: PendingScan): Promise<SubmitResult> {
 			}),
 		}),
 	) as unknown as SubmitScanJson;
+
 	if (!r.ok) return { ok: false, reason: r.reason };
+
 	return {
 		ok: true,
 		scan: toScan(r.scan),

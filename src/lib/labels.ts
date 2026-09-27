@@ -1,3 +1,7 @@
+/**
+ * Printable checkpoint stickers: the QR image for a checkpoint's signed code, and an A4 sheet of
+ * cut-out labels, each with its QR code, checkpoint name and manual code.
+ */
 import QRCode from "qrcode";
 import type { Checkpoint } from "../types";
 

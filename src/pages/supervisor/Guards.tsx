@@ -1,3 +1,7 @@
+/**
+ * The Accounts tab: add one guard or supervisor, or import many from a CSV, then show their
+ * one-time passwords to hand out. The list of existing accounts is AccountsTable.
+ */
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";

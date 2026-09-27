@@ -1,3 +1,8 @@
+/*
+  All of Patroli's styling: Tailwind, the colour tokens, safe-area padding for phones, then
+  component styles grouped by screen (guard round, scanner, supervisor, printable QR stickers)
+  and the Leaflet map overrides.
+*/
 @import "tailwindcss";
 
 /*

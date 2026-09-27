@@ -1,3 +1,7 @@
+/**
+ * The dialog supervisors use to place a checkpoint and set its radius: tap or drag the pin,
+ * search an address, use their own position, or paste coordinates. The map loads on first open.
+ */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../state";
 import {

@@ -1,12 +1,16 @@
 /**
- * The phone's position, kept fresh while the scan screen is open, so a position is usually
+ * The phone's position (device location), kept fresh while the scan screen is open, so a position is usually
  * ready by the time the camera reads the sticker. Works offline: GPS needs no signal.
  *
  * Two sources at once: a quick rough fix from Wi-Fi and cell towers (works indoors, usually within
  * a few seconds) and a continuous precise GPS watch. The better recent one is used.
  */
+
 import type { ScanLocation } from "../types";
 
+/**
+ * State of device location during a QR-scan.
+ */
 export type LocationState =
 	| { kind: "finding" }
 	| { kind: "found"; accuracyM: number }
@@ -21,27 +25,48 @@ const FRESH_MS = 60_000;
 export interface LocationWatch {
 	/** The latest position if it's fresh enough to attach to a scan. */
 	latest(): ScanLocation | undefined;
+
 	/** Starts over, e.g. after the guard turned location on. */
 	retry(): void;
+
+	/** Stops the GPS watch when the scan screen closes, which also saves battery. */
 	stop(): void;
 }
 
+/**
+ * Starts finding the phone's position and keeps it up to date until `stop()` is called.
+ * `onState` hears every change worth showing the guard (finding, found, slow, off...).
+ */
 export function watchLocation(
 	onState: (state: LocationState) => void,
 ): LocationWatch {
 	if (!window.isSecureContext) {
 		onState({ kind: "insecure" });
-		return { latest: () => undefined, retry: () => {}, stop: () => {} };
+		return {
+			latest: () => undefined,
+			retry: () => {},
+			stop: () => {},
+		};
 	}
+
 	if (!("geolocation" in navigator)) {
 		onState({ kind: "device_off" });
-		return { latest: () => undefined, retry: () => {}, stop: () => {} };
+		return {
+			latest: () => undefined,
+			retry: () => {},
+			stop: () => {},
+		};
 	}
+
 	const geo = navigator.geolocation;
+	/** The best position so far (where, how accurate, and `at`: when it was measured). */
 	let fix: (ScanLocation & { at: number }) | undefined;
+	/** The browser's handle for the running GPS watch, needed to stop it. Null when none is running. */
 	let watchId: number | null = null;
+	/** Set once the scan screen closes, so answers that arrive afterwards are ignored. */
 	let stopped = false;
 
+	/** Takes a new reading, keeps it if it beats the current fix, and reports "found". */
 	function accept(p: GeolocationPosition) {
 		if (stopped) return; // a late answer after the screen closed
 		const next = {
@@ -50,26 +75,34 @@ export function watchLocation(
 			accuracyM: Math.round(p.coords.accuracy),
 			at: p.timestamp,
 		};
+
 		// A precise fix beats a rough one of about the same age; a much newer one wins regardless.
 		if (
 			!fix ||
 			next.at - fix.at > 30_000 ||
 			next.accuracyM <= fix.accuracyM
-		)
+		) {
 			fix = next;
-		onState({ kind: "found", accuracyM: fix.accuracyM });
+			onState({ kind: "found", accuracyM: fix.accuracyM });
+		}
 	}
 
+	/** Turns a failed reading into what the guard should see; a fix already found stays on screen. */
 	function fail(e: GeolocationPositionError) {
 		if (stopped) return;
-		if (e.code === e.PERMISSION_DENIED) onState({ kind: "off" });
-		else if (fix)
+
+		if (e.code === e.PERMISSION_DENIED) {
+			onState({ kind: "off" });
+		} else if (fix) {
 			return; // keep showing the fix we have
-		else if (e.code === e.POSITION_UNAVAILABLE)
+		} else if (e.code === e.POSITION_UNAVAILABLE) {
 			onState({ kind: "device_off" });
-		else onState({ kind: "slow" }); // TIMEOUT: keep going
+		} else {
+			onState({ kind: "slow" }); // TIMEOUT: keep going
+		}
 	}
 
+	/** Asks for a quick rough fix and starts the precise GPS watch, replacing any watch already running. */
 	function start() {
 		if (watchId !== null) geo.clearWatch(watchId);
 		onState(

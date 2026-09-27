@@ -1,3 +1,7 @@
+/**
+ * Build settings: Preact, Tailwind, and the PWA plugin that makes the hosted build installable
+ * and able to open with no signal (app manifest, service worker, cached app files).
+ */
 import { defineConfig } from "vite";
 import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";

@@ -191,7 +191,15 @@ const recentNames = new Map<string, string>();
 export const checkpointNameForScan = (scanId: string) =>
 	recentNames.get(scanId) ?? null;
 
-/** `location` is the phone's position at the moment of scanning, if it had a fresh one. */
+/**
+ * TODO: Describe what the function does.
+ *
+ * @param code TODO
+ * @param guardId TODO
+ * @param location the phone's position at the moment of scanning, if it had a fresh one.
+ *
+ * @returns where the scan was conducted and its estimated accuracy (e.g. radius).
+ */
 export async function scan(
 	code: string,
 	guardId: string,
@@ -205,6 +213,7 @@ export async function scan(
 		...(location && { location }),
 	};
 
+	// Signal required to submit scan.
 	if (isOnline()) {
 		try {
 			const r = await backend.submitScan(pending);

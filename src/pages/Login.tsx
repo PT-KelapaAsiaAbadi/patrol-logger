@@ -1,3 +1,7 @@
+/**
+ * The sign-in screen (email and password). Afterwards guards go to their round and supervisors
+ * to the log.
+ */
 import { useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { useApp } from "../state";
@@ -5,11 +9,16 @@ import * as api from "../data/api";
 import { ICON } from "../components/IconButton";
 import { LogIn } from "lucide-preact";
 
+/**
+ * Login page for both Guards and Supervisors (they share the same one).
+ */
 export function Login() {
 	const { t, setUser } = useApp();
 	const [, navigate] = useLocation();
+
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<"wrong" | "unreachable" | null>(null);
 

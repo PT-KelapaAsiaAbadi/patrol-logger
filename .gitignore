@@ -1,3 +1,5 @@
+# Files git never tracks: dependencies, build output, local env files with keys, logs and OS clutter.
+
 # Dependencies
 node_modules/
 

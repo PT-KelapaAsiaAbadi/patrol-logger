@@ -1,3 +1,7 @@
+/**
+ * CSV in and out: the scan-log download, reading a list of guards to import (with per-row
+ * problems), and the one-time passwords file for newly created guards.
+ */
 import type { CreatedGuard, NewGuard, ScanRow } from "../types";
 
 const cell = (v: string) =>

@@ -1,3 +1,5 @@
+// Lint rules for `npm run lint` (oxlint): correctness errors, suspicious-code warnings, React
+// hooks and accessibility checks. Generated database types are skipped.
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
