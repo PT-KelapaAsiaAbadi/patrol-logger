@@ -101,7 +101,7 @@ const { data: route } = await guard.rpc("route_checkpoints");
 
 	for (const fn of ["create-guards", "reset-password", "staff-phone"]) {
 		const { error } = await guard.functions.invoke(fn, {
-			body: { guards: [], userId: supId, action: "send_code" },
+			body: { guards: [], userId: supId, action: "change" },
 		});
 		ok(
 			error?.context?.status === 403,
@@ -646,10 +646,6 @@ section("accounts: create, reset, deactivate");
 		),
 		"generated password format",
 	);
-	ok(
-		created[newPhone]?.codeSent === undefined,
-		"no code is sent unless asked for",
-	);
 	const { data: newProfile } = await sup
 		.from("profiles")
 		.select("phone, email, phone_verified_at")
@@ -734,7 +730,7 @@ section("accounts: create, reset, deactivate");
 	ok(!back, "reactivating restores access");
 }
 
-section("accounts: phone numbers and one-time codes");
+section("accounts: changing phone numbers");
 {
 	/** Calls staff-phone and returns { status, body } whether it succeeded or not. */
 	const staffPhone = async (body) => {
@@ -747,54 +743,29 @@ section("accounts: phone numbers and one-time codes");
 			body: await error.context?.json?.().catch(() => null),
 		};
 	};
-	const [codePhone, otherCodePhone] = SEED.codePhones;
+	// Unique per run, so the section can be rerun without a database reset.
+	const tail = String(Date.now()).slice(-8);
+	const firstPhone = `62815${tail}`;
+	const otherPhone = `62816${tail}`;
 
 	const { data, error } = await sup.functions.invoke("create-guards", {
-		body: {
-			guards: [{ name: "Dewi Kode", phone: codePhone }],
-			sendCode: true,
-		},
+		body: { guards: [{ name: "Dewi Nomor", phone: firstPhone }] },
 	});
 	const made = data?.created?.[0];
 	ok(
-		!error && made?.codeSent === true,
-		"a code is sent when asked for on creation",
+		!error && made?.user.phone === firstPhone,
+		"account created for the number change checks",
 		JSON.stringify(data ?? error?.message),
 	);
 	const id = made.user.id;
 
-	const wrong = await staffPhone({
-		action: "verify_code",
-		userId: id,
-		code: "000000",
-	});
+	// TODO: one-time codes (confirming a number) aren't built yet; their checks were removed with
+	// them. The earlier checks are in commit 947b3c6.
+	const noCodes = await staffPhone({ action: "send_code", userId: id });
 	ok(
-		wrong.status === 400 && wrong.body?.error === "wrong_code",
-		"a wrong code is refused",
-		JSON.stringify(wrong),
-	);
-	const right = await staffPhone({
-		action: "verify_code",
-		userId: id,
-		code: SEED.code,
-	});
-	ok(
-		right.status === 200 && !!right.body?.verifiedAt,
-		"the right code confirms the number",
-	);
-	const { data: verified } = await sup
-		.from("profiles")
-		.select("phone_verified_at")
-		.eq("id", id)
-		.single();
-	ok(
-		!!verified?.phone_verified_at,
-		"the profile records when it was confirmed",
-	);
-	const stillWorks = await signedIn(codePhone, made.password).catch((e) => e);
-	ok(
-		!(stillWorks instanceof Error),
-		"confirming doesn't change the password",
+		noCodes.status === 400 && noCodes.body?.error === "bad_request",
+		"sending a one-time code isn't available",
+		JSON.stringify(noCodes),
 	);
 
 	const taken = await staffPhone({
@@ -816,10 +787,10 @@ section("accounts: phone numbers and one-time codes");
 	const changed = await staffPhone({
 		action: "change",
 		userId: id,
-		phone: `+${otherCodePhone}`,
+		phone: `+${otherPhone}`,
 	});
 	ok(
-		changed.status === 200 && changed.body?.phone === otherCodePhone,
+		changed.status === 200 && changed.body?.phone === otherPhone,
 		"a supervisor changes someone's number",
 		JSON.stringify(changed),
 	);
@@ -829,16 +800,14 @@ section("accounts: phone numbers and one-time codes");
 		.eq("id", id)
 		.single();
 	ok(
-		afterChange?.phone === otherCodePhone &&
+		afterChange?.phone === otherPhone &&
 			afterChange?.phone_verified_at === null,
 		"a new number starts unconfirmed",
 		JSON.stringify(afterChange),
 	);
-	const oldNumber = await signedIn(codePhone, made.password).catch((e) => e);
+	const oldNumber = await signedIn(firstPhone, made.password).catch((e) => e);
 	ok(oldNumber instanceof Error, "the old number no longer signs in");
-	const newNumber = await signedIn(otherCodePhone, made.password).catch(
-		(e) => e,
-	);
+	const newNumber = await signedIn(otherPhone, made.password).catch((e) => e);
 	ok(!(newNumber instanceof Error), "the new number signs in");
 
 	const self = await staffPhone({
@@ -849,22 +818,6 @@ section("accounts: phone numbers and one-time codes");
 	ok(
 		self.status === 403 && self.body?.error === "cannot_change_self",
 		"supervisors cannot change their own number here",
-	);
-
-	// Supabase allows one code per account every 5 s locally ([auth.sms] max_frequency), counted
-	// from the code sent at creation. A fast machine gets here sooner, so wait the window out.
-	await new Promise((r) => setTimeout(r, 6000));
-	const sent = await staffPhone({ action: "send_code", userId: id });
-	ok(
-		sent.status === 200,
-		"a code can be sent later from the account list",
-		JSON.stringify(sent),
-	);
-	const again = await staffPhone({ action: "send_code", userId: id });
-	ok(
-		again.status === 429 && again.body?.error === "too_soon",
-		"sending again straight away is refused",
-		JSON.stringify(again),
 	);
 }
 

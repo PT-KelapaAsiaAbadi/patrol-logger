@@ -410,7 +410,7 @@ export function startAutoSync() {
 // ---------- supervisor ----------
 // These need a connection; the dashboard is used at a desk, not on patrol.
 
-/** The server's reason for refusing a request (e.g. "wrong_code"), or null if it wasn't reached. */
+/** The server's reason for refusing a request (e.g. "phone_exists"), or null if it wasn't reached. */
 export const refusalCode = (e: unknown): string | null =>
 	e instanceof backend.ServerError ? e.code : null;
 
@@ -438,17 +438,11 @@ export const setAccountActive = (id: string, active: boolean) =>
 export const resetPassword = (userId: string) =>
 	needsNetwork(() => backend.resetPassword(userId));
 
-export const createGuards = (guards: NewGuard[], sendCode = false) =>
-	needsNetwork(() => backend.createGuards(guards, sendCode));
+export const createGuards = (guards: NewGuard[]) =>
+	needsNetwork(() => backend.createGuards(guards));
 
 export const changePhone = (userId: string, phone: string) =>
 	needsNetwork(() => backend.changePhone(userId, phone));
-
-export const sendPhoneCode = (userId: string) =>
-	needsNetwork(() => backend.sendPhoneCode(userId));
-
-export const verifyPhoneCode = (userId: string, code: string) =>
-	needsNetwork(() => backend.verifyPhoneCode(userId, code));
 
 export const allCheckpoints = () =>
 	needsNetwork(() => backend.allCheckpoints());

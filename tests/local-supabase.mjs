@@ -45,9 +45,6 @@ export const SEED = {
 	guard: "6281100000002",
 	supervisorTyped: "0811-0000-0001",
 	guardTyped: "0811 0000 0002",
-	// [auth.sms.test_otp] in supabase/config.toml: these always get this code, and nothing is texted.
-	codePhones: ["6281100000901", "6281100000902"],
-	code: "123456",
 };
 
 const noPersist = { auth: { persistSession: false, autoRefreshToken: false } };

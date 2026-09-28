@@ -15,7 +15,7 @@ comment on column public.profiles.email is
 comment on column public.profiles.phone is
 	'Sign-in phone number: digits with country code, no "+" (6281234567890). Same as auth.users.phone. Unique.';
 comment on column public.profiles.phone_verified_at is
-	'When the person proved the number is theirs with a one-time code. Null = not confirmed (typed in by a supervisor).';
+	'When the person proved the number is theirs with a one-time code. Not built yet, so always null for now (see README > TODO).';
 comment on column public.profiles.role is
 	'guard (scans checkpoints, sees only their own data) or supervisor (sees everything, manages accounts and checkpoints).';
 comment on column public.profiles.active is

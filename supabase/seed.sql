@@ -4,7 +4,6 @@
 -- Accounts (password for both: patroli-local-1). Type the number any common way, e.g. 0811-0000-0001.
 --   +62 811-0000-0001  Rina Wijaya   (supervisor)
 --   +62 811-0000-0002  Budi Santoso  (guard)
--- The one-time code for the test numbers in config.toml ([auth.sms.test_otp]) is always 123456.
 
 do $$
 declare

@@ -5,7 +5,7 @@
  *   - reads              -> tables and the scan_rows view, filtered by Row Level Security
  *   - writes             -> SECURITY DEFINER functions that check the caller (supabase/migrations)
  *   - createGuards       -> the create-guards Edge Function (needs the service-role key)
- *   - phone numbers      -> the staff-phone Edge Function (change a number, send and check a code)
+ *   - phone numbers      -> the staff-phone Edge Function (change a number)
  *   - report photos      -> the private report-photos Storage bucket
  *
  * The UI never imports this file directly. It goes through `api.ts`.
@@ -430,16 +430,14 @@ export async function resetPassword(userId: string): Promise<string> {
 /**
  * Creates one account per phone number, each with a generated password returned once.
  * Numbers that already have an account are skipped and returned in `existing`.
- * With `sendCode`, each new number is also texted a one-time code (see `verifyPhoneCode`).
  * Runs in the create-guards Edge Function, which holds the service-role key.
  */
 export async function createGuards(
 	guards: NewGuard[],
-	sendCode = false,
 ): Promise<GuardImportResult> {
 	const { data, error } = await supabase.functions.invoke<GuardImportResult>(
 		"create-guards",
-		{ body: { guards, sendCode } },
+		{ body: { guards } },
 	);
 	if (error || !data)
 		throw new Error(error?.message ?? "create_guards_failed");
@@ -448,7 +446,7 @@ export async function createGuards(
 
 /**
  * Calls the staff-phone Edge Function. Its refusals come back as ServerError with the function's
- * own code (e.g. "wrong_code", "phone_exists", "too_soon"), so screens can say what went wrong.
+ * own code (e.g. "phone_exists", "invalid_phone"), so screens can say what went wrong.
  */
 async function staffPhone<T>(body: Record<string, string>): Promise<T> {
 	const { data, error } = await supabase.functions.invoke<T>("staff-phone", {
@@ -465,7 +463,7 @@ async function staffPhone<T>(body: Record<string, string>): Promise<T> {
 	return data;
 }
 
-/** Gives someone a new sign-in number (or a first one). It counts as not confirmed until a code is checked. */
+/** Gives someone a new sign-in number (or a first one). The new number starts as not confirmed. */
 export async function changePhone(
 	userId: string,
 	phone: string,
@@ -475,18 +473,8 @@ export async function changePhone(
 	).phone;
 }
 
-/** Texts a one-time code to the account's number, so the person can prove it's theirs. */
-export async function sendPhoneCode(userId: string): Promise<void> {
-	await staffPhone({ action: "send_code", userId });
-}
-
-/** Checks the code the person read out, and marks their number as confirmed. */
-export async function verifyPhoneCode(
-	userId: string,
-	code: string,
-): Promise<void> {
-	await staffPhone({ action: "verify_code", userId, code });
-}
+// TODO: sendPhoneCode / verifyPhoneCode (one-time codes to confirm a number) once a real SMS
+// provider is set up. The earlier version is in commit 947b3c6. See README > TODO > Launch.
 
 /** Every checkpoint that hasn't been removed, in round order. */
 export async function allCheckpoints(): Promise<Checkpoint[]> {

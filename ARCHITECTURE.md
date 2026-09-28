@@ -26,19 +26,19 @@ Patroli is a QR checkpoint patrol logger. Guards scan QR stickers on their round
 
 | Id | Component | Where defined | Responsibility |
 | --- | --- | --- | --- |
-| `auth` | Supabase Auth | dashboard + `supabase/config.toml` | Sessions, sign-in with phone number and password. Public sign-up is off: accounts are created only by supervisors. Also sends one-time codes through the SMS provider |
+| `auth` | Supabase Auth | dashboard + `supabase/config.toml` | Sessions, sign-in with phone number and password. Public sign-up is off: accounts are created only by supervisors |
 | `rpc` | RPC functions (`security definer`) | `supabase/migrations/*.sql` | Every write. Each function checks the caller's role. Examples: `submit_scan`, `submit_report`, `create_checkpoint`, `update_checkpoint`, `move_checkpoint`, `reissue_checkpoint`, `remove_checkpoints`, `set_checkpoint_location`, `set_account_active`, `qr_payload`, `route_checkpoints`, `guard_summaries`, `missed_checkpoints` |
 | `tables` | Tables + Row Level Security | `supabase/migrations/20260923120000_patrol_schema.sql` and later | `profiles`, `checkpoints`, `scans`, `reports`; view `scan_rows` (`security_invoker`). RLS: guards read only their own rows, supervisors read everything. No table accepts direct writes from the app |
 | `vault` | Vault secret `qr_signing_key` | schema migration | HMAC key for QR stickers. Never leaves the database |
 | `storage` | Storage bucket `report-photos` | schema migration | Private. Guards upload to `<user id>/<report id>/`; supervisors and owners read via signed URLs |
-| `edge` | Edge Functions | `supabase/functions/create-guards`, `reset-password`, `staff-phone`, `_shared/supervisor.ts`, `_shared/phone.ts` | Hold the service-role key. Each calls `requireSupervisor` first, then uses the Auth admin API (and the public Auth API to send and check one-time codes) |
+| `edge` | Edge Functions | `supabase/functions/create-guards`, `reset-password`, `staff-phone`, `_shared/supervisor.ts`, `_shared/phone.ts` | Hold the service-role key. Each calls `requireSupervisor` first, then uses the Auth admin API |
 
 ### External
 
 | Id | Component | Used by | Notes |
 | --- | --- | --- | --- |
 | `osm` | OpenStreetMap tiles (Leaflet), Nominatim search | `src/lib/map.ts`, `src/lib/geocode.ts` | Supervisor Map and Checkpoints only. Called directly from the browser, not through `backend.ts`. Leaflet is excluded from the guard's precache |
-| `sms` | SMS provider (Twilio, MessageBird, Vonage or Textlocal) | Supabase Auth, set in the dashboard | Delivers one-time codes when a supervisor confirms a staff member's number. Supabase also requires one to allow phone sign-in at all |
+| `sms` | SMS provider (Twilio, MessageBird, Vonage or Textlocal) | Supabase Auth, set in the dashboard | Supabase requires one to allow phone sign-in at all. Currently placeholder values: nothing is ever texted (one-time codes are a TODO) |
 
 ## 2. Edges
 
@@ -64,9 +64,7 @@ backend     -> edge        : supabase.functions.invoke("create-guards" | "reset-
 rpc         -> tables      : insert / update, after checking the caller
 rpc         -> vault       : HMAC sign (qr_payload) and verify (submit_scan)
 edge        -> auth        : auth.admin.createUser / updateUserById (phone, password; service-role key);
-                             signInWithOtp + verifyOtp for one-time codes (the code's session is ended at once)
 edge        -> tables      : insert profiles rows; update phone, phone_verified_at
-auth        -> sms         : one-time code to the staff member's phone
 sup_ui      -> osm         : map tiles, address search (on "Search" only)
 ```
 
@@ -121,8 +119,8 @@ flowchart LR
   backend -- "invoke" --> edge
   rpc -- "insert" --> tables
   rpc -- "HMAC" --> vault
-  edge -- "Auth admin API · one-time codes" --> auth
-  auth -. "one-time code" .-> sms
+  edge -- "Auth admin API" --> auth
+  auth -. "required for phone sign-in (placeholder)" .-> sms
   sup_ui -. "map tiles, address search" .-> osm
 ```
 
@@ -184,7 +182,7 @@ Everyone signs in with a phone number and a password. Nobody can sign up: `[auth
 A supervisor calls `create-guards`, `reset-password` or `staff-phone` through `supabase.functions.invoke`. The function validates the caller with `requireSupervisor` (401 if not signed in, 403 if not an active supervisor), then uses the service-role client.
 
 - `create-guards` makes Auth users keyed on the phone number (stored as digits with country code, e.g. `6281234567890`; typed numbers are normalised by `normalizePhone`, kept in step in `src/lib/phone.ts` and `supabase/functions/_shared/phone.ts`) with generated passwords, plus `profiles` rows. Passwords are returned once and never texted.
-- With `sendCode`, and later from `staff-phone` `send_code`, a one-time code is texted (`signInWithOtp` with `shouldCreateUser: false`, so an unknown number gets nothing). The staff member reads it out, the supervisor types it in, and `staff-phone` `verify_code` checks it with `verifyOtp`, ends the session that creates, and sets `profiles.phone_verified_at`.
+- Confirming a number with a one-time code is not built yet (TODO). The UI is shown but disabled, and `profiles.phone_verified_at` stays null. A working version is in commit `947b3c6`.
 - `staff-phone` `change` gives someone a new number (Auth and `profiles` together); the new number starts unconfirmed.
 
 `set_account_active()` deactivates an account so its sessions get nothing. Accounts made before phone sign-in keep `profiles.email` and have no phone until one is added.

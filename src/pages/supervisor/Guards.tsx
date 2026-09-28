@@ -1,7 +1,6 @@
 /**
  * The Accounts tab: add one guard or supervisor, or import many from a CSV, then show their
- * one-time passwords to hand out. Every account signs in with its phone number; when adding one,
- * the supervisor can also text a one-time code to confirm the number (PhoneCode).
+ * one-time passwords to hand out. Every account signs in with its phone number.
  * The list of existing accounts is AccountsTable. Nobody can sign themselves up.
  */
 import { useState } from "preact/hooks";
@@ -19,7 +18,6 @@ import { formatPhone, normalizePhone } from "../../lib/phone";
 import type { GuardImportResult, NewGuard, Role } from "../../types";
 import { LoadError } from "./Log";
 import { AccountsTable } from "./AccountsTable";
-import { PhoneCode } from "./PhoneCode";
 import { ICON } from "../../components/IconButton";
 import { Download, Upload, UserPlus, X } from "lucide-preact";
 
@@ -68,14 +66,11 @@ function useCreateGuards(onAdded: () => void) {
 	const [busy, setBusy] = useState(false);
 	const [outcome, setOutcome] = useState<Outcome | null>(null);
 
-	async function create(
-		guards: NewGuard[],
-		sendCode = false,
-	): Promise<boolean> {
+	async function create(guards: NewGuard[]): Promise<boolean> {
 		setBusy(true);
 		setOutcome(null);
 		try {
-			const result = await api.createGuards(guards, sendCode);
+			const result = await api.createGuards(guards);
 			setOutcome({ kind: "done", result });
 			if (result.created.length) onAdded();
 			return true;
@@ -95,7 +90,6 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 	const [name, setName] = useState("");
 	const [phone, setPhone] = useState("");
 	const [role, setRole] = useState<Role>("guard");
-	const [sendCode, setSendCode] = useState(false);
 	const [badPhone, setBadPhone] = useState(false);
 	const { busy, outcome, create, clear } = useCreateGuards(onAdded);
 
@@ -106,21 +100,13 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 			clear();
 			return;
 		}
-		const ok = await create(
-			[
-				{
-					name: name.trim().replace(/\s+/g, " "),
-					phone: normalised,
-					role,
-				},
-			],
-			sendCode,
-		);
+		const ok = await create([
+			{ name: name.trim().replace(/\s+/g, " "), phone: normalised, role },
+		]);
 		if (ok) {
 			setName("");
 			setPhone("");
 			setRole("guard");
-			setSendCode(false);
 		}
 	}
 
@@ -187,21 +173,21 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 						</option>
 					</select>
 				</label>
-				{/* TODO: hide this option (and the code step after it) until real SMS details are set.
-				    The hosted project uses placeholder Twilio values, so codes can't be sent there and this
-				    always ends in "The code couldn't be sent". Plan: one setting (e.g. VITE_PHONE_CODES)
-				    that is on locally and in tests. See README > TODO > Launch. */}
-				<label class="flex items-start gap-2">
+				{/* TODO: implement one-time codes to confirm a new number, then enable this option.
+				    Needs a real SMS provider (the hosted project uses placeholder Twilio values). The
+				    earlier version (commit 947b3c6) sent the code from create-guards and showed a
+				    code-entry step after adding the account. See README > TODO > Launch. */}
+				<label class="flex items-start gap-2 opacity-60">
 					<input
 						type="checkbox"
 						class="mt-1"
-						checked={sendCode}
-						onChange={(e) => setSendCode(e.currentTarget.checked)}
+						disabled
+						checked={false}
 					/>
 					<span>
 						{t("sendCodeOption")}
 						<span class="block text-muted">
-							{t("sendCodeCost")}
+							{t("notAvailableYet")}
 						</span>
 					</span>
 				</label>
@@ -215,10 +201,7 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 					{busy ? t("saving") : t("addGuard")}
 				</button>
 			</form>
-			<CreateOutcome
-				outcome={outcome}
-				onChanged={onAdded}
-			/>
+			<CreateOutcome outcome={outcome} />
 		</section>
 	);
 }
@@ -387,10 +370,7 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 					</div>
 				</div>
 			)}
-			<CreateOutcome
-				outcome={outcome}
-				onChanged={onAdded}
-			/>
+			<CreateOutcome outcome={outcome} />
 		</section>
 	);
 }
@@ -401,14 +381,7 @@ const showPhone = (p: string) => {
 	return n ? formatPhone(n) : p;
 };
 
-function CreateOutcome({
-	outcome,
-	onChanged,
-}: {
-	outcome: Outcome | null;
-	/** Reloads the account list, e.g. once a number is confirmed. */
-	onChanged: () => void;
-}) {
+function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 	const { t } = useApp();
 	if (!outcome) return null;
 	if (outcome.kind === "error") {
@@ -473,27 +446,6 @@ function CreateOutcome({
 						{t("downloadPasswords")}
 					</button>
 				</div>
-			)}
-			{/* Only offered when adding one account, so this is at most one code step. */}
-			{created.map(({ user, codeSent }) =>
-				codeSent === undefined || !user.phone ? null : codeSent ? (
-					<PhoneCode
-						key={user.id}
-						account={{
-							id: user.id,
-							name: user.name,
-							phone: user.phone,
-						}}
-						alreadySent
-						onConfirmed={onChanged}
-					/>
-				) : (
-					<p
-						key={user.id}
-						class="notice notice-warn">
-						{t("codeNotSent")}
-					</p>
-				),
 			)}
 			{existing.length > 0 && (
 				<p class="notice notice-warn">

@@ -268,10 +268,9 @@ template = "Your code is {{ .Code }}"
 max_frequency = "5s"
 
 # Use pre-defined map of phone number to OTP for testing.
-# Local only: these numbers get a fixed code and no text is sent. Used by the tests.
-[auth.sms.test_otp]
-6281100000901 = "123456"
-6281100000902 = "123456"
+# TODO: when one-time codes are built, add fixed test codes here for the tests, e.g.
+# [auth.sms.test_otp]
+# 6281100000901 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -292,8 +291,8 @@ max_frequency = "5s"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 # Local stack: Supabase only allows phone sign-in (even with a password) once an SMS provider is
-# switched on, so Twilio is on here with placeholder values. The test_otp numbers above never
-# reach Twilio. The hosted project's provider is set in its dashboard, not here.
+# switched on, so Twilio is on here with placeholder values. Password sign-in never contacts it.
+# The hosted project's provider is set in its dashboard, not here.
 [auth.sms.twilio]
 enabled = true
 account_sid = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

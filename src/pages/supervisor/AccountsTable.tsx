@@ -1,7 +1,7 @@
 /**
  * The account list on the Accounts tab: every guard and supervisor with their sign-in phone number,
- * and buttons to change that number, confirm it with a one-time code, give someone a new password,
- * or switch their account off and on again.
+ * and buttons to change that number, give someone a new password, or switch their account off and
+ * on again. "Confirm number" is shown but disabled until one-time codes exist (see the TODO below).
  */
 
 import { useState } from "preact/hooks";
@@ -10,7 +10,6 @@ import * as api from "../../data/api";
 import { formatPhone } from "../../lib/phone";
 import type { Account } from "../../types";
 import { ICON, IconButton } from "../../components/IconButton";
-import { PhoneCode } from "./PhoneCode";
 import {
 	KeyRound,
 	Save,
@@ -26,8 +25,8 @@ type Notice =
 	| { kind: "error" }
 	| null;
 
-/** The form or code step open above the table, for one account at a time. */
-type Panel = { kind: "phone" | "code"; account: Account } | null;
+/** The change-number form open above the table, for one account at a time. */
+type Panel = { account: Account } | null;
 
 /**
  * Lists every account, with a new-password and a deactivate/reactivate action.
@@ -80,47 +79,21 @@ export function AccountsTable({
 		});
 	}
 
-	/** Opens the change-number form or the code step for one account (only one at a time). */
-	function open(kind: "phone" | "code", a: Account) {
+	/** Opens the change-number form for one account (only one at a time). */
+	function openChangePhone(a: Account) {
 		setNotice(null);
-		setPanel({ kind, account: a });
+		setPanel({ account: a });
 	}
 
 	return (
 		<>
-			{panel?.kind === "phone" && (
+			{panel && (
 				<ChangePhone
 					key={panel.account.id}
 					account={panel.account}
 					onClose={() => setPanel(null)}
 					onSaved={onChanged}
 				/>
-			)}
-			{panel?.kind === "code" && panel.account.phone && (
-				<section
-					class="panel mb-3 grid gap-2"
-					aria-label={`${t("confirmNumber")}: ${panel.account.name}`}>
-					<div class="flex items-center justify-between gap-3">
-						<h3 class="font-semibold">
-							{t("confirmNumber")}: {panel.account.name}
-						</h3>
-						<IconButton
-							icon={X}
-							label={t("cancel")}
-							onClick={() => setPanel(null)}
-						/>
-					</div>
-					<PhoneCode
-						key={panel.account.id}
-						account={{
-							id: panel.account.id,
-							name: panel.account.name,
-							phone: panel.account.phone,
-						}}
-						alreadySent={false}
-						onConfirmed={onChanged}
-					/>
-				</section>
 			)}
 			{notice?.kind === "password" && (
 				<div
@@ -206,21 +179,20 @@ export function AccountsTable({
 									</td>
 									<td class="whitespace-nowrap">
 										<span class="icon-row">
-											{/* TODO: show "Confirm number" only once real SMS is on, like the
-											    "Send a one-time code" option in Guards.tsx. */}
+											{/* TODO: implement one-time codes, then enable this button: it should text a
+											    code to the number and let the supervisor type in the code the person reads
+											    out, setting phone_verified_at. Needs a real SMS provider. The earlier
+											    version (PhoneCode.tsx, commit 947b3c6) did this. See README > TODO. */}
 											{a.phone &&
 												!a.phoneVerified &&
 												a.active && (
 													<IconButton
 														icon={ShieldCheck}
-														label={`${t("confirmNumber")}: ${a.name}`}
+														label={`${t("confirmNumber")}: ${a.name} (${t("notAvailableYet")})`}
 														tip={t(
-															"confirmPhoneTip",
+															"notAvailableYet",
 														)}
-														disabled={busy}
-														onClick={() =>
-															open("code", a)
-														}
+														disabled
 													/>
 												)}
 											{/* Not for your own row: you could lock yourself out. */}
@@ -234,7 +206,7 @@ export function AccountsTable({
 														)}
 														disabled={busy}
 														onClick={() =>
-															open("phone", a)
+															openChangePhone(a)
 														}
 													/>
 													<IconButton

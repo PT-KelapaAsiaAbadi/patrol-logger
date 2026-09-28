@@ -267,31 +267,19 @@ try {
 	).trim();
 	ok(password !== firstPassword, "password reset shows a new password");
 
-	// A new account whose number is confirmed with a one-time code (a test number: no text is sent).
-	await addPanel.getByLabel("Full name").fill("Dewi Kode");
-	await addPanel.getByLabel("Phone number").fill("0811-0000-0901");
-	await addPanel
-		.getByLabel("Send a one-time code to confirm this number")
-		.check();
-	await addPanel.getByRole("button", { name: "Add account" }).click();
-	await text("A code was sent to +62 811-0000-0901");
-	const codeBox = addPanel.getByLabel("Code from the message");
-	const confirmButton = addPanel.getByRole("button", {
-		name: "Confirm number",
-		exact: true,
-	});
-	await codeBox.fill("000000");
-	await confirmButton.click();
-	await text("That code is wrong or has expired");
-	ok(true, "a wrong code is refused");
-	await codeBox.fill(SEED.code);
-	await confirmButton.click();
-	await text("Dewi Kode's number is confirmed.");
-	await page
-		.locator("tr", { has: page.getByText("+62 811-0000-0901") })
-		.getByText("Confirmed", { exact: true })
-		.waitFor({ timeout: 15000 });
-	ok(true, "the right code confirms the number, and the list shows it");
+	// One-time codes aren't built yet (TODO): the option and the button are shown but disabled.
+	ok(
+		await addPanel
+			.getByLabel("Send a one-time code to confirm this number")
+			.isDisabled(),
+		"the one-time code option is shown but disabled",
+	);
+	ok(
+		await sitiRow
+			.getByRole("button", { name: "Confirm number: Siti Rahma" })
+			.isDisabled(),
+		"the Confirm number button is shown but disabled",
+	);
 
 	// Siti gets a new number; from now on she signs in with it.
 	const newTail = String(Number(tail) + 1).padStart(8, "0");

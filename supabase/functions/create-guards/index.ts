@@ -6,14 +6,12 @@
  * the browser. Each new account gets a random password, returned once so the supervisor can hand
  * it out. People can't sign themselves up: sign-up is switched off for the whole project.
  *
- * With sendCode: true, each new account is also texted a one-time code, which the staff member
- * reads back to the supervisor to confirm the number (staff-phone, "verify_code"). Each text costs
- * money and counts towards the project's hourly SMS limit, so the app only offers it for one
- * account at a time.
+ * TODO: optionally text a one-time code to confirm each new number (a "sendCode" flag). Not built
+ * yet: it needs a real SMS provider. The earlier version is in commit 947b3c6. See README > TODO.
  *
- * Request:  POST { guards: { name: string; phone: string; role?: "guard" | "supervisor" }[],
- *                  sendCode?: boolean } with the supervisor's session
- * Response: { created: { user, password, codeSent? }[], existing: string[], failed: string[] }
+ * Request:  POST { guards: { name: string; phone: string; role?: "guard" | "supervisor" }[] }
+ *           with the supervisor's session
+ * Response: { created: { user, password }[], existing: string[], failed: string[] }
  *           existing and failed list phone numbers (as normalised, or as typed if unreadable).
  */
 import {
@@ -23,7 +21,7 @@ import {
 	newPassword,
 	requireSupervisor,
 } from "../_shared/supervisor.ts";
-import { normalizePhone, sendPhoneCode } from "../_shared/phone.ts";
+import { normalizePhone } from "../_shared/phone.ts";
 
 const MAX_ACCOUNTS = 500;
 
@@ -40,7 +38,6 @@ Deno.serve(async (req) => {
 
 	let body: {
 		guards?: { name?: unknown; phone?: unknown; role?: unknown }[];
-		sendCode?: unknown;
 	};
 	try {
 		body = await req.json();
@@ -51,12 +48,10 @@ Deno.serve(async (req) => {
 	if (input.length === 0 || input.length > MAX_ACCOUNTS) {
 		return json({ error: "bad_request" }, 400);
 	}
-	const sendCode = body.sendCode === true;
 
 	const created: {
 		user: { id: string; name: string; role: Role; phone: string };
 		password: string;
-		codeSent?: boolean;
 	}[] = [];
 	const existing: string[] = [];
 	const failed: string[] = [];
@@ -114,10 +109,6 @@ Deno.serve(async (req) => {
 		created.push({
 			user: { id: data.user.id, name, role, phone },
 			password,
-			// A code that can't be sent doesn't undo the account: it can be sent again later.
-			...(sendCode && {
-				codeSent: (await sendPhoneCode(phone)) === "sent",
-			}),
 		});
 	}
 

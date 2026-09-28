@@ -167,24 +167,8 @@ const id = {
 	deactivate: "Nonaktifkan",
 	activate: "Aktifkan",
 	sendCodeOption: "Kirim kode sekali pakai untuk konfirmasi nomor ini",
-	sendCodeCost:
-		"Satu pesan berbayar. Orangnya perlu memegang HP-nya sekarang untuk membacakan kodenya.",
-	codeSentTo:
-		"Kode dikirim ke {phone}. Minta {name} membacakan kodenya, lalu ketik di sini.",
-	messageCodeLabel: "Kode dari pesan",
+	notAvailableYet: "Belum tersedia: perlu layanan SMS.",
 	confirmNumber: "Konfirmasi nomor",
-	checkingCode: "Memeriksa...",
-	sendCode: "Kirim kode",
-	sendCodeAgain: "Kirim kode baru",
-	sendingCode: "Mengirim...",
-	numberConfirmed: "Nomor {name} sudah dikonfirmasi.",
-	wrongCode:
-		"Kode salah atau sudah kedaluwarsa. Periksa lagi, atau kirim kode baru.",
-	codeTooSoon:
-		"Kode baru saja dikirim. Tunggu sebentar sebelum mengirim lagi.",
-	codeSendFailed: "Kode tidak bisa dikirim. Coba lagi nanti.",
-	codeNotSent:
-		"Akun sudah dibuat, tapi kodenya tidak terkirim. Kirim nanti dari daftar akun.",
 	phoneConfirmed: "Terkonfirmasi",
 	phoneUnconfirmed: "Belum dikonfirmasi",
 	noPhone: "Belum ada nomor HP (tidak bisa masuk)",
@@ -285,7 +269,6 @@ const id = {
 	reissueTip: "Ganti stiker: QR dan kode lama langsung tidak berlaku",
 	newPasswordTip: "Buat kata sandi baru",
 	changePhoneTip: "Ganti nomor HP untuk masuk",
-	confirmPhoneTip: "Kirim kode untuk konfirmasi nomor",
 	accountOffTip: "Nonaktifkan akun (tidak bisa masuk)",
 	accountOnTip: "Aktifkan akun lagi",
 	prevTip: "Halaman sebelumnya",
@@ -469,23 +452,8 @@ const en: Record<Key, string> = {
 	deactivate: "Deactivate",
 	activate: "Reactivate",
 	sendCodeOption: "Send a one-time code to confirm this number",
-	sendCodeCost:
-		"One paid message. The person needs their phone with them now to read the code out.",
-	codeSentTo:
-		"A code was sent to {phone}. Ask {name} to read it out, then type it here.",
-	messageCodeLabel: "Code from the message",
+	notAvailableYet: "Not available yet: needs an SMS service.",
 	confirmNumber: "Confirm number",
-	checkingCode: "Checking...",
-	sendCode: "Send code",
-	sendCodeAgain: "Send a new code",
-	sendingCode: "Sending...",
-	numberConfirmed: "{name}'s number is confirmed.",
-	wrongCode:
-		"That code is wrong or has expired. Check it, or send a new one.",
-	codeTooSoon: "A code was just sent. Wait a moment before sending another.",
-	codeSendFailed: "The code couldn't be sent. Try again later.",
-	codeNotSent:
-		"The account was added, but the code couldn't be sent. Send it later from the account list.",
 	phoneConfirmed: "Confirmed",
 	phoneUnconfirmed: "Not confirmed",
 	noPhone: "No phone number yet (can't sign in)",
@@ -586,7 +554,6 @@ const en: Record<Key, string> = {
 	reissueTip: "Replace sticker: the old QR and code stop working at once",
 	newPasswordTip: "Make a new password",
 	changePhoneTip: "Change the sign-in phone number",
-	confirmPhoneTip: "Send a code to confirm the number",
 	accountOffTip: "Deactivate account (can't sign in)",
 	accountOnTip: "Reactivate account",
 	prevTip: "Previous page",

@@ -106,14 +106,13 @@ export interface NewGuard {
 /** An account as the supervisor's accounts screen lists it. */
 export interface Account extends User {
 	active: boolean; // false: can't sign in, and Row Level Security gives them nothing
-	phoneVerified: boolean; // true once the person read back a one-time code sent to the number
+	phoneVerified: boolean; // not settable yet: will be true once one-time codes exist (see README > TODO)
 }
 
 /** A new guard account and its generated password. The password is only ever shown once. */
 export interface CreatedGuard {
 	user: User;
 	password: string;
-	codeSent?: boolean; // only when a one-time code was asked for: whether it went out
 }
 
 export interface GuardImportResult {

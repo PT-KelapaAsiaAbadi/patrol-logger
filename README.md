@@ -30,7 +30,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<publishable key from supabase status>
 
 Local accounts from `supabase/seed.sql` (password `patroli-local-1`): supervisor `0811-0000-0001`, guard `0811-0000-0002`. Everyone signs in with a phone number and password; nobody can sign up.
 
-Locally no text messages are sent. The numbers `0811-0000-0901` and `0811-0000-0902` always get the one-time code `123456` (`[auth.sms.test_otp]` in `supabase/config.toml`), so use them to try "Send a one-time code". The local config switches Twilio on with placeholder values only because Supabase won't allow phone sign-in without an SMS provider.
+No text messages are sent, locally or hosted. The local config switches Twilio on with placeholder values only because Supabase won't allow phone sign-in without an SMS provider. One-time codes to confirm a number aren't built yet: the option and the "Confirm number" button are shown but disabled (see TODO).
 
 Other commands:
 
@@ -63,7 +63,7 @@ Then in the dashboard:
 1. **Authentication > Sign In / Providers**: turn off "Allow new users to sign up". Accounts are only made by supervisors.
 2. **Authentication > Sign In / Providers > Phone**: turn the Phone provider on and pick an SMS provider (Twilio, Twilio Verify, MessageBird, Vonage or Textlocal) with its credentials. Supabase refuses phone sign-in, even with a password, until one is set. "Enable phone confirmations" can stay off: supervisors create accounts already confirmed.
 
-   **Current setup: placeholders.** PatrolLogger uses "Twilio" with placeholder values (Account SID `ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`, Auth Token `00000000000000000000000000000000`, Message Service SID `MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`). Phone + password sign-in never contacts the provider, so it works, and nothing is paid. One-time codes can't be sent: "Send a one-time code" ends with "The code couldn't be sent", and numbers stay "Not confirmed". This relies on Supabase behaviour that isn't documented (tested on the local stack), so recheck sign-in after Supabase updates.
+   **Current setup: placeholders.** PatrolLogger uses "Twilio" with placeholder values (Account SID `ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`, Auth Token `00000000000000000000000000000000`, Message Service SID `MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`). Phone + password sign-in never contacts the provider, so it works, and nothing is paid. One-time codes aren't built yet, so every number shows "Not confirmed". This relies on Supabase behaviour that isn't documented (tested on the local stack), so recheck sign-in after Supabase updates.
 3. **Authentication > Rate Limits**: the default is 30 texts an hour for the whole project. Raise it if many staff are registered at once.
 4. **The first supervisor.** Authentication > Users > Add user, with an email and password and "Auto Confirm User" ticked (the dashboard form asks for an email). Then in the **SQL Editor**, give it a phone number (digits, country code first, no "+" or leading 0) and a supervisor profile:
 
@@ -86,7 +86,7 @@ update auth.users set phone = '6281234567890', phone_confirmed_at = now() where 
 update public.profiles set phone = '6281234567890' where email = 'you@example.com';
 ```
 
-Everyone else can then be given a number from the Accounts tab ("Add phone number" on their row), and confirmed with a one-time code.
+Everyone else can then be given a number from the Accounts tab ("Add phone number" on their row). Check numbers in person for now.
 
 ## Stack
 
@@ -130,7 +130,7 @@ src/
   pages/guard/          Home (round), Scan, Report
   pages/supervisor/     Log (paginated), ScanDetail, Map (one day: checkpoints, scans, a guard's route),
                         Guards = the Accounts tab (add one, import CSV, new password, deactivate),
-                        AccountsTable (change a number, confirm it), PhoneCode (the one-time code step),
+                        AccountsTable (change a number; "Confirm number" shown disabled for now),
                         Checkpoints (round order, rename, replace sticker, add, select, print QR)
 supabase/
   migrations/           tables, Row Level Security, server functions, QR signing key, photo bucket
@@ -146,8 +146,8 @@ tests/                  backend.test.mjs (each role against the API), e2e.test.m
 | backend.ts | Supabase |
 | --- | --- |
 | `signIn` | `supabase.auth.signInWithPassword` with the phone number, then the caller's row in `profiles` (role, active) |
-| `createGuards` | `create-guards` Edge Function: `auth.admin.createUser` with the phone number and a generated password, then a `profiles` row (guard or supervisor). Optionally texts a one-time code |
-| `changePhone`, `sendPhoneCode`, `verifyPhoneCode` | `staff-phone` Edge Function: change someone's number; text a code (`signInWithOtp`, never creating an account); check the code the person read out and set `profiles.phone_verified_at` |
+| `createGuards` | `create-guards` Edge Function: `auth.admin.createUser` with the phone number and a generated password, then a `profiles` row (guard or supervisor) |
+| `changePhone` | `staff-phone` Edge Function: change someone's number (Auth and `profiles` together); the new number starts unconfirmed |
 | `resetPassword` | `reset-password` Edge Function: a new generated password, shown once |
 | `setAccountActive` | `set_account_active()`: a deactivated account can't sign in and its open sessions get nothing |
 | `submitScan` | `submit_scan()`: verifies the QR's HMAC with a key kept in Vault, or matches the manual code, then inserts. The guard is always the caller |
@@ -184,8 +184,7 @@ Open work before real use. `TODO:` comments in the code are highlighted by the T
 
 ### Launch
 
-- [ ] One-time codes: PatrolLogger's phone provider has placeholder Twilio values (sign-in only, see "Hosted project"). To send codes, enter a real provider's details, or add a Send SMS hook that delivers them some other way. Until then, don't tick "Send a one-time code" and confirm numbers in person.
-- [ ] Hide the one-time code option and "Confirm number" button until real SMS is on (one setting, on locally and in tests), so supervisors never see an option that always fails ([src/pages/supervisor/Guards.tsx](src/pages/supervisor/Guards.tsx), [src/pages/supervisor/AccountsTable.tsx](src/pages/supervisor/AccountsTable.tsx)).
+- [ ] Implement one-time codes to confirm a staff member's number. Removed for now because PatrolLogger's phone provider has placeholder Twilio values (sign-in only, see "Hosted project"). Needs a real provider's details, or a Send SMS hook that delivers codes another way. The UI is in place but disabled: the "Send a one-time code" option ([src/pages/supervisor/Guards.tsx](src/pages/supervisor/Guards.tsx)) and the "Confirm number" button ([src/pages/supervisor/AccountsTable.tsx](src/pages/supervisor/AccountsTable.tsx)). `profiles.phone_verified_at` is ready and always null for now. A working version, with tests, is in commit `947b3c6`: `staff-phone` `send_code` / `verify_code`, `sendCode` in `create-guards`, `PhoneCode.tsx`, and fixed local test codes in `config.toml`. Until then, check numbers in person.
 
 - [ ] Deploy the backend to PatrolLogger (commands above), then in the dashboard: turn off sign-up, turn on the Phone provider with an SMS provider, set the minimum password length to 10 and the site URL to the app's address, give existing accounts a phone number or create the first supervisor.
 - [ ] Host the app over https (Netlify, Cloudflare Pages or Vercel) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` set in the host's build settings.
@@ -220,7 +219,7 @@ Phone sign-in currently leans on Supabase Auth features that other backends don'
 
 - [ ] The phone number lives twice: `auth.users.phone` (what Supabase signs in with) and `profiles.phone` (what the app shows). The Edge Functions keep them in step. Make `profiles.phone` the only source of truth and treat the auth identity as a detail of `backend.ts`.
 - [ ] Sign-in calls `signInWithPassword({ phone })` ([src/data/backend.ts](src/data/backend.ts)), which Supabase only allows once an SMS provider is configured, even though no text is sent. Option: sign in with an internal identity derived from the number (e.g. `6281234567890@phone.patroli.invalid`) plus the password. Plain email + password works on any auth system and needs no SMS provider.
-- [ ] One-time codes use Supabase's `signInWithOtp` / `verifyOtp` ([supabase/functions/_shared/phone.ts](supabase/functions/_shared/phone.ts)), with the SMS provider set in the Supabase dashboard. Option: own codes (a table of hashed codes with an expiry and attempt count) sent through any SMS gateway, so the provider can change without touching sign-in.
+- [ ] When one-time codes are built: the earlier version used Supabase's `signInWithOtp` / `verifyOtp`, with the SMS provider set in the Supabase dashboard. Option: own codes (a table of hashed codes with an expiry and attempt count) sent through any SMS gateway, so the provider can change without touching sign-in.
 - [ ] `normalizePhone` exists twice ([src/lib/phone.ts](src/lib/phone.ts) and `supabase/functions/_shared/phone.ts`) because Edge Functions can't import from `src/`. A new backend should keep one copy.
 - [ ] Account management (`create-guards`, `reset-password`, `staff-phone`) uses the Supabase Auth admin API with the service-role key. Keep their request and response shapes, so only the server side changes and `backend.ts` stays the one file the app talks through.
 
