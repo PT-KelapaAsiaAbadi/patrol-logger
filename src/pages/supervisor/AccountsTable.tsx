@@ -206,6 +206,8 @@ export function AccountsTable({
 									</td>
 									<td class="whitespace-nowrap">
 										<span class="icon-row">
+											{/* TODO: show "Confirm number" only once real SMS is on, like the
+											    "Send a one-time code" option in Guards.tsx. */}
 											{a.phone &&
 												!a.phoneVerified &&
 												a.active && (

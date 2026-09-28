@@ -20,7 +20,7 @@ Two env files point the app at a Supabase project; git ignores both. Vite picks 
 | `.env.development.local` | `npm run dev` | the local stack, so testing never touches live data |
 | `.env.production.local` | `npm run build` | the hosted project (PatrolLogger) |
 
-```
+```ini
 # .env.development.local (values from `npx supabase status`)
 VITE_SUPABASE_URL=http://127.0.0.1:54321
 VITE_SUPABASE_PUBLISHABLE_KEY=<publishable key from supabase status>
@@ -185,6 +185,7 @@ Open work before real use. `TODO:` comments in the code are highlighted by the T
 ### Launch
 
 - [ ] One-time codes: PatrolLogger's phone provider has placeholder Twilio values (sign-in only, see "Hosted project"). To send codes, enter a real provider's details, or add a Send SMS hook that delivers them some other way. Until then, don't tick "Send a one-time code" and confirm numbers in person.
+- [ ] Hide the one-time code option and "Confirm number" button until real SMS is on (one setting, on locally and in tests), so supervisors never see an option that always fails ([src/pages/supervisor/Guards.tsx](src/pages/supervisor/Guards.tsx), [src/pages/supervisor/AccountsTable.tsx](src/pages/supervisor/AccountsTable.tsx)).
 
 - [ ] Deploy the backend to PatrolLogger (commands above), then in the dashboard: turn off sign-up, turn on the Phone provider with an SMS provider, set the minimum password length to 10 and the site URL to the app's address, give existing accounts a phone number or create the first supervisor.
 - [ ] Host the app over https (Netlify, Cloudflare Pages or Vercel) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` set in the host's build settings.

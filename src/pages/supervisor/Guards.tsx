@@ -187,6 +187,10 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 						</option>
 					</select>
 				</label>
+				{/* TODO: hide this option (and the code step after it) until real SMS details are set.
+				    The hosted project uses placeholder Twilio values, so codes can't be sent there and this
+				    always ends in "The code couldn't be sent". Plan: one setting (e.g. VITE_PHONE_CODES)
+				    that is on locally and in tests. See README > TODO > Launch. */}
 				<label class="flex items-start gap-2">
 					<input
 						type="checkbox"

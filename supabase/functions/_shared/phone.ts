@@ -36,6 +36,10 @@ export type SendCodeResult = "sent" | "too_soon" | "send_failed";
 /**
  * Texts a one-time code to an existing account's number, through the project's SMS provider.
  * Never creates an account: an unknown number gets nothing.
+ *
+ * TODO: the hosted project has placeholder Twilio values, so this returns "send_failed" there.
+ * Enter a real SMS provider, or add a Send SMS hook that delivers codes another way (e.g. an
+ * Android phone with a local SIM). See README > TODO > Launch.
  */
 export async function sendPhoneCode(phone: string): Promise<SendCodeResult> {
 	const { error } = await publicClient().auth.signInWithOtp({
