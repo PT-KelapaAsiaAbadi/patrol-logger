@@ -48,7 +48,11 @@ export function startTooltips() {
 		if (!el) hide();
 		else if (el !== current) show(el);
 	});
-	document.addEventListener("pointerleave", hide);
+	// The pointer left the window: no new element gets a pointerover, so hide here.
+	// (A pointerleave listener on document doesn't fire reliably: document isn't an element.)
+	document.addEventListener("pointerout", (e) => {
+		if (!e.relatedTarget) hide();
+	});
 	document.addEventListener("focusin", (e) => {
 		const el = tipped(e.target);
 		if (el?.matches(":focus-visible")) show(el);

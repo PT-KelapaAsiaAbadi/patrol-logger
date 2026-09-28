@@ -7,6 +7,7 @@ import { useLocation } from "wouter-preact";
 import { useApp } from "../state";
 import * as api from "../data/api";
 import { ICON } from "../components/IconButton";
+import { keepPhoneChars, PHONE_INPUT_MAX } from "../lib/phone";
 import { LogIn } from "lucide-preact";
 
 /**
@@ -58,10 +59,15 @@ export function Login() {
 						type="tel"
 						inputMode="tel"
 						autoComplete="username"
-						placeholder="0812-3456-7890"
+						placeholder={t("phonePlaceholder")}
 						required
+						maxLength={PHONE_INPUT_MAX}
 						value={phone}
-						onInput={(e) => setPhone(e.currentTarget.value)}
+						onInput={(e) => {
+							const kept = keepPhoneChars(e.currentTarget.value);
+							e.currentTarget.value = kept;
+							setPhone(kept);
+						}}
 					/>
 				</label>
 				<label class="grid gap-1">

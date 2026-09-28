@@ -14,7 +14,19 @@ import {
 	type GuardsCsv,
 } from "../../lib/csv";
 import { saveFile } from "../../lib/download";
-import { formatPhone, normalizePhone } from "../../lib/phone";
+import {
+	formatPhone,
+	keepPhoneChars,
+	normalizePhone,
+	PHONE_INPUT_MAX,
+} from "../../lib/phone";
+import {
+	keepNameChars,
+	PERSON_NAME_MAX,
+	personNameProblem,
+	tidyPersonName,
+	type PersonNameProblem,
+} from "../../lib/personName";
 import type { GuardImportResult, NewGuard, Role } from "../../types";
 import { LoadError } from "./Log";
 import { AccountsTable } from "./AccountsTable";
@@ -91,17 +103,22 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 	const [phone, setPhone] = useState("");
 	const [role, setRole] = useState<Role>("guard");
 	const [badPhone, setBadPhone] = useState(false);
+	const [nameProblem, setNameProblem] = useState<PersonNameProblem | null>(
+		null,
+	);
 	const { busy, outcome, create, clear } = useCreateGuards(onAdded);
 
 	async function submit() {
+		const problem = personNameProblem(name);
 		const normalised = normalizePhone(phone);
+		setNameProblem(problem);
 		setBadPhone(!normalised);
-		if (!normalised) {
+		if (problem || !normalised) {
 			clear();
 			return;
 		}
 		const ok = await create([
-			{ name: name.trim().replace(/\s+/g, " "), phone: normalised, role },
+			{ name: tidyPersonName(name), phone: normalised, role },
 		]);
 		if (ok) {
 			setName("");
@@ -119,8 +136,11 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 				class="font-semibold mb-3">
 				{t("addGuardTitle")}
 			</h2>
+			{/* noValidate: the app's own messages (in the chosen language) instead of the browser's.
+			    Both fields drop characters they can't contain as they're typed or pasted. */}
 			<form
 				class="grid gap-3"
+				noValidate
 				onSubmit={(e) => {
 					e.preventDefault();
 					void submit();
@@ -130,11 +150,28 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 					<input
 						class="field"
 						required
+						minLength={1}
+						maxLength={PERSON_NAME_MAX}
 						autoComplete="off"
+						placeholder={t("fullNamePlaceholder")}
+						aria-invalid={!!nameProblem}
 						value={name}
-						onInput={(e) => setName(e.currentTarget.value)}
+						onInput={(e) => {
+							// Write the filtered text back, so a dropped digit disappears from the box.
+							const kept = keepNameChars(e.currentTarget.value);
+							e.currentTarget.value = kept;
+							setName(kept);
+							setNameProblem(null);
+						}}
 					/>
 				</label>
+				{nameProblem && (
+					<p
+						class="notice notice-warn"
+						role="alert">
+						{t(nameProblem, { max: PERSON_NAME_MAX })}
+					</p>
+				)}
 				<label class="grid gap-1">
 					<span class="font-medium">{t("phone")}</span>
 					<input
@@ -142,12 +179,15 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 						type="tel"
 						inputMode="tel"
 						required
+						maxLength={PHONE_INPUT_MAX}
 						autoComplete="off"
-						placeholder="0812-3456-7890"
+						placeholder={t("phonePlaceholder")}
 						aria-invalid={badPhone}
 						value={phone}
 						onInput={(e) => {
-							setPhone(e.currentTarget.value);
+							const kept = keepPhoneChars(e.currentTarget.value);
+							e.currentTarget.value = kept;
+							setPhone(kept);
 							setBadPhone(false);
 						}}
 					/>

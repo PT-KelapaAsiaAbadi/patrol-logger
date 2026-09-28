@@ -22,6 +22,7 @@ import {
 	requireSupervisor,
 } from "../_shared/supervisor.ts";
 import { normalizePhone } from "../_shared/phone.ts";
+import { isPersonName, tidyPersonName } from "../_shared/names.ts";
 
 const MAX_ACCOUNTS = 500;
 
@@ -59,9 +60,7 @@ Deno.serve(async (req) => {
 
 	// One at a time: the Auth admin API is rate limited, and the lists are small.
 	for (const g of input) {
-		const name = String(g.name ?? "")
-			.trim()
-			.replace(/\s+/g, " ");
+		const name = tidyPersonName(String(g.name ?? ""));
 		const typed = String(g.phone ?? "").trim();
 		const phone = normalizePhone(typed);
 		const role: Role | null =
@@ -70,7 +69,8 @@ Deno.serve(async (req) => {
 				: g.role === "supervisor"
 					? "supervisor"
 					: null;
-		if (!name || name.length > 120 || !phone || !role || seen.has(phone)) {
+		// Names: letters, spaces and . , ' - only, up to 70 (_shared/names.ts). Phones: see _shared/phone.ts.
+		if (!isPersonName(name) || !phone || !role || seen.has(phone)) {
 			failed.push(phone ?? (typed || "(empty)"));
 			continue;
 		}

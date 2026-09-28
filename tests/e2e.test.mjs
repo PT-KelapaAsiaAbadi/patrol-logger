@@ -237,7 +237,8 @@ try {
 		.getByText("Rename", { exact: true })
 		.waitFor({ timeout: 5000 });
 	ok(true, "hovering an icon button shows what it does");
-	await page.mouse.move(0, 0);
+	// Onto a plain element; a move to the window's corner can count as leaving the page instead.
+	await page.getByRole("heading", { name: "Checkpoints and QR" }).hover();
 	await page.locator(".tooltip").waitFor({ state: "hidden", timeout: 5000 });
 	ok(true, "and the help text goes away when the mouse leaves");
 
@@ -307,6 +308,31 @@ try {
 	const addPanel = page.locator("section", {
 		has: page.getByRole("heading", { name: "Add one account" }),
 	});
+	// Input rules: examples shown, digits dropped from names, Indonesian numbers need 10-13 digits.
+	await addPanel.getByPlaceholder("e.g. Budi Santoso").waitFor();
+	await addPanel.getByPlaceholder("e.g. 0812-3456-7890").waitFor();
+	await addPanel.getByLabel("Full name").fill("Budi 007");
+	ok(
+		(await addPanel.getByLabel("Full name").inputValue()) === "Budi ",
+		"the name field drops digits as they're typed",
+	);
+	await addPanel.getByLabel("Full name").fill("");
+	await addPanel.getByLabel("Phone number").fill("0812-345-67");
+	await addPanel.getByRole("button", { name: "Add account" }).click();
+	await addPanel.getByText("Enter the full name.").waitFor();
+	await addPanel.getByText("Indonesian mobiles start with 08").waitFor();
+	ok(true, "an empty name and a too-short number are refused");
+	await page.locator('input[type="file"]').setInputFiles({
+		name: "guards.csv",
+		mimeType: "text/csv",
+		buffer: Buffer.from(
+			"full_name,phone\nDewi Lestari,0812-1111-2222\nAgent 47,0812-1111-3333\n",
+		),
+	});
+	await text("name must be letters only, up to 70 characters");
+	ok(true, "the CSV import skips a row whose name has digits");
+	await page.getByRole("button", { name: "Cancel" }).click();
+
 	await addPanel.getByLabel("Full name").fill("Siti Rahma");
 	await addPanel.getByLabel("Phone number").fill(typedPhone);
 	await addPanel.getByRole("button", { name: "Add account" }).click();

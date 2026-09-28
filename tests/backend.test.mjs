@@ -644,6 +644,9 @@ section("accounts: create, reset, deactivate");
 				{ name: "Dup", phone: SEED.guardTyped },
 				{ name: "", phone: "bad" },
 				{ name: "Wrong role", phone: `0814${tail}`, role: "admin" },
+				// The server repeats the app's rules (_shared/names.ts, _shared/phone.ts).
+				{ name: "Agent 47", phone: `0817${tail}` },
+				{ name: "Short Number", phone: "0812-345-67" },
 			],
 		},
 	});
@@ -651,8 +654,8 @@ section("accounts: create, reset, deactivate");
 		!error &&
 			data.created.length === 2 &&
 			data.existing[0] === SEED.guard &&
-			data.failed.length === 2,
-		"creates new accounts, skips existing, rejects invalid and unknown roles",
+			data.failed.length === 4,
+		"creates new accounts, skips existing, rejects invalid names, numbers and roles",
 		JSON.stringify(data ?? error?.message),
 	);
 	const created = Object.fromEntries(

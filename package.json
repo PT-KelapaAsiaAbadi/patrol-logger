@@ -19,7 +19,8 @@
     "test:location": "node tests/location.test.mjs",
     "test:format": "node --experimental-strip-types --no-warnings tests/format.test.mjs",
     "test:today": "node --experimental-strip-types --no-warnings tests/today.test.mjs",
-    "test:unit": "npm run test:format && npm run test:today"
+    "test:accounts": "node --experimental-strip-types --no-warnings tests/accounts.test.mjs",
+    "test:unit": "npm run test:format && npm run test:today && npm run test:accounts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",

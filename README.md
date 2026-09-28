@@ -51,7 +51,7 @@ Easiest: `npm run build`, then drag `dist/` into Netlify Drop or Cloudflare Page
 ## Hosted project (PatrolLogger)
 
 ```bash
-npx supabase link --project-ref cfiayahvwjjqhmayakmy
+npx supabase link --project-ref <your-project-ref>   # Dashboard > Project Settings > General > Project ID
 npx supabase db push                          # applies new files in supabase/migrations (never seed.sql); rerun after each update
 npx supabase functions deploy create-guards
 npx supabase functions deploy reset-password
@@ -208,12 +208,12 @@ Open work before real use. `TODO:` comments in the code are highlighted by the T
 Dashboard refactor (branch `refactor/dashboard-rework`), done step by step:
 
 - [ ] **Today: Guards on duty** shows sample data (marked "Sample data, not live yet"). Use `guardSummaries(today)` for every active guard with a status from the last scan: Patrolling (scanned in the last 60 min), Quiet (scanned today, not in the last 60 min), Not started (no scans today). "On duty" can't mean "scheduled" until shifts exist (see Decisions) ([src/pages/supervisor/Today.tsx](src/pages/supervisor/Today.tsx)).
-- [ ] **Today: Needs review** is a placeholder. List today's scans that need a look, newest first, with the reasons as labels and a link to the scan:
-    - far from the checkpoint (`location_status = 'far'`)
-    - no GPS (`location_status = 'no_fix'`)
-    - has a report (a note or photos: likely an incident)
-    - sent late: `received_at` more than 60 min after `scanned_at` (long offline, or a wrong phone clock)
-    - too fast: the same guard scanned two different checkpoints less than 1 min apart
+- [ ] **Today: Needs review** shows sample rows. List today's scans that need a look, newest first, with the reasons as labels and a link to the scan:
+  - far from the checkpoint (`location_status = 'far'`)
+  - no GPS (`location_status = 'no_fix'`)
+  - has a report (a note or photos: likely an incident)
+  - sent late: `received_at` more than 60 min after `scanned_at` (long offline, or a wrong phone clock)
+  - too fast: the same guard scanned two different checkpoints less than 1 min apart
 
   Not included on purpose: "no report" (reports are optional, so almost every scan would be flagged) and "checkpoint not pinned" (a setup issue, not the guard's). Thresholds in one constants block; rules in [src/lib/today.ts](src/lib/today.ts) with tests. Later: a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans).
 - [ ] **Needs review** shows sample rows (one per planned reason, tagged "Sample data, not live yet") until the rules below are built.
@@ -221,6 +221,7 @@ Dashboard refactor (branch `refactor/dashboard-rework`), done step by step:
 - [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
 - [ ] **New checkpoints need a location.** The app requires it and `create_checkpoint` saves name and location in one step, but the database still accepts a name alone so the app version currently deployed keeps working. Once the new app is live, make `p_lat` / `p_lng` required in `create_checkpoint` ([supabase/migrations/20260928130000_checkpoint_location_on_create.sql](supabase/migrations/20260928130000_checkpoint_location_on_create.sql)).
 - [ ] **Checkpoint names:** the app allows 3 to 50 characters, no repeats (ignoring case), and at least one letter or digit ([src/lib/checkpointName.ts](src/lib/checkpointName.ts)). The database still allows up to 80. Tighten it once hosted names have been checked against the new rule.
+- [ ] **Account names and phones:** full names are 1 to 70 characters of letters, spaces and `. , ' -` ([src/lib/personName.ts](src/lib/personName.ts)); phones are stored as text in E.164 digits (no `+`), Indonesian mobiles only 10 to 13 digits as typed ([src/lib/phone.ts](src/lib/phone.ts)). Both are checked again on the server (`_shared/names.ts`, `_shared/phone.ts`). The database's `profiles` checks are looser (names up to 120; any 8 to 15 digits): tighten them once hosted accounts have been checked. If many numbers from other countries get registered, validate with `libphonenumber-js` instead of the 8 to 15 digit rule (roughly 80 KB or more on guards' prepaid data).
 
 ### Decisions (not built)
 
