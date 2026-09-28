@@ -208,8 +208,9 @@ try {
 	await lastRow.getByRole("button", { name: "Rename" }).click();
 	await lastRow.getByRole("textbox").fill("Pos belakang gudang");
 	await lastRow.getByRole("button", { name: "Save" }).click();
+	// exact: the row's other cells hold buttons labelled e.g. "Rename: Pos belakang gudang".
 	await route
-		.getByRole("cell", { name: "Pos belakang gudang" })
+		.getByRole("cell", { name: "Pos belakang gudang", exact: true })
 		.waitFor({ timeout: 15000 });
 	ok(true, "checkpoint renamed from the round table");
 
@@ -628,7 +629,7 @@ try {
 	acceptNextDialog();
 	await row.getByRole("button", { name: "Deactivate" }).click();
 	await row
-		.getByRole("cell", { name: "Deactivated" })
+		.getByRole("cell", { name: "Deactivated", exact: true })
 		.waitFor({ timeout: 15000 });
 	await signOut();
 	await signIn(newShown, password);
