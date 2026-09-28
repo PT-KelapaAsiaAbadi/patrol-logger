@@ -38,7 +38,12 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[]) {
 
 export function useOnline(): boolean {
 	const [online, setOnline] = useState(isOnline);
-	useEffect(() => onNetworkChange(() => setOnline(isOnline())), []);
+	useEffect(() => {
+		// Effects run after the first paint, so the connection may have changed since useState
+		// read it. Without this, a screen opened just as signal returns stays on "No signal".
+		setOnline(isOnline());
+		return onNetworkChange(() => setOnline(isOnline()));
+	}, []);
 	return online;
 }
 

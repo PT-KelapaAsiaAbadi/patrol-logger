@@ -10,6 +10,7 @@ import type { OutboxItem } from "./queue";
 import { isOnline, onNetworkChange } from "./network";
 import { newId } from "../lib/id";
 import { localDateKey } from "../lib/format";
+import { normalizePhone } from "../lib/phone";
 import type {
 	CheckpointLocation,
 	NewGuard,
@@ -55,12 +56,17 @@ const writeJson = (key: string, v: unknown) => {
 /** The signed-in user as last cached, or null. Reads storage only, so it works offline. */
 export const currentUser = () => readJson<User>(SESSION_KEY);
 
-/** Signs in and caches the user. Returns null for a wrong email or password, or an inactive account. */
+/**
+ * Signs in and caches the user. `phone` can be typed any common way ("0812-3456-7890", "+62 812...").
+ * Returns null for a wrong number or password, or an inactive account.
+ */
 export async function signIn(
-	email: string,
+	phone: string,
 	password: string,
 ): Promise<User | null> {
-	const user = await backend.signIn(email, password);
+	const normalised = normalizePhone(phone);
+	if (!normalised) return null; // can't be anyone's number: same answer as a wrong password
+	const user = await backend.signIn(normalised, password);
 	if (user) writeJson(SESSION_KEY, user);
 	return user;
 }
@@ -404,6 +410,10 @@ export function startAutoSync() {
 // ---------- supervisor ----------
 // These need a connection; the dashboard is used at a desk, not on patrol.
 
+/** The server's reason for refusing a request (e.g. "phone_exists"), or null if it wasn't reached. */
+export const refusalCode = (e: unknown): string | null =>
+	e instanceof backend.ServerError ? e.code : null;
+
 /** Fails fast with Error("offline") instead of waiting for a request that can't succeed. */
 async function needsNetwork<T>(fn: () => Promise<T>): Promise<T> {
 	if (!isOnline()) throw new Error("offline");
@@ -430,6 +440,9 @@ export const resetPassword = (userId: string) =>
 
 export const createGuards = (guards: NewGuard[]) =>
 	needsNetwork(() => backend.createGuards(guards));
+
+export const changePhone = (userId: string, phone: string) =>
+	needsNetwork(() => backend.changePhone(userId, phone));
 
 export const allCheckpoints = () =>
 	needsNetwork(() => backend.allCheckpoints());

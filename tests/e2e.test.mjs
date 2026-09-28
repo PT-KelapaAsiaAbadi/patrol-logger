@@ -80,9 +80,10 @@ page.on("console", (m) => {
 	if (m.type() === "error") errors.push(m.text());
 });
 
-async function signIn(email, password) {
+/** Signs in through the form, with the number typed however a person would. */
+async function signIn(phone, password) {
 	await page.goto(BASE + "#/login");
-	await page.getByLabel("Email").fill(email);
+	await page.getByLabel("Phone number").fill(phone);
 	await page.getByLabel("Password").fill(password);
 	await page.getByRole("button", { name: "Sign in" }).click();
 }
@@ -96,10 +97,10 @@ const text = (s, opts) =>
 
 try {
 	section("login");
-	await signIn(SEED.supervisor, "wrong-password-1");
-	await text("Email or password is incorrect");
+	await signIn(SEED.supervisorTyped, "wrong-password-1");
+	await text("Phone number or password is incorrect");
 	ok(true, "wrong password shows the error");
-	await signIn(SEED.supervisor, SEED.password);
+	await signIn(SEED.supervisorTyped, SEED.password);
 	await page.waitForURL(/#\/supervisor$/, { timeout: 15000 });
 	await text("Budi Santoso");
 	ok(true, "supervisor lands on the log with today's guards");
@@ -229,15 +230,19 @@ try {
 	section("accounts");
 	await page.getByRole("link", { name: "Accounts" }).click();
 	await page
-		.getByRole("cell", { name: SEED.guard })
+		.getByText("+62 811-0000-0002")
+		.first()
 		.waitFor({ timeout: 15000 });
-	ok(true, "account list shows emails");
-	const email = `siti${Date.now()}@patroli.test`;
+	ok(true, "account list shows phone numbers");
+	// Unique per run. Typed in local format; shown as +62 812-....
+	const tail = String(Date.now()).slice(-8);
+	const typedPhone = `0812-${tail.slice(0, 4)}-${tail.slice(4)}`;
+	const shownPhone = `+62 812-${tail.slice(0, 4)}-${tail.slice(4)}`;
 	const addPanel = page.locator("section", {
 		has: page.getByRole("heading", { name: "Add one account" }),
 	});
 	await addPanel.getByLabel("Full name").fill("Siti Rahma");
-	await addPanel.getByLabel("Email").fill(email);
+	await addPanel.getByLabel("Phone number").fill(typedPhone);
 	await addPanel.getByRole("button", { name: "Add account" }).click();
 	await text("These passwords are shown only once");
 	const firstPassword = (
@@ -248,8 +253,11 @@ try {
 		"one-time password shown",
 	);
 
+	await addPanel.getByText(shownPhone).waitFor();
+	ok(true, "the typed number is shown in one standard form");
+
 	const sitiRow = page.locator("tr", {
-		has: page.getByRole("cell", { name: email }),
+		has: page.getByText(shownPhone),
 	});
 	acceptNextDialog();
 	await sitiRow.getByRole("button", { name: "New password" }).click();
@@ -258,13 +266,44 @@ try {
 		await page.locator(".notice span.font-mono").first().textContent()
 	).trim();
 	ok(password !== firstPassword, "password reset shows a new password");
+
+	// One-time codes aren't built yet (TODO): the option and the button are shown but disabled.
+	ok(
+		await addPanel
+			.getByLabel("Send a one-time code to confirm this number")
+			.isDisabled(),
+		"the one-time code option is shown but disabled",
+	);
+	ok(
+		await sitiRow
+			.getByRole("button", { name: "Confirm number: Siti Rahma" })
+			.isDisabled(),
+		"the Confirm number button is shown but disabled",
+	);
+
+	// Siti gets a new number; from now on she signs in with it.
+	const newTail = String(Number(tail) + 1).padStart(8, "0");
+	const newShown = `+62 813-${newTail.slice(0, 4)}-${newTail.slice(4)}`;
+	await sitiRow
+		.getByRole("button", { name: "Change phone number: Siti Rahma" })
+		.click();
+	await page
+		.getByLabel("Phone number", { exact: true })
+		.last()
+		.fill(`0813${newTail}`);
+	await page.getByRole("button", { name: "Save", exact: true }).click();
+	await text(`Saved. Siti Rahma now signs in with ${newShown}.`);
+	ok(true, "a supervisor changes a number");
 	await signOut();
 
 	section("guard round");
-	await signIn(email, firstPassword);
-	await text("Email or password is incorrect");
+	await signIn(typedPhone, password);
+	await text("Phone number or password is incorrect");
+	ok(true, "the old number no longer works");
+	await signIn(newShown, firstPassword);
+	await text("Phone number or password is incorrect");
 	ok(true, "old password no longer works");
-	await signIn(email, password);
+	await signIn(newShown, password);
 	await page.waitForURL(/#\/$/, { timeout: 15000 });
 	await text("0 of 9 checkpoints checked today");
 	ok(true, "guard sees the 9-stop round");
@@ -477,7 +516,7 @@ try {
 
 	await page.getByRole("link", { name: "Accounts" }).click();
 	const row = page.locator("tr", {
-		has: page.getByRole("cell", { name: email }),
+		has: page.getByText(newShown),
 	});
 	acceptNextDialog();
 	await row.getByRole("button", { name: "Deactivate" }).click();
@@ -485,8 +524,8 @@ try {
 		.getByRole("cell", { name: "Deactivated" })
 		.waitFor({ timeout: 15000 });
 	await signOut();
-	await signIn(email, password);
-	await text("Email or password is incorrect");
+	await signIn(newShown, password);
+	await text("Phone number or password is incorrect");
 	ok(true, "a deactivated account cannot sign in");
 } catch (e) {
 	ok(false, "(exception)", e.message.split("\n")[0]);

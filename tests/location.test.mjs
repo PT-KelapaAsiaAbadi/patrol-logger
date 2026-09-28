@@ -113,7 +113,7 @@ async function openScanWith(script) {
 try {
 	section("sign in");
 	await page.goto(BASE + "#/login");
-	await page.getByLabel("Email").fill(SEED.guard);
+	await page.getByLabel("Phone number").fill(SEED.guardTyped);
 	await page.getByLabel("Password").fill(SEED.password);
 	await page.getByRole("button", { name: "Sign in" }).click();
 	await page.waitForURL(/#\/$/, { timeout: 15000 });
@@ -161,7 +161,7 @@ try {
 	const { data: me } = await admin()
 		.from("profiles")
 		.select("id")
-		.eq("email", SEED.guard)
+		.eq("phone", SEED.guard)
 		.single();
 	const { data: cp } = await admin()
 		.from("checkpoints")

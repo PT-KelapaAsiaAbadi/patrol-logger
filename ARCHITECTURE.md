@@ -26,18 +26,19 @@ Patroli is a QR checkpoint patrol logger. Guards scan QR stickers on their round
 
 | Id | Component | Where defined | Responsibility |
 | --- | --- | --- | --- |
-| `auth` | Supabase Auth | dashboard + `supabase/config.toml` | Sessions, password sign-in. Accounts are created only by supervisors |
+| `auth` | Supabase Auth | dashboard + `supabase/config.toml` | Sessions, sign-in with phone number and password. Public sign-up is off: accounts are created only by supervisors |
 | `rpc` | RPC functions (`security definer`) | `supabase/migrations/*.sql` | Every write. Each function checks the caller's role. Examples: `submit_scan`, `submit_report`, `create_checkpoint`, `update_checkpoint`, `move_checkpoint`, `reissue_checkpoint`, `remove_checkpoints`, `set_checkpoint_location`, `set_account_active`, `qr_payload`, `route_checkpoints`, `guard_summaries`, `missed_checkpoints` |
 | `tables` | Tables + Row Level Security | `supabase/migrations/20260923120000_patrol_schema.sql` and later | `profiles`, `checkpoints`, `scans`, `reports`; view `scan_rows` (`security_invoker`). RLS: guards read only their own rows, supervisors read everything. No table accepts direct writes from the app |
 | `vault` | Vault secret `qr_signing_key` | schema migration | HMAC key for QR stickers. Never leaves the database |
 | `storage` | Storage bucket `report-photos` | schema migration | Private. Guards upload to `<user id>/<report id>/`; supervisors and owners read via signed URLs |
-| `edge` | Edge Functions | `supabase/functions/create-guards`, `reset-password`, `_shared/supervisor.ts` | Hold the service-role key. Each calls `requireSupervisor` first, then uses the Auth admin API |
+| `edge` | Edge Functions | `supabase/functions/create-guards`, `reset-password`, `staff-phone`, `_shared/supervisor.ts`, `_shared/phone.ts` | Hold the service-role key. Each calls `requireSupervisor` first, then uses the Auth admin API |
 
 ### External
 
 | Id | Component | Used by | Notes |
 | --- | --- | --- | --- |
 | `osm` | OpenStreetMap tiles (Leaflet), Nominatim search | `src/lib/map.ts`, `src/lib/geocode.ts` | Supervisor Map and Checkpoints only. Called directly from the browser, not through `backend.ts`. Leaflet is excluded from the guard's precache |
+| `sms` | SMS provider (Twilio, MessageBird, Vonage or Textlocal) | Supabase Auth, set in the dashboard | Supabase requires one to allow phone sign-in at all. Currently placeholder values: nothing is ever texted (one-time codes are a TODO) |
 
 ## 2. Edges
 
@@ -55,15 +56,15 @@ api         -> backend     : online -> send now
 api         -> outbox      : offline, or backend threw a non-ServerError -> enqueue()
 outbox      -> idb         : persist every change, in order
 outbox      -> backend     : flushOutbox(), triggered every 20 s and on the "online" event (startAutoSync)
-backend     -> auth        : signInWithPassword, onAuthStateChange
+backend     -> auth        : signInWithPassword (phone number + password), onAuthStateChange
 backend     -> rpc         : supabase.rpc(...) for every write and some reads
 backend     -> tables      : supabase.from(...).select() reads, filtered by RLS
 backend     -> storage     : upload report photos; createSignedUrls to view them
-backend     -> edge        : supabase.functions.invoke("create-guards" | "reset-password")
+backend     -> edge        : supabase.functions.invoke("create-guards" | "reset-password" | "staff-phone")
 rpc         -> tables      : insert / update, after checking the caller
 rpc         -> vault       : HMAC sign (qr_payload) and verify (submit_scan)
-edge        -> auth        : auth.admin.createUser, password reset (service-role key)
-edge        -> tables      : insert profiles rows
+edge        -> auth        : auth.admin.createUser / updateUserById (phone, password; service-role key);
+edge        -> tables      : insert profiles rows; update phone, phone_verified_at
 sup_ui      -> osm         : map tiles, address search (on "Search" only)
 ```
 
@@ -94,10 +95,11 @@ flowchart LR
       vault[("Vault<br/>qr_signing_key")]
     end
     storage[("Storage<br/>report-photos, private")]
-    edge["Edge Functions<br/>create-guards · reset-password"]
+    edge["Edge Functions<br/>create-guards · reset-password<br/>staff-phone"]
   end
 
   osm["OpenStreetMap tiles · Nominatim"]
+  sms["SMS provider"]
 
   device -- "code · GPS · photo" --> guard_ui
   sw -- "loads the app" --> guard_ui
@@ -118,6 +120,7 @@ flowchart LR
   rpc -- "insert" --> tables
   rpc -- "HMAC" --> vault
   edge -- "Auth admin API" --> auth
+  auth -. "required for phone sign-in (placeholder)" .-> sms
   sup_ui -. "map tiles, address search" .-> osm
 ```
 
@@ -174,7 +177,15 @@ Runs from `startAutoSync()`: on every `online`/`offline` event and every 20 s wh
 
 ### 4.5 Accounts
 
-A supervisor calls `create-guards` or `reset-password` through `supabase.functions.invoke`. The function validates the caller with `requireSupervisor` (401 if not signed in, 403 if not an active supervisor), then uses the service-role client to create Auth users with generated passwords and `profiles` rows. Passwords are returned once and never emailed. `set_account_active()` deactivates an account so its sessions get nothing.
+Everyone signs in with a phone number and a password. Nobody can sign up: `[auth] enable_signup = false`, and access needs a `profiles` row, which only the Edge Functions create.
+
+A supervisor calls `create-guards`, `reset-password` or `staff-phone` through `supabase.functions.invoke`. The function validates the caller with `requireSupervisor` (401 if not signed in, 403 if not an active supervisor), then uses the service-role client.
+
+- `create-guards` makes Auth users keyed on the phone number (stored as digits with country code, e.g. `6281234567890`; typed numbers are normalised by `normalizePhone`, kept in step in `src/lib/phone.ts` and `supabase/functions/_shared/phone.ts`) with generated passwords, plus `profiles` rows. Passwords are returned once and never texted.
+- Confirming a number with a one-time code is not built yet (TODO). The UI is shown but disabled, and `profiles.phone_verified_at` stays null. A working version is in commit `947b3c6`.
+- `staff-phone` `change` gives someone a new number (Auth and `profiles` together); the new number starts unconfirmed.
+
+`set_account_active()` deactivates an account so its sessions get nothing. Accounts made before phone sign-in keep `profiles.email` and have no phone until one is added.
 
 ## 5. Invariants
 

@@ -257,7 +257,9 @@ otp_expiry = 3600
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
-enable_signup = false
+# Keep true: this switches phone sign-in on. [auth] enable_signup = false still blocks new accounts,
+# so only a supervisor (through the create-guards function) can add one.
+enable_signup = true
 # If enabled, users need to confirm their phone number before signing in.
 enable_confirmations = false
 # Template for sending OTP to users
@@ -266,8 +268,9 @@ template = "Your code is {{ .Code }}"
 max_frequency = "5s"
 
 # Use pre-defined map of phone number to OTP for testing.
+# TODO: when one-time codes are built, add fixed test codes here for the tests, e.g.
 # [auth.sms.test_otp]
-# 4152127777 = "123456"
+# 6281100000901 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -287,12 +290,16 @@ max_frequency = "5s"
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
+# Local stack: Supabase only allows phone sign-in (even with a password) once an SMS provider is
+# switched on, so Twilio is on here with placeholder values. Password sign-in never contacts it.
+# The hosted project's provider is set in its dashboard, not here.
 [auth.sms.twilio]
-enabled = false
-account_sid = ""
-message_service_sid = ""
-# DO NOT commit your Twilio auth token to git. Use environment variable substitution instead:
-auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+enabled = true
+account_sid = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+message_service_sid = "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# DO NOT commit a real Twilio auth token to git. Use environment variable substitution instead:
+# auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+auth_token = "local-placeholder"
 
 # Multi-factor-authentication is available to Supabase Pro plan.
 [auth.mfa]

@@ -1,6 +1,7 @@
 /**
  * The Accounts tab: add one guard or supervisor, or import many from a CSV, then show their
- * one-time passwords to hand out. The list of existing accounts is AccountsTable.
+ * one-time passwords to hand out. Every account signs in with its phone number.
+ * The list of existing accounts is AccountsTable. Nobody can sign themselves up.
  */
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
@@ -13,6 +14,7 @@ import {
 	type GuardsCsv,
 } from "../../lib/csv";
 import { saveFile } from "../../lib/download";
+import { formatPhone, normalizePhone } from "../../lib/phone";
 import type { GuardImportResult, NewGuard, Role } from "../../types";
 import { LoadError } from "./Log";
 import { AccountsTable } from "./AccountsTable";
@@ -86,21 +88,24 @@ function useCreateGuards(onAdded: () => void) {
 function AddGuard({ onAdded }: { onAdded: () => void }) {
 	const { t } = useApp();
 	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
+	const [phone, setPhone] = useState("");
 	const [role, setRole] = useState<Role>("guard");
-	const { busy, outcome, create } = useCreateGuards(onAdded);
+	const [badPhone, setBadPhone] = useState(false);
+	const { busy, outcome, create, clear } = useCreateGuards(onAdded);
 
 	async function submit() {
+		const normalised = normalizePhone(phone);
+		setBadPhone(!normalised);
+		if (!normalised) {
+			clear();
+			return;
+		}
 		const ok = await create([
-			{
-				name: name.trim().replace(/\s+/g, " "),
-				email: email.trim().toLowerCase(),
-				role,
-			},
+			{ name: name.trim().replace(/\s+/g, " "), phone: normalised, role },
 		]);
 		if (ok) {
 			setName("");
-			setEmail("");
+			setPhone("");
 			setRole("guard");
 		}
 	}
@@ -131,18 +136,29 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 					/>
 				</label>
 				<label class="grid gap-1">
-					<span class="font-medium">{t("email")}</span>
+					<span class="font-medium">{t("phone")}</span>
 					<input
 						class="field"
-						type="email"
+						type="tel"
+						inputMode="tel"
 						required
 						autoComplete="off"
-						autoCapitalize="none"
-						spellcheck={false}
-						value={email}
-						onInput={(e) => setEmail(e.currentTarget.value)}
+						placeholder="0812-3456-7890"
+						aria-invalid={badPhone}
+						value={phone}
+						onInput={(e) => {
+							setPhone(e.currentTarget.value);
+							setBadPhone(false);
+						}}
 					/>
 				</label>
+				{badPhone && (
+					<p
+						class="notice notice-warn"
+						role="alert">
+						{t("invalidPhone")}
+					</p>
+				)}
 				<label class="grid gap-1">
 					<span class="font-medium">{t("colRole")}</span>
 					<select
@@ -156,6 +172,24 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 							{t("roleSupervisor")}
 						</option>
 					</select>
+				</label>
+				{/* TODO: implement one-time codes to confirm a new number, then enable this option.
+				    Needs a real SMS provider (the hosted project uses placeholder Twilio values). The
+				    earlier version (commit 947b3c6) sent the code from create-guards and showed a
+				    code-entry step after adding the account. See README > TODO > Launch. */}
+				<label class="flex items-start gap-2 opacity-60">
+					<input
+						type="checkbox"
+						class="mt-1"
+						disabled
+						checked={false}
+					/>
+					<span>
+						{t("sendCodeOption")}
+						<span class="block text-muted">
+							{t("notAvailableYet")}
+						</span>
+					</span>
 				</label>
 				<button
 					class="btn btn-primary"
@@ -258,16 +292,18 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 									<thead>
 										<tr>
 											<th scope="col">{t("fullName")}</th>
-											<th scope="col">{t("email")}</th>
+											<th scope="col">{t("phone")}</th>
 										</tr>
 									</thead>
 									<tbody>
 										{csv.guards
 											.slice(0, PREVIEW_ROWS)
 											.map((g) => (
-												<tr key={g.email}>
+												<tr key={g.phone}>
 													<td>{g.name}</td>
-													<td>{g.email}</td>
+													<td class="whitespace-nowrap">
+														{formatPhone(g.phone)}
+													</td>
 												</tr>
 											))}
 									</tbody>
@@ -339,6 +375,12 @@ function ImportGuards({ onAdded }: { onAdded: () => void }) {
 	);
 }
 
+/** Shows a number as "+62 812-3456-7890" if it can be read as one, else as the server returned it. */
+const showPhone = (p: string) => {
+	const n = normalizePhone(p);
+	return n ? formatPhone(n) : p;
+};
+
 function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 	const { t } = useApp();
 	if (!outcome) return null;
@@ -367,7 +409,7 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 							<thead>
 								<tr>
 									<th scope="col">{t("fullName")}</th>
-									<th scope="col">{t("email")}</th>
+									<th scope="col">{t("phone")}</th>
 									<th scope="col">{t("password")}</th>
 								</tr>
 							</thead>
@@ -375,7 +417,10 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 								{created.map(({ user, password }) => (
 									<tr key={user.id}>
 										<td>{user.name}</td>
-										<td>{user.email}</td>
+										<td class="whitespace-nowrap">
+											{user.phone &&
+												formatPhone(user.phone)}
+										</td>
 										<td class="font-mono whitespace-nowrap">
 											{password}
 										</td>
@@ -404,12 +449,16 @@ function CreateOutcome({ outcome }: { outcome: Outcome | null }) {
 			)}
 			{existing.length > 0 && (
 				<p class="notice notice-warn">
-					{t("guardsExisting", { list: existing.join(", ") })}
+					{t("guardsExisting", {
+						list: existing.map(showPhone).join(", "),
+					})}
 				</p>
 			)}
 			{failed.length > 0 && (
 				<p class="notice notice-warn">
-					{t("guardsFailed", { list: failed.join(", ") })}
+					{t("guardsFailed", {
+						list: failed.map(showPhone).join(", "),
+					})}
 				</p>
 			)}
 		</div>

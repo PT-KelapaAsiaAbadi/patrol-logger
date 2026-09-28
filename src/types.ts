@@ -7,7 +7,9 @@ export interface User {
 	id: string; // same as the Supabase Auth user id
 	name: string;
 	role: Role;
-	email: string; // the sign-in identity
+	// The sign-in identity: digits with country code, no "+" (see lib/phone.ts). Null only for an
+	// account made before phone sign-in, which can't sign in until a supervisor adds a number.
+	phone: string | null;
 }
 
 /** Where a checkpoint is, and how far from it a scan may be and still count as "at" it. */
@@ -94,16 +96,17 @@ export interface GuardSummary {
 	lastScanAt: string | null;
 }
 
-/** An account to create. Email is the sign-in identity. Role defaults to guard. */
+/** An account to create. The phone number is the sign-in identity. Role defaults to guard. */
 export interface NewGuard {
 	name: string;
-	email: string;
+	phone: string;
 	role?: Role;
 }
 
 /** An account as the supervisor's accounts screen lists it. */
 export interface Account extends User {
 	active: boolean; // false: can't sign in, and Row Level Security gives them nothing
+	phoneVerified: boolean; // not settable yet: will be true once one-time codes exist (see README > TODO)
 }
 
 /** A new guard account and its generated password. The password is only ever shown once. */
@@ -114,8 +117,8 @@ export interface CreatedGuard {
 
 export interface GuardImportResult {
 	created: CreatedGuard[];
-	existing: string[]; // emails that already had an account, so were skipped
-	failed: string[]; // emails the server could not create
+	existing: string[]; // phone numbers that already had an account, so were skipped
+	failed: string[]; // phone numbers the server could not create (or could not read)
 }
 
 /** A scan the phone saved while offline. The server checks `code` when it syncs. */
