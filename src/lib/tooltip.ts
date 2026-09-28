@@ -48,6 +48,16 @@ export function startTooltips() {
 		if (!el) hide();
 		else if (el !== current) show(el);
 	});
+	// Any movement off the element whose tip is showing hides it, even if the pointerover for
+	// the new element was missed (e.g. the page re-rendered or scrolled under a still pointer).
+	document.addEventListener("pointermove", (e) => {
+		if (
+			current &&
+			e.pointerType !== "touch" &&
+			!(e.target instanceof Node && current.contains(e.target))
+		)
+			hide();
+	});
 	// The pointer left the window: no new element gets a pointerover, so hide here.
 	// (A pointerleave listener on document doesn't fire reliably: document isn't an element.)
 	document.addEventListener("pointerout", (e) => {
@@ -61,5 +71,19 @@ export function startTooltips() {
 	// Whatever was clicked may be about to disappear (a dialog closing, a row re-rendering).
 	document.addEventListener("pointerdown", hide);
 	document.addEventListener("keydown", (e) => e.key === "Escape" && hide());
-	window.addEventListener("scroll", hide, true);
+	// On scroll the tip would drift (it's fixed-position): follow its element if that's still
+	// hovered or focused, else hide. Scroll events arrive a frame late, so a tip shown just after
+	// the page scrolled (a hover that scrolled the button into view) must not be hidden by it.
+	window.addEventListener(
+		"scroll",
+		() => {
+			if (
+				current?.isConnected &&
+				current.matches(":hover, :focus-visible")
+			)
+				show(current);
+			else hide();
+		},
+		true,
+	);
 }

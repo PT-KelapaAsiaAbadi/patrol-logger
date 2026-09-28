@@ -238,8 +238,12 @@ try {
 		.getByText("Rename", { exact: true })
 		.waitFor({ timeout: 5000 });
 	ok(true, "hovering an icon button shows what it does");
-	// Onto a plain element; a move to the window's corner can count as leaving the page instead.
-	await page.getByRole("heading", { name: "Checkpoints and QR" }).hover();
+	// Onto a plain element, in steps like a real mouse (one jump, or a jump to the window's corner,
+	// can skip the events the tooltip listens for).
+	const heading = page.getByRole("heading", { name: "Round order" });
+	await heading.scrollIntoViewIfNeeded();
+	const box = await heading.boundingBox();
+	await page.mouse.move(box.x + 5, box.y + box.height / 2, { steps: 8 });
 	await page.locator(".tooltip").waitFor({ state: "hidden", timeout: 5000 });
 	ok(true, "and the help text goes away when the mouse leaves");
 
