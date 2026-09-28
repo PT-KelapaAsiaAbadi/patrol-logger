@@ -16,23 +16,28 @@ section("signed out");
 	const c = anon();
 	const { data } = await c.from("checkpoints").select("*");
 	ok(!data || data.length === 0, "reads no checkpoints");
+
 	const { error } = await c.rpc("route_checkpoints");
 	ok(!!error, "cannot call route_checkpoints");
+
 	const { error: e2 } = await c.auth.signInWithPassword({
 		phone: `+${SEED.guard}`,
 		password: "wrong-password",
 	});
 	ok(e2?.status === 400, "wrong password gives 400", e2?.status);
+
 	const { error: e3 } = await c.auth.signUp({
 		phone: "+6281100000999",
 		password: "stranger-pass-1",
 	});
 	ok(!!e3, "public sign-up is disabled");
+
 	const { error: e4 } = await c.auth.signUp({
 		email: "stranger@example.com",
 		password: "stranger-pass-1",
 	});
 	ok(!!e4, "public sign-up by email is disabled too");
+
 	const { error: e5 } = await c.auth.signInWithOtp({
 		phone: "+6281100000999",
 		options: { shouldCreateUser: false },
@@ -49,9 +54,12 @@ section("guard permissions");
 const { data: route } = await guard.rpc("route_checkpoints");
 {
 	ok(route?.length === 8, "gets the 8-stop route", route?.length);
+
 	ok(route && !("manual_code" in route[0]), "route has no manual codes");
+
 	const { data: cps } = await guard.from("checkpoints").select("manual_code");
 	ok(cps.length === 0, "cannot read the checkpoints table (manual codes)");
+
 	for (const [fn, args] of [
 		["qr_payload", { p_checkpoint_id: route[0].id }],
 		["create_checkpoint", { p_name: "Sneaky" }],
@@ -71,6 +79,7 @@ const { data: route } = await guard.rpc("route_checkpoints");
 			error?.message,
 		);
 	}
+
 	const { error: e3 } = await guard.from("scans").insert({
 		id: randomUUID(),
 		checkpoint_id: route[0].id,
@@ -78,6 +87,7 @@ const { data: route } = await guard.rpc("route_checkpoints");
 		scanned_at: now,
 	});
 	ok(!!e3, "cannot insert scans directly");
+
 	await guard
 		.from("profiles")
 		.update({ role: "supervisor" })
@@ -88,6 +98,7 @@ const { data: route } = await guard.rpc("route_checkpoints");
 		.eq("id", guardId)
 		.single();
 	ok(me.role === "guard", "cannot promote themselves");
+
 	for (const fn of ["create-guards", "reset-password", "staff-phone"]) {
 		const { error } = await guard.functions.invoke(fn, {
 			body: { guards: [], userId: supId, action: "send_code" },
@@ -120,6 +131,7 @@ const { data: payload, error: pe } = await sup.rpc("qr_payload", {
 		"QR payload format",
 		payload ?? pe?.message,
 	);
+
 	const { data: added, error } = await sup.rpc("create_checkpoint", {
 		p_name: "  Pintu   belakang  ",
 	});
@@ -146,6 +158,7 @@ const scanId = randomUUID();
 		JSON.stringify(r1 ?? error),
 	);
 	ok(r1 && !("manual_code" in r1.checkpoint), "result leaks no manual code");
+
 	const { data: r2 } = await guard.rpc("submit_scan", {
 		p_id: scanId,
 		p_code: payload,
@@ -155,6 +168,7 @@ const scanId = randomUUID();
 		r2.ok && r2.scan.received_at === r1.scan.received_at,
 		"retry returns the first result",
 	);
+
 	const forged =
 		payload.slice(0, -2) + (payload.endsWith("AA") ? "BB" : "AA");
 	const { data: r3 } = await guard.rpc("submit_scan", {
@@ -166,6 +180,7 @@ const scanId = randomUUID();
 		r3.ok === false && r3.reason === "unknown_code",
 		"forged signature rejected",
 	);
+
 	const { data: r4, error: e4 } = await guard.rpc("submit_scan", {
 		p_id: randomUUID(),
 		p_code: "PTRL1:not-a-uuid:xxxx",
@@ -175,6 +190,7 @@ const scanId = randomUUID();
 		!e4 && r4.ok === false && r4.reason === "unknown_code",
 		"malformed QR rejected without an error",
 	);
+
 	const typed = cps[1].manual_code.replace("-", " ").toLowerCase();
 	const { data: r5 } = await guard.rpc("submit_scan", {
 		p_id: randomUUID(),
@@ -185,6 +201,7 @@ const scanId = randomUUID();
 		r5.ok && r5.checkpoint.id === cps[1].id,
 		`typed code "${typed}" accepted`,
 	);
+
 	await admin()
 		.from("checkpoints")
 		.update({ active: false })
@@ -227,12 +244,14 @@ section("reports and photos");
 			(u2.statusCode === "409" || /exists|duplicate/i.test(u2.message)),
 		"retried upload reports a duplicate",
 	);
+
 	const { error: u3 } = await bucket.upload(
 		`${supId}/${reportId}/1.jpg`,
 		PNG_OR_JPEG,
 		{ contentType: "image/jpeg" },
 	);
 	ok(!!u3, "guard cannot upload into another folder");
+
 	const report = (id, scan, photos) => ({
 		p_id: id,
 		p_scan_id: scan,
@@ -240,6 +259,7 @@ section("reports and photos");
 		p_photos: photos,
 		p_created_at: now,
 	});
+
 	const { error: r0 } = await guard.rpc(
 		"submit_report",
 		report(randomUUID(), randomUUID(), []),
@@ -249,6 +269,7 @@ section("reports and photos");
 		"report on an unknown scan: scan_not_synced",
 		r0?.message,
 	);
+
 	const { error: rb } = await guard.rpc(
 		"submit_report",
 		report(reportId, scanId, ["someone-else/x.jpg"]),
@@ -258,6 +279,7 @@ section("reports and photos");
 		"foreign photo path rejected",
 		rb?.message,
 	);
+
 	const { error: r1 } = await guard.rpc(
 		"submit_report",
 		report(reportId, scanId, [path]),
@@ -271,11 +293,13 @@ section("reports and photos");
 		"report stored, retry is idempotent",
 		r1?.message ?? r2?.message,
 	);
+
 	const { count } = await admin()
 		.from("reports")
 		.select("*", { count: "exact", head: true })
 		.eq("id", reportId);
 	ok(count === 1, "exactly one report row");
+
 	const { data: row } = await sup
 		.from("scan_rows")
 		.select("*")
@@ -286,6 +310,7 @@ section("reports and photos");
 			row.guard_name === "Budi Santoso",
 		"supervisor sees the scan with its report",
 	);
+
 	const { data: signed } = await sup.storage
 		.from("report-photos")
 		.createSignedUrls(row.report.photos, 60);
@@ -309,6 +334,7 @@ section("supervisor summaries and log");
 		"guard_summaries counts today's scans",
 		JSON.stringify(sums),
 	);
+
 	const { data: missed } = await sup.rpc("missed_checkpoints", {
 		p_from: from,
 		p_to: to,
@@ -318,6 +344,7 @@ section("supervisor summaries and log");
 			!missed.some((c) => c.id === cps[0].id || c.id === cps[1].id),
 		"missed_checkpoints leaves out visited ones",
 	);
+
 	const { data: page, count } = await sup
 		.from("scan_rows")
 		.select("*", { count: "exact" })
@@ -339,6 +366,7 @@ section("checkpoint management");
 		"rename tidies the name",
 		error?.message,
 	);
+
 	await sup.rpc("move_checkpoint", { p_id: cps[3].id, p_up: true });
 	const { data: after } = await sup
 		.from("checkpoints")
