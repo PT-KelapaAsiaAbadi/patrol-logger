@@ -7,6 +7,13 @@ import { useApp } from "../../state";
 import * as api from "../../data/api";
 import type { Checkpoint, CheckpointLocation } from "../../types";
 import { LocationPicker } from "../../components/LocationPicker";
+import {
+	CHECKPOINT_NAME_MAX,
+	CHECKPOINT_NAME_MIN,
+	checkpointNameProblem,
+	tidyCheckpointName,
+	type CheckpointNameProblem,
+} from "../../lib/checkpointName";
 import { ICON, IconButton } from "../../components/IconButton";
 import {
 	Check,
@@ -49,9 +56,12 @@ export function RouteTable({
 }) {
 	const { t } = useApp();
 	const [busy, setBusy] = useState(false);
-	const [editing, setEditing] = useState<{ id: string; name: string } | null>(
-		null,
-	);
+	const [editing, setEditing] = useState<{
+		id: string;
+		name: string;
+		/** Set when a save was refused by the name rules (lib/checkpointName.ts). */
+		problem?: CheckpointNameProblem;
+	} | null>(null);
 	const [notice, setNotice] = useState<Notice>(null);
 	const chosen = checkpoints.filter((cp) => selected.has(cp.id));
 	const allChosen =
@@ -251,17 +261,35 @@ export function RouteTable({
 									{editing?.id === cp.id ? (
 										<form
 											class="flex flex-wrap items-center gap-2"
+											noValidate
 											onSubmit={(e) => {
 												e.preventDefault();
+												const problem =
+													checkpointNameProblem(
+														editing.name,
+														checkpoints,
+														cp.id,
+													);
+												if (problem) {
+													setEditing({
+														...editing,
+														problem,
+													});
+													return;
+												}
 												void save(cp, {
-													name: editing.name,
+													name: tidyCheckpointName(
+														editing.name,
+													),
 												});
 											}}>
 											<input
 												class="field min-w-40 flex-1"
 												aria-label={t("checkpointName")}
 												required
-												maxLength={80}
+												minLength={CHECKPOINT_NAME_MIN}
+												maxLength={CHECKPOINT_NAME_MAX}
+												aria-invalid={!!editing.problem}
 												value={editing.name}
 												onInput={(e) =>
 													setEditing({
@@ -286,6 +314,16 @@ export function RouteTable({
 												label={t("cancel")}
 												onClick={() => setEditing(null)}
 											/>
+											{editing.problem && (
+												<p
+													class="w-full text-sm text-warn"
+													role="alert">
+													{t(editing.problem, {
+														min: CHECKPOINT_NAME_MIN,
+														max: CHECKPOINT_NAME_MAX,
+													})}
+												</p>
+											)}
 										</form>
 									) : (
 										cp.name

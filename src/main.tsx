@@ -9,6 +9,10 @@ import { App } from "./app";
 import { loadOutbox, startAutoSync } from "./data/api";
 import { startUpdates } from "./lib/updates";
 import { startTooltips } from "./lib/tooltip";
+import { applyTheme, savedTheme } from "./lib/theme";
+
+// Before anything is drawn, so the page doesn't flash in the other theme.
+applyTheme(savedTheme());
 
 // The outbox must be in memory before any screen reads it or the sync starts sending it.
 void loadOutbox().then(() => {

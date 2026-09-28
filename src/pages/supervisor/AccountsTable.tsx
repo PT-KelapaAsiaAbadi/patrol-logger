@@ -7,7 +7,7 @@
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
-import { formatPhone } from "../../lib/phone";
+import { formatPhone, keepPhoneChars, PHONE_INPUT_MAX } from "../../lib/phone";
 import type { Account } from "../../types";
 import { ICON, IconButton } from "../../components/IconButton";
 import {
@@ -340,11 +340,18 @@ function ChangePhone({
 							placeholder={
 								account.phone
 									? formatPhone(account.phone)
-									: "0812-3456-7890"
+									: t("phonePlaceholder")
 							}
 							required
+							maxLength={PHONE_INPUT_MAX}
 							value={phone}
-							onInput={(e) => setPhone(e.currentTarget.value)}
+							onInput={(e) => {
+								const kept = keepPhoneChars(
+									e.currentTarget.value,
+								);
+								e.currentTarget.value = kept;
+								setPhone(kept);
+							}}
 						/>
 					</label>
 					<button

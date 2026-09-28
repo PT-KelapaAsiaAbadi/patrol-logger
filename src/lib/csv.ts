@@ -4,6 +4,7 @@
  */
 import type { CreatedGuard, NewGuard, ScanRow } from "../types";
 import { formatPhone, normalizePhone } from "./phone";
+import { personNameProblem, tidyPersonName } from "./personName";
 
 const cell = (v: string) =>
 	/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
@@ -50,7 +51,7 @@ export const GUARDS_CSV_TEMPLATE =
 	"\uFEFFfull_name,phone\nBudi Santoso,0812-3456-7890\n";
 
 export type CsvProblemReason =
-	"missing_name" | "invalid_phone" | "duplicate_phone";
+	"missing_name" | "invalid_name" | "invalid_phone" | "duplicate_phone";
 
 export interface GuardsCsv {
 	guards: NewGuard[];
@@ -124,9 +125,12 @@ export function parseGuardsCsv(text: string): GuardsCsv {
 	const problems: GuardsCsv["problems"] = [];
 	const seen = new Set<string>();
 	for (const { line, cells } of rows) {
-		const name = (cells[nameCol] ?? "").replace(/\s+/g, " ");
+		const name = tidyPersonName(cells[nameCol] ?? "");
 		const phone = normalizePhone(cells[phoneCol] ?? "");
-		if (!name) problems.push({ line, reason: "missing_name" });
+		const nameProblem = personNameProblem(name);
+		if (nameProblem === "personNameEmpty")
+			problems.push({ line, reason: "missing_name" });
+		else if (nameProblem) problems.push({ line, reason: "invalid_name" });
 		else if (!phone) problems.push({ line, reason: "invalid_phone" });
 		else if (seen.has(phone))
 			problems.push({ line, reason: "duplicate_phone" });

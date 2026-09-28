@@ -54,6 +54,24 @@ export const formatDistance = (metres: number, lang: Lang) =>
 		? `${Math.round(metres)} m`
 		: `${(metres / 1000).toLocaleString(locale(lang), { maximumFractionDigits: 1 })} km`;
 
+/** "Sen 28" / "Mon 28": a weekday and day of the month, for column headings. */
+export const formatShortDay = (key: string, lang: Lang) =>
+	new Date(`${key}T12:00:00`).toLocaleDateString(locale(lang), {
+		weekday: "short",
+		day: "numeric",
+	});
+
+/** The seven day keys (Monday first) of the week that contains `key`. */
+export function weekKeys(key: string): string[] {
+	const monday = new Date(`${key}T12:00:00`);
+	monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+	return Array.from({ length: 7 }, (_, i) => {
+		const d = new Date(monday);
+		d.setDate(monday.getDate() + i);
+		return localDateKey(d);
+	});
+}
+
 export const formatLongDate = (key: string, lang: Lang) =>
 	new Date(`${key}T12:00:00`).toLocaleDateString(locale(lang), {
 		weekday: "long",
