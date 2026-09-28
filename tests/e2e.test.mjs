@@ -79,6 +79,14 @@ page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => {
 	if (m.type() === "error") errors.push(m.text());
 });
+// The console only says "status of 401"; this records which request it was, for the report.
+const failedRequests = [];
+page.on("response", (r) => {
+	if (r.status() >= 400)
+		failedRequests.push(
+			`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`,
+		);
+});
 
 /** Signs in through the form, with the number typed however a person would. */
 async function signIn(phone, password) {
@@ -657,7 +665,7 @@ const unexpected = errors.filter(
 ok(
 	unexpected.length === 0,
 	"no unexpected console errors",
-	unexpected.join(" | "),
+	`${unexpected.join(" | ")} || failed requests: ${failedRequests.join(", ")}`,
 );
 await browser.close();
 stopVite();
