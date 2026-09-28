@@ -1,19 +1,23 @@
 /**
- * The supervisor's main screen: today's summary (guards on duty, checkpoints not yet visited) and
- * the scan log, filtered by date, guard and checkpoint, paged, and downloadable as CSV.
+ * The Log Database tab: every scan, filtered by date, guard and checkpoint, paged, and
+ * downloadable as CSV. Moved here from the old start page, which is now Today (Today.tsx).
  * Also exports LoadError, the "couldn't load" message the other supervisor screens reuse.
+ *
+ * TODO: redesign this page (it shows a "to be updated" notice until then). Planned: one filter
+ * bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a
+ * server-side search box (guard or checkpoint name, report text). See README > TODO.
  */
 import { useState } from "preact/hooks";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";
 import * as api from "../../data/api";
-import { formatDateTime, formatTime, localDateKey } from "../../lib/format";
+import { formatDateTime, localDateKey } from "../../lib/format";
 import { scansToCsv } from "../../lib/csv";
 import { saveFile } from "../../lib/download";
 import { Pagination } from "../../components/Pagination";
 import { LocationBadge } from "../../components/LocationBadge";
 import { ICON, IconLink } from "../../components/IconButton";
-import { Download, FileText, RotateCcw } from "lucide-preact";
+import { Download, FileText, RotateCcw, TriangleAlert } from "lucide-preact";
 
 const PAGE_SIZE = 12;
 
@@ -23,7 +27,7 @@ interface Filters {
 	date: string;
 }
 
-export function SupervisorLog() {
+export function LogDatabase() {
 	const { t, lang } = useApp();
 	const today = localDateKey();
 	const [filters, setFilters] = useState<Filters>({
@@ -34,14 +38,6 @@ export function SupervisorLog() {
 	const [page, setPage] = useState(1);
 	const [saved, setSaved] = useState(false);
 
-	const summary = useAsync(
-		() =>
-			Promise.all([
-				api.guardSummaries(today),
-				api.missedCheckpoints(today),
-			]),
-		[today],
-	);
 	const options = useAsync(
 		() => Promise.all([api.listGuards(), api.allCheckpoints()]),
 		[],
@@ -67,59 +63,22 @@ export function SupervisorLog() {
 
 	return (
 		<>
-			<section aria-labelledby="today-h">
+			<section aria-labelledby="log-h">
 				<h1
-					id="today-h"
-					class="text-xl font-bold mb-3">
-					{t("onDuty")}
-				</h1>
-				{summary.error && <LoadError onRetry={summary.reload} />}
-				{summary.data && (
-					<>
-						<ul class="duty-list">
-							{summary.data[0].map((g) => (
-								<li key={g.guardId}>
-									<span class="font-medium">
-										{g.guardName}
-									</span>
-									<span class="tabular-nums">
-										{t("scansCount", { n: g.scansToday })}
-									</span>
-									<span class="text-muted tabular-nums">
-										{g.lastScanAt
-											? t("lastScan", {
-													time: formatTime(
-														g.lastScanAt,
-														lang,
-													),
-												})
-											: t("noScansYet")}
-									</span>
-								</li>
-							))}
-						</ul>
-						<p
-							class={`mt-3 ${summary.data[1].length ? "text-warn font-medium" : "text-muted"}`}>
-							{summary.data[1].length
-								? t("missedToday", {
-										list: summary.data[1]
-											.map((c) => c.name)
-											.join(", "),
-									})
-								: t("allVisited")}
-						</p>
-					</>
-				)}
-			</section>
-
-			<section
-				class="mt-10"
-				aria-labelledby="log-h">
-				<h2
 					id="log-h"
 					class="text-xl font-bold mb-3">
-					{t("navLog")}
-				</h2>
+					{t("navLogDatabase")}
+				</h1>
+				<p
+					class="notice notice-soon mb-4 flex items-start gap-2"
+					role="note">
+					<TriangleAlert
+						size={ICON}
+						class="shrink-0 mt-0.5"
+						aria-hidden="true"
+					/>
+					{t("logDatabaseSoon")}
+				</p>
 
 				{/*
 					TODO: refactor the filters into one filter bar shared with the Map tab (guard,

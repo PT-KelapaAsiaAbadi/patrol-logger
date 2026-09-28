@@ -447,8 +447,8 @@ export const changePhone = (userId: string, phone: string) =>
 export const allCheckpoints = () =>
 	needsNetwork(() => backend.allCheckpoints());
 
-export const createCheckpoint = (name: string) =>
-	needsNetwork(() => backend.createCheckpoint(name));
+export const createCheckpoint = (name: string, location: CheckpointLocation) =>
+	needsNetwork(() => backend.createCheckpoint(name, location));
 
 export const updateCheckpoint = (
 	cp: Parameters<typeof backend.updateCheckpoint>[0],

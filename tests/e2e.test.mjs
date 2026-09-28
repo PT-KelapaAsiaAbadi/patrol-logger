@@ -97,13 +97,49 @@ const text = (s, opts) =>
 
 try {
 	section("login");
+	await page.goto(BASE + "#/login");
+	const themeAttr = () =>
+		page.evaluate(() => document.documentElement.dataset.theme ?? "system");
+	await page.getByRole("button", { name: "Dark" }).click();
+	ok((await themeAttr()) === "dark", "the theme switch turns dark mode on");
+	await page.reload();
+	ok((await themeAttr()) === "dark", "and the choice is remembered");
+	await page.getByRole("button", { name: "Match device" }).click();
+	ok(
+		(await themeAttr()) === "system",
+		"Match device follows the device again",
+	);
 	await signIn(SEED.supervisorTyped, "wrong-password-1");
 	await text("Phone number or password is incorrect");
 	ok(true, "wrong password shows the error");
 	await signIn(SEED.supervisorTyped, SEED.password);
 	await page.waitForURL(/#\/supervisor$/, { timeout: 15000 });
-	await text("Budi Santoso");
-	ok(true, "supervisor lands on the log with today's guards");
+	await page
+		.getByRole("heading", { name: "Today", level: 1 })
+		.waitFor({ timeout: 15000 });
+	ok(true, "supervisor lands on Today");
+	for (const heading of [
+		"Needs review",
+		"Not yet visited",
+		"Completed checkpoints",
+		"Guards on duty",
+	])
+		await page.getByRole("heading", { name: heading, level: 2 }).waitFor();
+	ok(true, "Today shows its four sections");
+	const notVisitedCard = page.locator("section.area-missed");
+	await notVisitedCard.getByText("8 of 8").waitFor({ timeout: 15000 });
+	ok(
+		(await notVisitedCard.locator("tbody tr").count()) === 8,
+		"before any scan, all 8 checkpoints are not yet visited",
+	);
+	await page
+		.locator("section.area-duty")
+		.getByText("Sample data, not live yet")
+		.waitFor();
+	ok(true, "Guards on duty is marked as sample data");
+	await page.getByRole("link", { name: "Log Database" }).click();
+	await text("This page will be updated.");
+	ok(true, "Log Database shows the scan log with a to-be-updated notice");
 
 	section("checkpoints");
 	await page.getByRole("link", { name: "Checkpoints and QR" }).click();
@@ -116,8 +152,21 @@ try {
 		"manual codes shown",
 	);
 
+	// Name rules and the required location are checked before anything is saved.
+	await page.getByLabel("Checkpoint name").fill("Po");
+	await page.getByRole("button", { name: "Add checkpoint" }).click();
+	await text("Use at least 3 characters for the name.");
+	await page.getByLabel("Checkpoint name").fill("lobi UTAMA");
+	await page.getByRole("button", { name: "Add checkpoint" }).click();
+	await text("A checkpoint with this name already exists.");
 	await page.getByLabel("Checkpoint name").fill("Pos belakang");
-	await page.getByRole("button", { name: "Set location (optional)" }).click();
+	await page.getByRole("button", { name: "Add checkpoint" }).click();
+	await text("Set the checkpoint's location on the map first, then add it.");
+	ok(
+		(await page.locator(".sticker").count()) === 8,
+		"a too-short name, a repeated name and a missing location are refused",
+	);
+	await page.getByRole("button", { name: "Set location (required)" }).click();
 	const picker = page.getByRole("dialog");
 	await picker.locator(".leaflet-container").waitFor({ timeout: 15000 });
 	await picker.locator(".picker-map").click(); // drop the pin by tapping the map
@@ -416,6 +465,21 @@ try {
 	section("supervisor sees it");
 	await signIn(SEED.supervisor, SEED.password);
 	await page.waitForURL(/#\/supervisor$/);
+	const doneCard = page.locator("section.area-done");
+	await doneCard.locator("tbody tr").first().waitFor({ timeout: 15000 });
+	const doneRows = await doneCard.locator("tbody tr").count();
+	const missedRows = await page
+		.locator("section.area-missed tbody tr")
+		.count();
+	ok(
+		doneRows > 0 &&
+			(await doneCard
+				.getByText(`${doneRows} of ${doneRows + missedRows}`)
+				.count()) === 1,
+		"Today moves scanned checkpoints to Completed, with the count",
+		`${doneRows} completed, ${missedRows} not yet`,
+	);
+	await page.getByRole("link", { name: "Log Database" }).click();
 	await text("At checkpoint");
 	await page
 		.getByText(/^[\d.,]+ (m|km) away$/)
@@ -456,7 +520,7 @@ try {
 		.locator("path.map-path")
 		.waitFor({ state: "attached", timeout: 15000 });
 	ok(true, "choosing one guard draws their route");
-	await page.getByRole("link", { name: "Patrol log" }).click();
+	await page.getByRole("link", { name: "Log Database" }).click();
 	await page.getByRole("link", { name: "View report" }).first().click();
 	await text("Lampu koridor mati.");
 	const photo = page.locator("article ul img").first();

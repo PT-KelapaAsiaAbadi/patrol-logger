@@ -11,6 +11,12 @@ import { saveFile } from "../../lib/download";
 import { printDocument } from "../../lib/print";
 import type { Checkpoint, CheckpointLocation } from "../../types";
 import { LocationPicker } from "../../components/LocationPicker";
+import {
+	CHECKPOINT_NAME_MAX,
+	CHECKPOINT_NAME_MIN,
+	checkpointNameProblem,
+	tidyCheckpointName,
+} from "../../lib/checkpointName";
 import { formatLocation } from "./RouteTable";
 import { LoadError } from "./Log";
 import { RouteTable } from "./RouteTable";
@@ -69,6 +75,7 @@ export function Checkpoints() {
 			<p class="mt-2 max-w-prose text-muted">{t("qrIntro")}</p>
 
 			<AddCheckpoint
+				existing={all.map(({ cp }) => cp)}
 				onAdded={(cp) => {
 					select(new Set(selected).add(cp.id)); // ready to print straight away
 					labels.reload();
@@ -202,24 +209,42 @@ export function Checkpoints() {
 	);
 }
 
-function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
+/**
+ * Adds a checkpoint. A name and a map location are both required: the location is what scans are
+ * checked against, so a checkpoint without one can't flag a guard who scanned from elsewhere.
+ */
+function AddCheckpoint({
+	existing,
+	onAdded,
+}: {
+	/** The checkpoints already in the round, to catch a repeated name. */
+	existing: Checkpoint[];
+	onAdded: (cp: Checkpoint) => void;
+}) {
 	const { t } = useApp();
 	const [name, setName] = useState("");
 	const [location, setLocation] = useState<CheckpointLocation | null>(null);
 	const [picking, setPicking] = useState(false);
 	const [busy, setBusy] = useState(false);
+	// Problems are only shown after a first submit, so the form doesn't complain while typing.
+	const [tried, setTried] = useState(false);
 	const [outcome, setOutcome] = useState<
 		{ kind: "added"; name: string } | { kind: "error" } | null
 	>(null);
 
+	const nameProblem = checkpointNameProblem(name, existing);
+
 	async function submit() {
-		setBusy(true);
+		setTried(true);
 		setOutcome(null);
+		if (nameProblem || !location) return;
+		setBusy(true);
 		try {
-			let cp = await api.createCheckpoint(
-				name.trim().replace(/\s+/g, " "),
+			const cp = await api.createCheckpoint(
+				tidyCheckpointName(name),
+				location,
 			);
-			if (location) cp = await api.setCheckpointLocation(cp.id, location);
+			setTried(false);
 			setName("");
 			setLocation(null);
 			setOutcome({ kind: "added", name: cp.name });
@@ -240,8 +265,11 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 				class="font-semibold mb-3">
 				{t("addCheckpointTitle")}
 			</h2>
+			{/* noValidate: the app shows its own messages (in the chosen language) instead of the
+			    browser's. maxLength still stops typing at the limit. */}
 			<form
-				class="add-row"
+				class="grid gap-3"
+				noValidate
 				onSubmit={(e) => {
 					e.preventDefault();
 					void submit();
@@ -251,13 +279,83 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 					<input
 						class="field"
 						required
-						maxLength={80}
+						minLength={CHECKPOINT_NAME_MIN}
+						maxLength={CHECKPOINT_NAME_MAX}
 						autoComplete="off"
 						placeholder={t("checkpointPlaceholder")}
+						aria-invalid={tried && !!nameProblem}
 						value={name}
 						onInput={(e) => setName(e.currentTarget.value)}
 					/>
 				</label>
+				{tried && nameProblem && (
+					<p
+						class="notice notice-warn"
+						role="alert">
+						{t(nameProblem, {
+							min: CHECKPOINT_NAME_MIN,
+							max: CHECKPOINT_NAME_MAX,
+						})}
+					</p>
+				)}
+
+				<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+					<span class="font-medium">{t("colLocation")}:</span>
+					<span class={location ? "font-mono text-sm" : "text-muted"}>
+						{location
+							? formatLocation(location)
+							: t("locationNotSet")}
+					</span>
+					<button
+						type="button"
+						class="link-btn"
+						onClick={() => setPicking(true)}>
+						{location ? (
+							<MapPinPen
+								size={ICON}
+								aria-hidden="true"
+							/>
+						) : (
+							<MapPinPlus
+								size={ICON}
+								aria-hidden="true"
+							/>
+						)}
+						{location
+							? t("editLocation")
+							: t("setLocationRequired")}
+					</button>
+				</div>
+				{tried && !location && (
+					<p
+						class="notice notice-warn"
+						role="alert">
+						{t("locationRequired")}
+					</p>
+				)}
+
+				<ul class="hint-list">
+					<li>{t("checkpointHintName")}</li>
+					<li>{t("checkpointHintLocation")}</li>
+					<li>{t("checkpointHintOrder")}</li>
+				</ul>
+
+				{outcome?.kind === "added" && (
+					<p
+						class="notice notice-ok"
+						role="status">
+						{t("checkpointAdded", { name: outcome.name })}
+					</p>
+				)}
+				{outcome?.kind === "error" && (
+					<p
+						class="notice notice-warn"
+						role="alert">
+						{t("saveError")}
+					</p>
+				)}
+
+				{/* Last in the card, after everything it depends on. */}
 				<button
 					class="btn btn-primary"
 					disabled={busy}>
@@ -268,30 +366,7 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 					{busy ? t("saving") : t("addCheckpoint")}
 				</button>
 			</form>
-			<p class="text-muted mt-2">{t("checkpointHint")}</p>
-			<div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3">
-				<span class="font-medium">{t("colLocation")}:</span>
-				<span class={location ? "font-mono text-sm" : "text-muted"}>
-					{location ? formatLocation(location) : t("locationNotSet")}
-				</span>
-				<button
-					type="button"
-					class="link-btn"
-					onClick={() => setPicking(true)}>
-					{location ? (
-						<MapPinPen
-							size={ICON}
-							aria-hidden="true"
-						/>
-					) : (
-						<MapPinPlus
-							size={ICON}
-							aria-hidden="true"
-						/>
-					)}
-					{location ? t("editLocation") : t("setLocationOptional")}
-				</button>
-			</div>
+			{/* Outside the form, so the picker's own buttons can never submit it. */}
 			{picking && (
 				<LocationPicker
 					name={name.trim() || t("pickerNewCheckpoint")}
@@ -299,20 +374,6 @@ function AddCheckpoint({ onAdded }: { onAdded: (cp: Checkpoint) => void }) {
 					onSave={setLocation}
 					onClose={() => setPicking(false)}
 				/>
-			)}
-			{outcome?.kind === "added" && (
-				<p
-					class="notice notice-ok mt-3"
-					role="status">
-					{t("checkpointAdded", { name: outcome.name })}
-				</p>
-			)}
-			{outcome?.kind === "error" && (
-				<p
-					class="notice notice-warn mt-3"
-					role="alert">
-					{t("saveError")}
-				</p>
 			)}
 		</section>
 	);

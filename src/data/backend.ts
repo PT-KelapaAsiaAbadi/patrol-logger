@@ -495,10 +495,24 @@ export async function removeCheckpoints(ids: string[]): Promise<number> {
 	return must(await supabase.rpc("remove_checkpoints", { p_ids: ids }));
 }
 
-/** Appends a checkpoint to the end of the route. The server picks the id and a unique manual code. */
-export async function createCheckpoint(name: string): Promise<Checkpoint> {
+/**
+ * Appends a checkpoint to the end of the route, with its map location, in one step (so a failed
+ * request never leaves a checkpoint without a location). The server picks the id and a unique
+ * manual code.
+ */
+export async function createCheckpoint(
+	name: string,
+	location: CheckpointLocation,
+): Promise<Checkpoint> {
 	return toCheckpoint(
-		must(await supabase.rpc("create_checkpoint", { p_name: name })),
+		must(
+			await supabase.rpc("create_checkpoint", {
+				p_name: name,
+				p_lat: location.lat,
+				p_lng: location.lng,
+				p_radius_m: location.radiusM,
+			}),
+		),
 	);
 }
 

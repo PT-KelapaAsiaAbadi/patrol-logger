@@ -139,6 +139,33 @@ const { data: payload, error: pe } = await sup.rpc("qr_payload", {
 		!error && added.route_order === 9 && added.name === "Pintu belakang",
 		"create_checkpoint appends and tidies the name",
 	);
+
+	// The app now sends the location with the name, saved in the same step.
+	const { data: pinned, error: pe2 } = await sup.rpc("create_checkpoint", {
+		p_name: "Pos pinned",
+		p_lat: -6.2,
+		p_lng: 106.8,
+		p_radius_m: 30,
+	});
+	ok(
+		!pe2 &&
+			pinned.latitude === -6.2 &&
+			pinned.longitude === 106.8 &&
+			pinned.radius_m === 30,
+		"create_checkpoint saves the location with the name",
+		pe2?.message,
+	);
+	const { error: half } = await sup.rpc("create_checkpoint", {
+		p_name: "Pos setengah",
+		p_lat: -6.2,
+	});
+	ok(
+		half?.message === "location_incomplete",
+		"half a location is refused",
+		half?.message,
+	);
+	// Removed at once, so the counts the later checks expect stay the same.
+	await sup.rpc("remove_checkpoints", { p_ids: [pinned.id] });
 }
 
 section("scanning");

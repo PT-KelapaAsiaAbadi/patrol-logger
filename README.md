@@ -128,7 +128,9 @@ src/
     map.ts, geocode.ts  checkpoint map (Leaflet) and address search (Nominatim), supervisor only
     download.ts, format.ts, id.ts
   pages/guard/          Home (round), Scan, Report
-  pages/supervisor/     Log (paginated), ScanDetail, Map (one day: checkpoints, scans, a guard's route),
+  pages/supervisor/     Today (start page: completed / not yet visited checkpoints, guards on duty,
+                        needs review), Log = the Log Database tab (paginated scan log, CSV),
+                        ScanDetail, Map (one day: checkpoints, scans, a guard's route),
                         Guards = the Accounts tab (add one, import CSV, new password, deactivate),
                         AccountsTable (change a number; "Confirm number" shown disabled for now),
                         Checkpoints (round order, rename, replace sticker, add, select, print QR)
@@ -202,7 +204,20 @@ Open work before real use. `TODO:` comments in the code are highlighted by the T
 
 ### Supervisor screens
 
-- [ ] Refactor the log filters into one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status), and add a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
+Dashboard refactor (branch `refactor/dashboard-rework`), done step by step:
+
+- [ ] **Today: Guards on duty** shows sample data (marked "Sample data, not live yet"). Use `guardSummaries(today)` for every active guard with a status from the last scan: Patrolling (scanned in the last 60 min), Quiet (scanned today, not in the last 60 min), Not started (no scans today). "On duty" can't mean "scheduled" until shifts exist (see Decisions) ([src/pages/supervisor/Today.tsx](src/pages/supervisor/Today.tsx)).
+- [ ] **Today: Needs review** is a placeholder. List today's scans that need a look, newest first, with the reasons as labels and a link to the scan:
+    - far from the checkpoint (`location_status = 'far'`)
+    - no GPS (`location_status = 'no_fix'`)
+    - has a report (a note or photos: likely an incident)
+    - sent late: `received_at` more than 60 min after `scanned_at` (long offline, or a wrong phone clock)
+    - too fast: the same guard scanned two different checkpoints less than 1 min apart
+
+  Not included on purpose: "no report" (reports are optional, so almost every scan would be flagged) and "checkpoint not pinned" (a setup issue, not the guard's). Thresholds in one constants block; rules in [src/lib/today.ts](src/lib/today.ts) with tests. Later: a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans).
+- [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
+- [ ] **New checkpoints need a location.** The app requires it and `create_checkpoint` saves name and location in one step, but the database still accepts a name alone so the app version currently deployed keeps working. Once the new app is live, make `p_lat` / `p_lng` required in `create_checkpoint` ([supabase/migrations/20260928130000_checkpoint_location_on_create.sql](supabase/migrations/20260928130000_checkpoint_location_on_create.sql)).
+- [ ] **Checkpoint names:** the app allows 3 to 50 characters, no repeats (ignoring case), and at least one letter or digit ([src/lib/checkpointName.ts](src/lib/checkpointName.ts)). The database still allows up to 80. Tighten it once hosted names have been checked against the new rule.
 
 ### Decisions (not built)
 
