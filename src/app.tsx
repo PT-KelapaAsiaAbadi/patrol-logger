@@ -16,6 +16,7 @@ import { ScanPage } from "./pages/guard/Scan";
 import { ReportPage } from "./pages/guard/Report";
 import { LogDatabase } from "./pages/supervisor/Log";
 import { Today } from "./pages/supervisor/Today";
+import { Schedule } from "./pages/supervisor/Schedule";
 import { ScanDetail } from "./pages/supervisor/ScanDetail";
 import { Checkpoints } from "./pages/supervisor/Checkpoints";
 import { Guards } from "./pages/supervisor/Guards";
@@ -91,6 +92,13 @@ export function App() {
 						<RequireRole role="supervisor">
 							<SupervisorShell>
 								<LogDatabase />
+							</SupervisorShell>
+						</RequireRole>
+					</Route>
+					<Route path="/supervisor/schedule">
+						<RequireRole role="supervisor">
+							<SupervisorShell>
+								<Schedule />
 							</SupervisorShell>
 						</RequireRole>
 					</Route>

@@ -103,9 +103,11 @@ export function Today() {
 					tone="review"
 					icon={TriangleAlert}
 					title={t("reviewTitle")}
-					description={t("reviewDesc")}>
+					description={t("reviewDesc")}
+					badge={t("sampleData")}>
 					{/*
-						TODO: implement Needs review. List today's scans that need a supervisor's look,
+						TODO: implement Needs review (it shows sample data, tagged as such, until then).
+						List today's scans that need a supervisor's look,
 						newest first, each with its reasons as labels and a link to the scan:
 						  - far from the checkpoint (location_status = 'far')
 						  - no GPS (location_status = 'no_fix')
@@ -119,7 +121,7 @@ export function Today() {
 						Later: a "Mark as reviewed" action (needs reviewed_at / reviewed_by on scans).
 						See README > TODO.
 					*/}
-					<p class="overview-empty">{t("reviewSoon")}</p>
+					<NeedsReview />
 				</OverviewCard>
 
 				<OverviewCard
@@ -303,6 +305,96 @@ function OverviewCard({
 			<p class="overview-desc">{description}</p>
 			<div class="overview-body">{children}</div>
 		</section>
+	);
+}
+
+type ReviewReason =
+	| "reasonFar"
+	| "reasonNoGps"
+	| "reasonReport"
+	| "reasonLate"
+	| "reasonTooFast";
+
+/*
+	Sample data for Needs review, one row per planned reason (see the TODO in the card above).
+	The detail is what the real rule would show: distance, delay, or gap since the last scan.
+*/
+const SAMPLE_REVIEW: {
+	time: string;
+	guard: string;
+	checkpoint: string;
+	reason: ReviewReason;
+	detail?: string;
+}[] = [
+	{
+		time: "17:05",
+		guard: "Budi Santoso",
+		checkpoint: "Pintu samping timur",
+		reason: "reasonFar",
+		detail: "5.6 km",
+	},
+	{
+		time: "16:42",
+		guard: "Siti Rahma",
+		checkpoint: "Parkir basement B1",
+		reason: "reasonNoGps",
+	},
+	{
+		time: "15:20",
+		guard: "Agus Pratama",
+		checkpoint: "Gudang belakang",
+		reason: "reasonReport",
+	},
+	{
+		time: "14:58",
+		guard: "Budi Santoso",
+		checkpoint: "Tangga darurat lantai 2",
+		reason: "reasonLate",
+		detail: "+2 h 10 min",
+	},
+	{
+		time: "14:31",
+		guard: "Siti Rahma",
+		checkpoint: "Ruang panel listrik",
+		reason: "reasonTooFast",
+		detail: "40 s",
+	},
+];
+
+function NeedsReview() {
+	const { t } = useApp();
+	return (
+		<table class="overview-table">
+			<thead>
+				<tr>
+					<th scope="col">{t("time")}</th>
+					<th scope="col">{t("colScan")}</th>
+					<th scope="col">{t("colReason")}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{SAMPLE_REVIEW.map((r) => (
+					<tr key={`${r.time}-${r.reason}`}>
+						<td class="tabular-nums">{r.time}</td>
+						{/* Checkpoint and guard share a cell: the card is only a third of the width. */}
+						<td>
+							{r.checkpoint}
+							<span class="block text-sm text-muted">
+								{r.guard}
+							</span>
+						</td>
+						<td>
+							<span class="review-reason">{t(r.reason)}</span>
+							{r.detail && (
+								<span class="block text-sm text-muted tabular-nums">
+									{r.detail}
+								</span>
+							)}
+						</td>
+					</tr>
+				))}
+			</tbody>
+		</table>
 	);
 }
 

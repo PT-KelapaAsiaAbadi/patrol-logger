@@ -77,7 +77,7 @@ flowchart LR
   subgraph Browser["Browser · installed PWA"]
     device["Device<br/>scanner.ts · geo.ts · image.ts"]
     guard_ui["Guard screens<br/>Home · Scan · Report"]
-    sup_ui["Supervisor screens<br/>Today · Log Database · Map<br/>ScanDetail · Accounts · Checkpoints"]
+    sup_ui["Supervisor screens<br/>Today · Log Database · Schedule · Map<br/>ScanDetail · Accounts · Checkpoints"]
     sw["Service worker<br/>+ updates.ts"]
     network["network.ts"]
     api["api.ts<br/>send now or queue"]
@@ -212,6 +212,7 @@ Changes that break one of these are architectural changes.
 | `#/report/:scanId` | guard | `pages/guard/Report.tsx` |
 | `#/supervisor` | supervisor | `pages/supervisor/Today.tsx` (Today tab: the start page) |
 | `#/supervisor/log` | supervisor | `pages/supervisor/Log.tsx` (Log Database tab) |
+| `#/supervisor/schedule` | supervisor | `pages/supervisor/Schedule.tsx` (Schedule tab, sample data for now) |
 | `#/supervisor/map` | supervisor | `pages/supervisor/MapView.tsx` |
 | `#/supervisor/guards` | supervisor | `pages/supervisor/Guards.tsx` (Accounts tab) |
 | `#/supervisor/checkpoints` | supervisor | `pages/supervisor/Checkpoints.tsx` |

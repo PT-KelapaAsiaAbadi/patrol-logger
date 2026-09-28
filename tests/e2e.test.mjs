@@ -137,6 +137,23 @@ try {
 		.getByText("Sample data, not live yet")
 		.waitFor();
 	ok(true, "Guards on duty is marked as sample data");
+	await page
+		.locator("section.area-review")
+		.getByText("Sample data, not live yet")
+		.waitFor();
+	ok(
+		(await page.locator("section.area-review tbody tr").count()) === 5,
+		"Needs review shows its sample rows, marked as sample data",
+	);
+	await page.getByRole("link", { name: "Schedule" }).click();
+	await text("Sample data: scheduling isn't built yet.");
+	ok(
+		(await page.locator(".roster-table tbody tr").count()) === 4 &&
+			(await page
+				.getByRole("button", { name: "Add shift" })
+				.isDisabled()),
+		"Schedule shows a sample week and a disabled Add shift",
+	);
 	await page.getByRole("link", { name: "Log Database" }).click();
 	await text("This page will be updated.");
 	ok(true, "Log Database shows the scan log with a to-be-updated notice");

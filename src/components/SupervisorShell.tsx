@@ -1,6 +1,6 @@
 /**
- * The frame around every supervisor screen: a header with the Today, Log Database, Map, Accounts
- * and Checkpoints tabs and the sign-out button. Supervisor pages use the full desktop width (up
+ * The frame around every supervisor screen: a header with the Today, Log Database, Schedule, Map,
+ * Accounts and Checkpoints tabs and the sign-out button. Supervisor pages use the full desktop width (up
  * to 90rem): they're used at a desk, and Today's dashboard needs the room.
  */
 import type { ComponentChildren } from "preact";
@@ -10,6 +10,7 @@ import * as api from "../data/api";
 import { ICON } from "../components/IconButton";
 import {
 	CalendarCheck,
+	CalendarClock,
 	Database,
 	LogOut,
 	Map,
@@ -35,6 +36,12 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
 			label: t("navLogDatabase"),
 			icon: Database,
 			active: location === "/supervisor/log",
+		},
+		{
+			href: "/supervisor/schedule",
+			label: t("navSchedule"),
+			icon: CalendarClock,
+			active: location === "/supervisor/schedule",
 		},
 		{
 			href: "/supervisor/map",

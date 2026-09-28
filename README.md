@@ -130,6 +130,7 @@ src/
   pages/guard/          Home (round), Scan, Report
   pages/supervisor/     Today (start page: completed / not yet visited checkpoints, guards on duty,
                         needs review), Log = the Log Database tab (paginated scan log, CSV),
+                        Schedule (weekly guard roster, sample data for now),
                         ScanDetail, Map (one day: checkpoints, scans, a guard's route),
                         Guards = the Accounts tab (add one, import CSV, new password, deactivate),
                         AccountsTable (change a number; "Confirm number" shown disabled for now),
@@ -215,6 +216,8 @@ Dashboard refactor (branch `refactor/dashboard-rework`), done step by step:
     - too fast: the same guard scanned two different checkpoints less than 1 min apart
 
   Not included on purpose: "no report" (reports are optional, so almost every scan would be flagged) and "checkpoint not pinned" (a setup issue, not the guard's). Thresholds in one constants block; rules in [src/lib/today.ts](src/lib/today.ts) with tests. Later: a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans).
+- [ ] **Needs review** shows sample rows (one per planned reason, tagged "Sample data, not live yet") until the rules below are built.
+- [ ] **Schedule** tab shows a sample weekly roster (tagged as sample data; "Add shift" disabled). To build: a `shifts` table (guard, start, end; night shifts cross midnight) written through supervisor-checked functions; add, edit, copy last week and remove shifts; move between weeks. Then Today's Guards on duty can show who is scheduled now, and missed checkpoints can be counted per shift. Shift names and times to agree with the owner (the sample uses 07-15, 15-23, 23-07) ([src/pages/supervisor/Schedule.tsx](src/pages/supervisor/Schedule.tsx)).
 - [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
 - [ ] **New checkpoints need a location.** The app requires it and `create_checkpoint` saves name and location in one step, but the database still accepts a name alone so the app version currently deployed keeps working. Once the new app is live, make `p_lat` / `p_lng` required in `create_checkpoint` ([supabase/migrations/20260928130000_checkpoint_location_on_create.sql](supabase/migrations/20260928130000_checkpoint_location_on_create.sql)).
 - [ ] **Checkpoint names:** the app allows 3 to 50 characters, no repeats (ignoring case), and at least one letter or digit ([src/lib/checkpointName.ts](src/lib/checkpointName.ts)). The database still allows up to 80. Tighten it once hosted names have been checked against the new rule.
