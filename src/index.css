@@ -660,7 +660,8 @@ img {
 	  so buttons, checkboxes, focus rings, the map's route and pins, and the location picker turn
 	  blue. Amber stays for the guard's Scan button and for warnings.
 	*/
-	.shell {
+	.shell,
+	.login-page {
 		--accent: var(--info);
 		--accent-ink: var(--info-ink);
 	}
@@ -875,6 +876,54 @@ img {
 			clip-path: inset(50%);
 			white-space: nowrap;
 		}
+	}
+
+	/* Sign-in page (pages/Login.tsx): the form in a card, centred, blue like the supervisor pages
+	   (.login-page shares .shell's accent above). */
+	.login-page {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2.5rem 1.25rem 3rem;
+	}
+	.login-inner {
+		width: 100%;
+		max-width: 26rem;
+		display: grid;
+		gap: 1.5rem;
+	}
+	.login-head {
+		display: grid;
+		justify-items: start;
+		gap: 0.5rem;
+	}
+	.login-badge {
+		display: grid;
+		place-items: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 14px;
+		background: var(--info-bg);
+		color: var(--info);
+	}
+	.login-card {
+		display: grid;
+		gap: 1rem;
+		padding: 1.25rem 1.1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.login-card .field {
+		min-height: 3.25rem;
+		font-size: 1.0625rem;
+	}
+	.login-foot {
+		text-align: center;
+		font-size: 0.875rem;
+		color: var(--muted);
 	}
 
 	/* The More page (pages/supervisor/More.tsx), phones and tablets. */

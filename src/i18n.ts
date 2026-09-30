@@ -4,6 +4,9 @@
  */
 const id = {
 	signInTitle: "Masuk ke Patroli",
+	signInHint: "Gunakan akun yang diberikan supervisor Anda.",
+	forgotPassword:
+		"Lupa kata sandi? Minta supervisor Anda membuatkan yang baru.",
 	password: "Kata sandi",
 	signIn: "Masuk",
 	signingIn: "Memeriksa...",
@@ -367,6 +370,8 @@ export type Key = keyof typeof id;
 
 const en: Record<Key, string> = {
 	signInTitle: "Sign in to Patrol",
+	signInHint: "Use the account your supervisor gave you.",
+	forgotPassword: "Forgot your password? Ask your supervisor for a new one.",
 	password: "Password",
 	signIn: "Sign in",
 	signingIn: "Checking...",
