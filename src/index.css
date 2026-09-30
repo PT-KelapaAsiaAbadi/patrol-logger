@@ -304,6 +304,7 @@ img {
 		font-weight: 600;
 	}
 	.picker {
+		margin: auto;
 		width: min(46rem, calc(100vw - 2rem));
 		max-height: calc(100dvh - 2rem);
 		overflow-y: auto;
@@ -1526,7 +1527,8 @@ img {
 	/*
 	  Checkpoints page (pages/supervisor/Checkpoints.tsx and RouteTable.tsx). Blue comes from .shell.
 	    - below 1024px: each table row is a card, one column on phones and two on tablets
-	    - 1024px and up: a table; from 1280px the QR panel sits beside it when something is
+	    - 1024px and up: a table, and "Add checkpoint" beside the title opens the add dialog;
+	      from 1280px the QR panel sits beside the table when something is
 	      selected (below it on narrower screens)
 	*/
 	.cp-page {
@@ -1534,8 +1536,11 @@ img {
 		gap: 1.25rem;
 	}
 	.cp-head {
-		display: grid;
-		gap: 0.35rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 0.75rem 1.5rem;
 	}
 	.cp-section-title {
 		display: flex;
@@ -1556,6 +1561,42 @@ img {
 		display: grid;
 		gap: 0.85rem;
 		max-width: 42rem;
+	}
+	/* Desktop add-checkpoint dialog: the form on the left, the map and its controls on the right. */
+	.add-dialog {
+		/* Centred: Tailwind's reset zeroes the browser's auto margins on dialogs. */
+		margin: auto;
+		width: min(72rem, calc(100vw - 3rem));
+		max-height: calc(100dvh - 3rem);
+		padding: 0;
+		overflow: auto;
+		background: var(--surface);
+		color: var(--ink);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.add-dialog::backdrop {
+		background: rgb(0 0 0 / 0.5);
+	}
+	.add-dialog-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--line);
+	}
+	.add-dialog-body {
+		display: grid;
+		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+		align-items: start;
+		gap: 1.5rem;
+		padding: 1.25rem;
+	}
+	/* As tall as the window allows without the dialog scrolling (windows about 700px tall and up). */
+	.add-dialog-map .picker-map {
+		height: clamp(12rem, calc(100dvh - 31rem), 26rem);
 	}
 	.cp-layout {
 		display: grid;

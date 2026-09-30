@@ -184,6 +184,22 @@ try {
 		"manual codes shown",
 	);
 
+	// On a desktop the form opens from the button beside the title.
+	ok(
+		!(await page.getByLabel("Checkpoint name").isVisible()),
+		"no add-checkpoint form on the page on a desktop",
+	);
+	await page.getByRole("button", { name: "Add checkpoint" }).click();
+	// A wide dialog: the form on the left, the map on the right.
+	const picker = page.getByRole("dialog");
+	await picker.getByLabel("Checkpoint name").waitFor();
+	ok(
+		await picker
+			.getByLabel("Checkpoint name")
+			.evaluate((el) => el === document.activeElement),
+		"Add checkpoint opens a dialog with the cursor in the name field",
+	);
+
 	// Name rules and the required location are checked before anything is saved.
 	await page.getByLabel("Checkpoint name").fill("Po");
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
@@ -198,15 +214,21 @@ try {
 		(await route.locator("tbody tr").count()) === 8,
 		"a too-short name, a repeated name and a missing location are refused",
 	);
-	await page.getByRole("button", { name: "Set location (required)" }).click();
-	const picker = page.getByRole("dialog");
 	await picker.locator(".leaflet-container").waitFor({ timeout: 15000 });
 	await picker.locator(".picker-map").click(); // drop the pin by tapping the map
 	await picker.getByText(/^-?\d+\.\d{6}, -?\d+\.\d{6}$/).waitFor();
 	await picker.getByText("Near: Jl. Contoh 1, Jakarta").waitFor();
-	ok(true, "tapping the map drops a pin and shows the nearest address");
-	await picker.getByRole("button", { name: "Save" }).click();
+	await picker.getByText(/^-?\d+\.\d{5}, -?\d+\.\d{5} \(50 m\)$/).waitFor();
+	ok(
+		true,
+		"tapping the map drops a pin, shows the nearest address, and fills in the form",
+	);
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
+	await page
+		.getByRole("dialog")
+		.waitFor({ state: "detached", timeout: 15000 });
+	await text('"Pos belakang" added and selected for printing.');
+	ok(true, "the dialog closes once the checkpoint is added");
 	await text("1 of 9 selected");
 	await page.locator(".qr-panel .qr-sticker").first().waitFor();
 	ok(

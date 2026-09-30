@@ -32,6 +32,8 @@ const id = {
 	startingCamera: "Membuka kamera...",
 	typeCode: "Ketik kode",
 	cancel: "Batal",
+	close: "Tutup",
+	pickOnMap: "Pilih lokasinya di peta",
 	camera_permission_denied:
 		"Akses kamera ditolak. Izinkan kamera di pengaturan browser, atau ketik kode di bawah stiker QR.",
 	camera_no_camera: "Kamera tidak ditemukan. Ketik kode di bawah stiker QR.",
@@ -390,6 +392,8 @@ const en: Record<Key, string> = {
 	startingCamera: "Opening camera...",
 	typeCode: "Type code",
 	cancel: "Cancel",
+	close: "Close",
+	pickOnMap: "Pick the spot on the map",
 	camera_permission_denied:
 		"Camera access was blocked. Allow the camera in browser settings, or type the code under the QR sticker.",
 	camera_no_camera: "No camera found. Type the code under the QR sticker.",

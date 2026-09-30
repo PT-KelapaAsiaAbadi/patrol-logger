@@ -1,6 +1,10 @@
 /**
- * The dialog supervisors use to place a checkpoint and set its radius: tap or drag the pin,
- * search an address, use their own position, or paste coordinates. The map loads on first open.
+ * Placing a checkpoint and setting its radius: tap or drag the pin, search an address, use the
+ * supervisor's own position, or paste coordinates. The map loads on first use.
+ *   - LocationFields: the map and its controls, reporting every change (the desktop
+ *     add-checkpoint dialog shows them beside the form)
+ *   - LocationPicker: the same fields in a dialog with Save and Cancel (editing a location, and
+ *     adding a checkpoint on phones and tablets)
  */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../state";
@@ -18,23 +22,17 @@ import { ArrowRight, Check, LocateFixed, Search, X } from "lucide-preact";
 const DEFAULT_RADIUS_M = 50;
 
 /**
- * Dialog for pinning a checkpoint: tap or drag on the map, search an address, use the
- * supervisor's own position (handy when standing at the checkpoint), or paste coordinates.
- * A location can be moved but not removed: to take it away, remove the checkpoint.
+ * The map and its controls. `onChange` gets the location every time the pin or the radius changes
+ * (null until a spot is picked). Use it inside a dialog or panel that is already on screen.
  */
-export function LocationPicker({
-	name,
+export function LocationFields({
 	initial,
-	onSave,
-	onClose,
+	onChange,
 }: {
-	name: string;
 	initial: CheckpointLocation | null;
-	onSave: (location: CheckpointLocation) => Promise<void> | void;
-	onClose: () => void;
+	onChange: (location: CheckpointLocation | null) => void;
 }) {
 	const { t, lang } = useApp();
-	const dialogRef = useRef<HTMLDialogElement>(null);
 	const mapEl = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<PickerMap | null>(null);
 
@@ -48,12 +46,14 @@ export function LocationPicker({
 	const [searching, setSearching] = useState(false);
 	const [coords, setCoords] = useState("");
 	const [problem, setProblem] = useState<
-		"search" | "myLocation" | "coords" | "save" | null
+		"search" | "myLocation" | "coords" | null
 	>(null);
-	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
-		dialogRef.current?.showModal();
+		onChange(point && { lat: point.lat, lng: point.lng, radiusM: radius });
+	}, [point?.lat, point?.lng, radius]); // eslint-disable-line react-hooks/exhaustive-deps
+
+	useEffect(() => {
 		let map: PickerMap | null = null;
 		let gone = false;
 		// Leaflet is only downloaded now, the first time a supervisor opens this.
@@ -121,37 +121,10 @@ export function LocationPicker({
 		mapRef.current?.setPoint(c.lat, c.lng);
 	}
 
-	async function save(location: CheckpointLocation) {
-		setBusy(true);
-		setProblem(null);
-		try {
-			await onSave(location);
-			onClose();
-		} catch {
-			setProblem("save");
-		} finally {
-			setBusy(false);
-		}
-	}
-
 	return (
-		<dialog
-			ref={dialogRef}
-			class="picker"
-			aria-labelledby="picker-h"
-			onCancel={(e) => {
-				e.preventDefault();
-				onClose();
-			}}>
-			<h2
-				id="picker-h"
-				class="text-lg font-semibold">
-				{t("pickerTitle", { name })}
-			</h2>
-			<p class="text-muted text-sm mt-1">{t("pickerHint")}</p>
-
+		<div class="location-fields">
 			<form
-				class="flex gap-2 mt-3"
+				class="flex gap-2"
 				onSubmit={(e) => {
 					e.preventDefault();
 					void search();
@@ -282,10 +255,80 @@ export function LocationPicker({
 							? "searchFailed"
 							: problem === "myLocation"
 								? "myLocationFailed"
-								: problem === "coords"
-									? "coordinatesInvalid"
-									: "saveError",
+								: "coordinatesInvalid",
 					)}
+				</p>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Dialog for pinning a checkpoint, with Save and Cancel. A location can be moved but not
+ * removed: to take it away, remove the checkpoint.
+ */
+export function LocationPicker({
+	name,
+	initial,
+	onSave,
+	onClose,
+}: {
+	name: string;
+	initial: CheckpointLocation | null;
+	onSave: (location: CheckpointLocation) => Promise<void> | void;
+	onClose: () => void;
+}) {
+	const { t } = useApp();
+	const dialogRef = useRef<HTMLDialogElement>(null);
+	const [location, setLocation] = useState<CheckpointLocation | null>(
+		initial,
+	);
+	const [failed, setFailed] = useState(false);
+	const [busy, setBusy] = useState(false);
+
+	useEffect(() => {
+		dialogRef.current?.showModal();
+	}, []);
+
+	async function save(picked: CheckpointLocation) {
+		setBusy(true);
+		setFailed(false);
+		try {
+			await onSave(picked);
+			onClose();
+		} catch {
+			setFailed(true);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<dialog
+			ref={dialogRef}
+			class="picker"
+			aria-labelledby="picker-h"
+			onCancel={(e) => {
+				e.preventDefault();
+				onClose();
+			}}>
+			<h2
+				id="picker-h"
+				class="text-lg font-semibold">
+				{t("pickerTitle", { name })}
+			</h2>
+			<p class="text-muted text-sm mt-1 mb-3">{t("pickerHint")}</p>
+
+			<LocationFields
+				initial={initial}
+				onChange={setLocation}
+			/>
+
+			{failed && (
+				<p
+					class="notice notice-warn mt-3"
+					role="alert">
+					{t("saveError")}
 				</p>
 			)}
 
@@ -293,15 +336,8 @@ export function LocationPicker({
 				<button
 					type="button"
 					class="btn btn-primary"
-					disabled={busy || !point}
-					onClick={() =>
-						point &&
-						void save({
-							lat: point.lat,
-							lng: point.lng,
-							radiusM: radius,
-						})
-					}>
+					disabled={busy || !location}
+					onClick={() => location && void save(location)}>
 					<Check
 						size={ICON}
 						aria-hidden="true"
