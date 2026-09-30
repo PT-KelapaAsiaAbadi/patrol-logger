@@ -5,8 +5,8 @@
  *   - desktop: Download as PDF and Print selected sit beside Add checkpoint; from 1280px the panel
  *     is a column beside the table, always there and as tall as it, empty until something is
  *     selected and scrolling when several are
- *   - phones and tablets: the panel appears below the table once something is selected, with its
- *     own Print and Download buttons
+ *   - phones and tablets: Download as PDF and Print sit under Remove selected, and the panel
+ *     appears below the table once something is selected
  * Adding a checkpoint: on a desktop, a button beside the title opens a wide dialog with the form
  * on the left and the map on the right; on phones and tablets the form is a card on the page and the
  * map opens in its own dialog.
@@ -268,13 +268,16 @@ export function Checkpoints() {
 											{t("notPrinted", { n: notPrinted })}
 										</p>
 									)}
-									{!desktop && (
-										<div class="qr-actions">
-											{printButtons}
-											{pdfStatus}
-										</div>
-									)}
 								</aside>
+							)
+						}
+						// Phones and tablets: under Remove selected (desktop has them in the header).
+						actions={
+							!desktop && (
+								<>
+									{printButtons}
+									{pdfStatus}
+								</>
 							)
 						}
 					/>

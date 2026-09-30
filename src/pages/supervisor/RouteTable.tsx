@@ -50,6 +50,7 @@ export function RouteTable({
 	onSelect,
 	onChanged,
 	aside,
+	actions,
 }: {
 	checkpoints: Checkpoint[];
 	/** Shared with the QR panel: pick checkpoints once, then print or remove them. */
@@ -58,6 +59,8 @@ export function RouteTable({
 	onChanged: (reissued?: Checkpoint) => void;
 	/** The QR panel. It shares the table's row, so on a wide screen it is exactly as tall. */
 	aside?: ComponentChildren;
+	/** More buttons for the selection, shown under Remove selected (Print, Download on phones). */
+	actions?: ComponentChildren;
 }) {
 	const { t } = useApp();
 	const [busy, setBusy] = useState(false);
@@ -181,6 +184,7 @@ export function RouteTable({
 					{t("removeSelected", { n: chosen.length })}
 				</button>
 			</div>
+			{actions && <div class="cp-selection-actions">{actions}</div>}
 			{notice?.kind === "removed" && (
 				<p
 					class="notice notice-ok mb-3"

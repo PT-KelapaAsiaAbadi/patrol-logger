@@ -1725,14 +1725,18 @@ img {
 		font-size: 0.8125rem;
 		color: #56616d;
 	}
-	.qr-actions {
+	/* Phones and tablets: Download as PDF and Print under Remove selected, sharing the width. */
+	.cp-selection-actions {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.6rem;
 	}
-	.qr-actions .btn {
-		flex: 1 1 auto;
+	.cp-selection-actions .btn {
+		flex: 1 1 10rem;
+	}
+	.cp-selection-actions > span {
+		flex-basis: 100%;
 	}
 
 	/* Phones and tablets: every row is a card. Code and location are labelled in the card. */
