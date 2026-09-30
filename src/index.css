@@ -201,6 +201,14 @@ img {
 	.btn-quiet:not(:disabled):hover {
 		background: var(--sunken);
 	}
+	.btn-outline {
+		background: transparent;
+		color: var(--info);
+		border-color: var(--info);
+	}
+	.btn-outline:not(:disabled):hover {
+		background: var(--info-bg);
+	}
 	.btn-ghost {
 		background: transparent;
 		color: var(--muted);
@@ -1528,12 +1536,19 @@ img {
 	  Checkpoints page (pages/supervisor/Checkpoints.tsx and RouteTable.tsx). Blue comes from .shell.
 	    - below 1024px: each table row is a card, one column on phones and two on tablets
 	    - 1024px and up: a table, and "Add checkpoint" beside the title opens the add dialog;
-	      from 1280px the QR panel sits beside the table when something is
-	      selected (below it on narrower screens)
+	      from 1280px the QR panel is a column beside the table, as tall as it, always there
+	      (below the table on narrower screens, once something is selected)
 	*/
 	.cp-page {
 		display: grid;
 		gap: 1.25rem;
+	}
+	.cp-head-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.6rem;
 	}
 	.cp-head {
 		display: flex;
@@ -1598,7 +1613,7 @@ img {
 	.add-dialog-map .picker-map {
 		height: clamp(12rem, calc(100dvh - 31rem), 26rem);
 	}
-	.cp-layout {
+	.cp-table-row {
 		display: grid;
 		gap: 1.25rem;
 		align-items: start;
@@ -1685,14 +1700,14 @@ img {
 		border: 1.5px dashed #8a949e;
 		border-radius: 8px;
 	}
+	/* width, not max-width: the unlayered img { max-width: 100% } at the top would win over it. */
 	.qr-sticker img {
-		width: 100%;
-		max-width: 10rem;
+		width: min(100%, 10rem);
 		margin-inline: auto;
 		image-rendering: pixelated;
 	}
 	.qr-sticker:only-child img {
-		max-width: 13rem;
+		width: min(100%, 13rem);
 	}
 	.qr-name {
 		margin-top: 0.4rem;
@@ -1851,18 +1866,36 @@ img {
 			box-shadow: inset 3px 0 0 var(--info);
 		}
 	}
+	/* The QR column beside the table, exactly as tall: it shares the table's row, and
+	   contain: size stops its QR codes from growing that row. They scroll inside it instead. */
 	@media (min-width: 1280px) {
-		.cp-layout.has-panel {
+		.cp-table-row.has-aside {
 			grid-template-columns: minmax(0, 1fr) 20rem;
+			align-items: stretch;
 		}
 		.qr-panel {
-			position: sticky;
-			top: calc(env(safe-area-inset-top, 0px) + 5rem);
-			max-height: calc(100dvh - 6.5rem);
-			overflow: auto;
+			contain: size;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+		}
+		/* Small enough that one sticker fits whole; more scroll. */
+		.qr-sticker img,
+		.qr-sticker:only-child img {
+			width: min(100%, 9.5rem);
 		}
 		.qr-list {
+			flex: 1 1 auto;
+			min-height: 0;
+			overflow-y: auto;
 			grid-template-columns: minmax(0, 1fr);
+			align-content: start;
+		}
+	}
+	/* Narrower, the panel sits under the table, so an empty one isn't shown. */
+	@media (max-width: 1279.98px) {
+		.qr-panel.is-empty {
+			display: none;
 		}
 	}
 }

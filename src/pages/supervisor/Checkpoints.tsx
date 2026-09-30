@@ -1,7 +1,12 @@
 /**
- * The Checkpoints tab: add a checkpoint, manage the round (RouteTable), and print or download
- * QR sticker sheets for the selected checkpoints. Selecting a checkpoint shows its QR code in a
- * panel: beside the table on a wide screen, below it otherwise (index.css, "Checkpoints page").
+ * The Checkpoints tab: add a checkpoint, manage the round (RouteTable), and print or download (as
+ * a PDF) the QR stickers of the selected checkpoints. Their QR codes show in a panel (index.css,
+ * "Checkpoints page"):
+ *   - desktop: Download as PDF and Print selected sit beside Add checkpoint; from 1280px the panel
+ *     is a column beside the table, always there and as tall as it, empty until something is
+ *     selected and scrolling when several are
+ *   - phones and tablets: the panel appears below the table once something is selected, with its
+ *     own Print and Download buttons
  * Adding a checkpoint: on a desktop, a button beside the title opens a wide dialog with the form
  * on the left and the map on the right; on phones and tablets the form is a card on the page and the
  * map opens in its own dialog.
@@ -29,7 +34,7 @@ import { LoadError } from "./Log";
 import { RouteTable } from "./RouteTable";
 import { ICON, IconButton } from "../../components/IconButton";
 import {
-	Download,
+	FileDown,
 	MapPinPen,
 	MapPinPlus,
 	Plus,
@@ -41,7 +46,9 @@ import {
 export function Checkpoints() {
 	const { t } = useApp();
 	const [selected, setSelected] = useState<Set<string>>(new Set());
-	const [saved, setSaved] = useState(false);
+	const [pdf, setPdf] = useState<"idle" | "busy" | "saved" | "failed">(
+		"idle",
+	);
 	// Same breakpoint as the desktop header (index.css).
 	const desktop = useMediaQuery("(min-width: 1024px)");
 	// Desktop only: the add-checkpoint dialog is open, and the last checkpoint it added.
@@ -71,21 +78,72 @@ export function Checkpoints() {
 	const notPrinted = all.filter(
 		({ cp }) => !cp.active && selected.has(cp.id),
 	).length;
-	const showPanel = chosen.length + notPrinted > 0;
+	const anySelected = chosen.length + notPrinted > 0;
 
 	function select(next: Set<string>) {
 		setSelected(next);
-		setSaved(false);
+		setPdf("idle");
 	}
 
-	function download() {
-		saveFile(
-			"label-titik-patroli.html",
-			labelsDocument(chosen),
-			"text/html",
-		);
-		setSaved(true);
+	/** The sticker sheet as a PDF. pdf-lib is only downloaded now, the first time it's needed. */
+	async function downloadPdf() {
+		setPdf("busy");
+		try {
+			const { labelsPdf } = await import("../../lib/labelsPdf");
+			saveFile(
+				"label-titik-patroli.pdf",
+				await labelsPdf(chosen),
+				"application/pdf",
+			);
+			setPdf("saved");
+		} catch {
+			setPdf("failed");
+		}
 	}
+
+	/** Download as PDF, then Print: in the desktop header, or under the QR codes on a phone. */
+	const printButtons = (
+		<>
+			<button
+				type="button"
+				class="btn btn-outline"
+				disabled={chosen.length === 0 || pdf === "busy"}
+				onClick={() => void downloadPdf()}>
+				<FileDown
+					size={ICON}
+					aria-hidden="true"
+				/>
+				{pdf === "busy" ? t("makingPdf") : t("downloadPdf")}
+			</button>
+			<button
+				type="button"
+				class={desktop ? "btn btn-outline" : "btn btn-primary"}
+				disabled={chosen.length === 0}
+				onClick={() => printDocument(labelsDocument(chosen))}>
+				<Printer
+					size={ICON}
+					aria-hidden="true"
+				/>
+				{desktop
+					? t("printSelectedPlain")
+					: t("printSelected", { n: chosen.length })}
+			</button>
+		</>
+	);
+	const pdfStatus =
+		pdf === "saved" ? (
+			<span
+				class="text-muted"
+				role="status">
+				{t("downloaded")}
+			</span>
+		) : pdf === "failed" ? (
+			<span
+				class="text-warn"
+				role="alert">
+				{t("pdfFailed")}
+			</span>
+		) : null;
 
 	return (
 		<div class="cp-page">
@@ -94,23 +152,29 @@ export function Checkpoints() {
 					<h1 class="dash-title">{t("navCheckpoints")}</h1>
 					<p class="text-muted max-w-prose">{t("qrIntro")}</p>
 				</div>
-				{/* Hidden while the dialog is open, so one "Add checkpoint" button shows at a time. */}
-				{desktop && !adding && (
-					<button
-						ref={addButton}
-						type="button"
-						class="btn btn-primary"
-						aria-haspopup="dialog"
-						onClick={() => {
-							setAddedName(null);
-							setAdding(true);
-						}}>
-						<Plus
-							size={ICON}
-							aria-hidden="true"
-						/>
-						{t("addCheckpoint")}
-					</button>
+				{desktop && (
+					<div class="cp-head-actions">
+						{pdfStatus}
+						{printButtons}
+						{/* Hidden while the dialog is open, so one "Add checkpoint" button shows at a time. */}
+						{!adding && (
+							<button
+								ref={addButton}
+								type="button"
+								class="btn btn-primary"
+								aria-haspopup="dialog"
+								onClick={() => {
+									setAddedName(null);
+									setAdding(true);
+								}}>
+								<Plus
+									size={ICON}
+									aria-hidden="true"
+								/>
+								{t("addCheckpoint")}
+							</button>
+						)}
+					</div>
 				)}
 			</header>
 
@@ -148,100 +212,72 @@ export function Checkpoints() {
 				(all.length === 0 ? (
 					<p class="text-muted">{t("noCheckpoints")}</p>
 				) : (
-					<div class={`cp-layout ${showPanel ? "has-panel" : ""}`}>
-						<RouteTable
-							checkpoints={all.map(({ cp }) => cp)}
-							selected={selected}
-							onSelect={select}
-							onChanged={(reissued) => {
-								// A replaced sticker must be printed straight away.
-								if (reissued)
-									select(new Set(selected).add(reissued.id));
-								labels.reload();
-							}}
-						/>
-
-						{showPanel && (
-							<aside
-								class={`qr-panel ${labels.loading ? "opacity-60 transition-opacity" : ""}`}
-								aria-labelledby="qr-h">
-								<h2
-									id="qr-h"
-									class="cp-section-title">
-									<QrCode
-										size={20}
-										aria-hidden="true"
-									/>
-									{t("printTitle")}
-								</h2>
-								{chosen.length > 0 && (
-									<ul class="qr-list">
-										{chosen.map(({ cp, img }) => (
-											<li
-												key={cp.id}
-												class="qr-sticker">
-												<img
-													src={img}
-													alt={`QR ${cp.name}`}
-												/>
-												<p class="qr-name">{cp.name}</p>
-												<p class="qr-code">
-													{cp.manualCode}
-												</p>
-												<p class="qr-order">
-													{t("routeOrder", {
-														n: cp.routeOrder,
-													})}
-												</p>
-											</li>
-										))}
-									</ul>
-								)}
-								{notPrinted > 0 && (
-									<p class="text-sm text-muted">
-										{t("notPrinted", { n: notPrinted })}
-									</p>
-								)}
-								<div class="qr-actions">
-									<button
-										type="button"
-										class="btn btn-primary"
-										disabled={chosen.length === 0}
-										onClick={() =>
-											printDocument(
-												labelsDocument(chosen),
-											)
-										}>
-										<Printer
-											size={ICON}
+					<RouteTable
+						checkpoints={all.map(({ cp }) => cp)}
+						selected={selected}
+						onSelect={select}
+						onChanged={(reissued) => {
+							// A replaced sticker must be printed straight away.
+							if (reissued)
+								select(new Set(selected).add(reissued.id));
+							labels.reload();
+						}}
+						// Always there on a desktop (empty until something is selected); on phones only
+						// once something is.
+						aside={
+							(desktop || anySelected) && (
+								<aside
+									class={`qr-panel ${anySelected ? "" : "is-empty"} ${labels.loading ? "opacity-60 transition-opacity" : ""}`}
+									aria-labelledby="qr-h">
+									<h2
+										id="qr-h"
+										class="cp-section-title">
+										<QrCode
+											size={20}
 											aria-hidden="true"
 										/>
-										{t("printSelected", {
-											n: chosen.length,
-										})}
-									</button>
-									<button
-										type="button"
-										class="btn btn-quiet"
-										disabled={chosen.length === 0}
-										onClick={download}>
-										<Download
-											size={ICON}
-											aria-hidden="true"
-										/>
-										{t("downloadLabels")}
-									</button>
-									{saved && (
-										<span
-											class="text-muted"
-											role="status">
-											{t("downloaded")}
-										</span>
+										{t("qrPanelTitle")}
+									</h2>
+									{chosen.length > 0 && (
+										<ul class="qr-list">
+											{chosen.map(({ cp, img }) => (
+												<li
+													key={cp.id}
+													class="qr-sticker">
+													<img
+														src={img}
+														alt={`QR ${cp.name}`}
+													/>
+													<p class="qr-name">
+														{cp.name}
+													</p>
+													<p class="qr-code">
+														{cp.manualCode}
+													</p>
+													<p class="qr-order">
+														{t("routeOrder", {
+															n: cp.routeOrder,
+														})}
+													</p>
+												</li>
+											))}
+										</ul>
 									)}
-								</div>
-							</aside>
-						)}
-					</div>
+									{notPrinted > 0 && (
+										<p class="text-sm text-muted">
+											{t("notPrinted", { n: notPrinted })}
+										</p>
+									)}
+									{!desktop && (
+										<div class="qr-actions">
+											{printButtons}
+											{pdfStatus}
+										</div>
+									)}
+								</aside>
+							)
+						}
+					/>
 				))}
 		</div>
 	);

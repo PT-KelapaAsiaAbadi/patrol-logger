@@ -3,6 +3,7 @@
 // Browser: Chromium from `npx playwright-core install chromium`, or set PW_CHANNEL
 // (defaults to the installed Microsoft Edge on Windows).
 import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { localStack, reporter, SEED } from "./local-supabase.mjs";
 
@@ -173,9 +174,20 @@ try {
 	});
 	await route.locator("tbody tr").first().waitFor({ timeout: 20000 });
 	ok((await route.locator("tbody tr").count()) === 8, "8 checkpoints listed");
+	// On a desktop the QR column is always there, empty until something is selected.
 	ok(
-		(await page.locator(".qr-panel").count()) === 0,
-		"no QR panel until a checkpoint is selected",
+		(await page.locator(".qr-panel").isVisible()) &&
+			(await page.locator(".qr-panel .qr-sticker").count()) === 0,
+		"the QR column is empty until a checkpoint is selected",
+	);
+	ok(
+		(await page
+			.getByRole("button", { name: "Print selected" })
+			.isDisabled()) &&
+			(await page
+				.getByRole("button", { name: "Download as PDF" })
+				.isDisabled()),
+		"Print selected and Download as PDF wait for a selection",
 	);
 	const codes = await route.locator("td.c-code").allTextContents();
 	const names = await route.locator("td.c-name").allTextContents();
@@ -238,8 +250,19 @@ try {
 	await page.getByLabel("Select all", { exact: true }).check();
 	await text("9 of 9 selected");
 	ok(
-		await page.getByRole("button", { name: "Print QR (9)" }).isEnabled(),
-		"select all enables Print QR (9)",
+		await page.getByRole("button", { name: "Print selected" }).isEnabled(),
+		"select all enables Print selected",
+	);
+	const [pdf] = await Promise.all([
+		page.waitForEvent("download"),
+		page.getByRole("button", { name: "Download as PDF" }).click(),
+	]);
+	const pdfBytes = readFileSync(await pdf.path());
+	ok(
+		pdf.suggestedFilename() === "label-titik-patroli.pdf" &&
+			pdfBytes.subarray(0, 5).toString() === "%PDF-",
+		"Download as PDF saves a PDF sticker sheet",
+		`${pdf.suggestedFilename()}, ${pdfBytes.length} bytes`,
 	);
 
 	const lastRow = route.locator("tbody tr").last();
@@ -659,8 +682,8 @@ try {
 		.check();
 	await page.getByText(`2 of ${before} selected`).first().waitFor();
 	ok(
-		await page.getByRole("button", { name: "Print QR (2)" }).isEnabled(),
-		"selected rows are ready to print from the QR panel",
+		await page.getByRole("button", { name: "Print selected" }).isEnabled(),
+		"selected rows are ready to print",
 	);
 	page.once("dialog", (d) => void d.accept());
 	await round.getByRole("button", { name: "Remove selected (2)" }).click();

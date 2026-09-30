@@ -34,6 +34,11 @@ const id = {
 	cancel: "Batal",
 	close: "Tutup",
 	pickOnMap: "Pilih lokasinya di peta",
+	downloadPdf: "Unduh PDF",
+	makingPdf: "Membuat PDF...",
+	pdfFailed: "PDF gagal dibuat. Coba lagi.",
+	printSelectedPlain: "Cetak yang dipilih",
+	qrPanelTitle: "Kode QR",
 	camera_permission_denied:
 		"Akses kamera ditolak. Izinkan kamera di pengaturan browser, atau ketik kode di bawah stiker QR.",
 	camera_no_camera: "Kamera tidak ditemukan. Ketik kode di bawah stiker QR.",
@@ -167,7 +172,6 @@ const id = {
 
 	qrIntro:
 		"Pilih titik yang mau dicetak, lalu tempel tiap label di lokasinya. Kode di bawah QR dipakai kalau kamera bermasalah.",
-	downloadLabels: "Unduh label untuk dicetak",
 	routeOrder: "Urutan {n}",
 	noCheckpoints: "Belum ada titik. Tambahkan titik pertama di atas.",
 	addCheckpointTitle: "Tambah titik",
@@ -256,7 +260,6 @@ const id = {
 	invalidPhone:
 		"Nomor HP tidak valid. Nomor Indonesia diawali 08 dan berisi 10–13 angka, contoh: 0812-3456-7890. Nomor luar negeri diawali + dan kode negara.",
 	routeTitle: "Urutan putaran",
-	printTitle: "Cetak label",
 	checkpointInUse: "Dipakai",
 	checkpointNotInUse: "Tidak dipakai",
 	moveUp: "Naikkan {name}",
@@ -394,6 +397,11 @@ const en: Record<Key, string> = {
 	cancel: "Cancel",
 	close: "Close",
 	pickOnMap: "Pick the spot on the map",
+	downloadPdf: "Download as PDF",
+	makingPdf: "Making PDF...",
+	pdfFailed: "Couldn't make the PDF. Try again.",
+	printSelectedPlain: "Print selected",
+	qrPanelTitle: "QR codes",
 	camera_permission_denied:
 		"Camera access was blocked. Allow the camera in browser settings, or type the code under the QR sticker.",
 	camera_no_camera: "No camera found. Type the code under the QR sticker.",
@@ -528,7 +536,6 @@ const en: Record<Key, string> = {
 
 	qrIntro:
 		"Select the checkpoints to print, then stick each label at its location. The code under the QR is for when the camera fails.",
-	downloadLabels: "Download labels to print",
 	routeOrder: "Stop {n}",
 	noCheckpoints: "No checkpoints yet. Add the first one above.",
 	addCheckpointTitle: "Add a checkpoint",
@@ -617,7 +624,6 @@ const en: Record<Key, string> = {
 	invalidPhone:
 		"That phone number isn't valid. Indonesian mobiles start with 08 and have 10–13 digits, e.g. 0812-3456-7890. For other countries, start with + and the country code.",
 	routeTitle: "Round order",
-	printTitle: "Print labels",
 	checkpointInUse: "In use",
 	checkpointNotInUse: "Not in use",
 	moveUp: "Move {name} up",

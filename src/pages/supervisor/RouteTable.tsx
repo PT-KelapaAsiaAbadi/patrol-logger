@@ -3,6 +3,7 @@
  * replace a sticker, move a location, and select checkpoints to print or remove.
  * A table on desktop; below 1024px each row is laid out as a card (index.css, "Checkpoints page").
  */
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../../state";
 import * as api from "../../data/api";
@@ -48,12 +49,15 @@ export function RouteTable({
 	selected,
 	onSelect,
 	onChanged,
+	aside,
 }: {
 	checkpoints: Checkpoint[];
 	/** Shared with the QR panel: pick checkpoints once, then print or remove them. */
 	selected: Set<string>;
 	onSelect: (next: Set<string>) => void;
 	onChanged: (reissued?: Checkpoint) => void;
+	/** The QR panel. It shares the table's row, so on a wide screen it is exactly as tall. */
+	aside?: ComponentChildren;
 }) {
 	const { t } = useApp();
 	const [busy, setBusy] = useState(false);
@@ -198,259 +202,281 @@ export function RouteTable({
 					{t("saveError")}
 				</p>
 			)}
-			<div class="cp-table-wrap">
-				<table class="cp-table">
-					<thead>
-						<tr>
-							<th
-								scope="col"
-								class="c-no">
-								{t("colNo")}
-							</th>
-							<th
-								scope="col"
-								class="c-sel">
-								<span class="sr-only">{t("select")}</span>
-							</th>
-							<th
-								scope="col"
-								class="c-move">
-								{t("colOrder")}
-							</th>
-							<th
-								scope="col"
-								class="c-name">
-								{t("checkpointName")}
-							</th>
-							<th
-								scope="col"
-								class="c-code">
-								{t("colCode")}
-							</th>
-							<th
-								scope="col"
-								class="c-status">
-								{t("colStatus")}
-							</th>
-							<th
-								scope="col"
-								class="c-loc">
-								{t("colLocation")}
-							</th>
-							<th
-								scope="col"
-								class="c-act">
-								<span class="sr-only">{t("colActions")}</span>
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{checkpoints.map((cp, i) => (
-							<tr
-								key={cp.id}
-								class={`${selected.has(cp.id) ? "is-selected" : ""} ${cp.active ? "" : "is-off"}`}>
-								<td class="c-no">
-									<span class="stop-badge">
-										{cp.routeOrder}
+			<div class={`cp-table-row ${aside ? "has-aside" : ""}`}>
+				<div class="cp-table-wrap">
+					<table class="cp-table">
+						<thead>
+							<tr>
+								<th
+									scope="col"
+									class="c-no">
+									{t("colNo")}
+								</th>
+								<th
+									scope="col"
+									class="c-sel">
+									<span class="sr-only">{t("select")}</span>
+								</th>
+								<th
+									scope="col"
+									class="c-move">
+									{t("colOrder")}
+								</th>
+								<th
+									scope="col"
+									class="c-name">
+									{t("checkpointName")}
+								</th>
+								<th
+									scope="col"
+									class="c-code">
+									{t("colCode")}
+								</th>
+								<th
+									scope="col"
+									class="c-status">
+									{t("colStatus")}
+								</th>
+								<th
+									scope="col"
+									class="c-loc">
+									{t("colLocation")}
+								</th>
+								<th
+									scope="col"
+									class="c-act">
+									<span class="sr-only">
+										{t("colActions")}
 									</span>
-								</td>
-								<td class="c-sel">
-									<input
-										type="checkbox"
-										class="size-5"
-										aria-label={`${t("select")}: ${cp.name}`}
-										checked={selected.has(cp.id)}
-										onChange={() => toggle(cp.id)}
-									/>
-								</td>
-								<td class="c-move">
-									<span class="inline-flex items-center gap-1">
-										<IconButton
-											icon={ChevronUp}
-											label={t("moveUp", {
-												name: cp.name,
-											})}
-											tip={t("moveUpTip")}
-											disabled={busy || i === 0}
-											onClick={() => void move(cp, true)}
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							{checkpoints.map((cp, i) => (
+								<tr
+									key={cp.id}
+									class={`${selected.has(cp.id) ? "is-selected" : ""} ${cp.active ? "" : "is-off"}`}>
+									<td class="c-no">
+										<span class="stop-badge">
+											{cp.routeOrder}
+										</span>
+									</td>
+									<td class="c-sel">
+										<input
+											type="checkbox"
+											class="size-5"
+											aria-label={`${t("select")}: ${cp.name}`}
+											checked={selected.has(cp.id)}
+											onChange={() => toggle(cp.id)}
 										/>
-										<IconButton
-											icon={ChevronDown}
-											label={t("moveDown", {
-												name: cp.name,
-											})}
-											tip={t("moveDownTip")}
-											disabled={
-												busy ||
-												i === checkpoints.length - 1
-											}
-											onClick={() => void move(cp, false)}
-										/>
-									</span>
-								</td>
-								<td class="c-name">
-									{editing?.id === cp.id ? (
-										<form
-											class="flex flex-wrap items-center gap-2"
-											noValidate
-											onSubmit={(e) => {
-												e.preventDefault();
-												const problem =
-													checkpointNameProblem(
-														editing.name,
-														checkpoints,
-														cp.id,
-													);
-												if (problem) {
-													setEditing({
-														...editing,
-														problem,
-													});
-													return;
+									</td>
+									<td class="c-move">
+										<span class="inline-flex items-center gap-1">
+											<IconButton
+												icon={ChevronUp}
+												label={t("moveUp", {
+													name: cp.name,
+												})}
+												tip={t("moveUpTip")}
+												disabled={busy || i === 0}
+												onClick={() =>
+													void move(cp, true)
 												}
-												void save(cp, {
-													name: tidyCheckpointName(
-														editing.name,
-													),
-												});
-											}}>
-											<input
-												class="field min-w-40 flex-1"
-												aria-label={t("checkpointName")}
-												required
-												minLength={CHECKPOINT_NAME_MIN}
-												maxLength={CHECKPOINT_NAME_MAX}
-												aria-invalid={!!editing.problem}
-												value={editing.name}
-												onInput={(e) =>
+											/>
+											<IconButton
+												icon={ChevronDown}
+												label={t("moveDown", {
+													name: cp.name,
+												})}
+												tip={t("moveDownTip")}
+												disabled={
+													busy ||
+													i === checkpoints.length - 1
+												}
+												onClick={() =>
+													void move(cp, false)
+												}
+											/>
+										</span>
+									</td>
+									<td class="c-name">
+										{editing?.id === cp.id ? (
+											<form
+												class="flex flex-wrap items-center gap-2"
+												noValidate
+												onSubmit={(e) => {
+													e.preventDefault();
+													const problem =
+														checkpointNameProblem(
+															editing.name,
+															checkpoints,
+															cp.id,
+														);
+													if (problem) {
+														setEditing({
+															...editing,
+															problem,
+														});
+														return;
+													}
+													void save(cp, {
+														name: tidyCheckpointName(
+															editing.name,
+														),
+													});
+												}}>
+												<input
+													class="field min-w-40 flex-1"
+													aria-label={t(
+														"checkpointName",
+													)}
+													required
+													minLength={
+														CHECKPOINT_NAME_MIN
+													}
+													maxLength={
+														CHECKPOINT_NAME_MAX
+													}
+													aria-invalid={
+														!!editing.problem
+													}
+													value={editing.name}
+													onInput={(e) =>
+														setEditing({
+															id: cp.id,
+															name: e
+																.currentTarget
+																.value,
+														})
+													}
+												/>
+												<button
+													class="icon-btn"
+													aria-label={t("save")}
+													data-tip={t("save")}
+													disabled={busy}>
+													<Check
+														size={ICON}
+														aria-hidden="true"
+													/>
+												</button>
+												<IconButton
+													icon={X}
+													label={t("cancel")}
+													onClick={() =>
+														setEditing(null)
+													}
+												/>
+												{editing.problem && (
+													<p
+														class="w-full text-sm text-warn"
+														role="alert">
+														{t(editing.problem, {
+															min: CHECKPOINT_NAME_MIN,
+															max: CHECKPOINT_NAME_MAX,
+														})}
+													</p>
+												)}
+											</form>
+										) : (
+											cp.name
+										)}
+									</td>
+									<td
+										class="c-code"
+										data-label={t("colCode")}>
+										{cp.manualCode}
+									</td>
+									<td class="c-status">
+										<span
+											class={`cp-status ${cp.active ? "is-on" : "is-off"}`}>
+											{t(
+												cp.active
+													? "checkpointInUse"
+													: "checkpointNotInUse",
+											)}
+										</span>
+									</td>
+									<td
+										class="c-loc"
+										data-label={t("colLocation")}>
+										<span class="inline-flex items-center gap-2">
+											<span
+												class={
+													cp.location
+														? "font-mono text-sm"
+														: "text-muted"
+												}>
+												{cp.location
+													? formatLocation(
+															cp.location,
+														)
+													: t("locationNotSet")}
+											</span>
+											<IconButton
+												icon={
+													cp.location
+														? MapPinPen
+														: MapPinPlus
+												}
+												label={`${t(cp.location ? "editLocation" : "setLocation")}: ${cp.name}`}
+												tip={t(
+													cp.location
+														? "editLocation"
+														: "setLocation",
+												)}
+												disabled={busy}
+												onClick={() => setPicking(cp)}
+											/>
+										</span>
+									</td>
+									<td class="c-act">
+										<span class="icon-row">
+											<IconButton
+												icon={Pencil}
+												label={`${t("rename")}: ${cp.name}`}
+												tip={t("rename")}
+												disabled={busy}
+												onClick={() =>
 													setEditing({
 														id: cp.id,
-														name: e.currentTarget
-															.value,
+														name: cp.name,
 													})
 												}
 											/>
-											<button
-												class="icon-btn"
-												aria-label={t("save")}
-												data-tip={t("save")}
-												disabled={busy}>
-												<Check
-													size={ICON}
-													aria-hidden="true"
-												/>
-											</button>
 											<IconButton
-												icon={X}
-												label={t("cancel")}
-												onClick={() => setEditing(null)}
-											/>
-											{editing.problem && (
-												<p
-													class="w-full text-sm text-warn"
-													role="alert">
-													{t(editing.problem, {
-														min: CHECKPOINT_NAME_MIN,
-														max: CHECKPOINT_NAME_MAX,
-													})}
-												</p>
-											)}
-										</form>
-									) : (
-										cp.name
-									)}
-								</td>
-								<td
-									class="c-code"
-									data-label={t("colCode")}>
-									{cp.manualCode}
-								</td>
-								<td class="c-status">
-									<span
-										class={`cp-status ${cp.active ? "is-on" : "is-off"}`}>
-										{t(
-											cp.active
-												? "checkpointInUse"
-												: "checkpointNotInUse",
-										)}
-									</span>
-								</td>
-								<td
-									class="c-loc"
-									data-label={t("colLocation")}>
-									<span class="inline-flex items-center gap-2">
-										<span
-											class={
-												cp.location
-													? "font-mono text-sm"
-													: "text-muted"
-											}>
-											{cp.location
-												? formatLocation(cp.location)
-												: t("locationNotSet")}
-										</span>
-										<IconButton
-											icon={
-												cp.location
-													? MapPinPen
-													: MapPinPlus
-											}
-											label={`${t(cp.location ? "editLocation" : "setLocation")}: ${cp.name}`}
-											tip={t(
-												cp.location
-													? "editLocation"
-													: "setLocation",
-											)}
-											disabled={busy}
-											onClick={() => setPicking(cp)}
-										/>
-									</span>
-								</td>
-								<td class="c-act">
-									<span class="icon-row">
-										<IconButton
-											icon={Pencil}
-											label={`${t("rename")}: ${cp.name}`}
-											tip={t("rename")}
-											disabled={busy}
-											onClick={() =>
-												setEditing({
-													id: cp.id,
-													name: cp.name,
-												})
-											}
-										/>
-										<IconButton
-											icon={cp.active ? EyeOff : Eye}
-											label={`${t(cp.active ? "deactivate" : "activate")}: ${cp.name}`}
-											tip={t(
-												cp.active
-													? "checkpointOffTip"
-													: "checkpointOnTip",
-											)}
-											disabled={busy}
-											onClick={() =>
-												void save(cp, {
-													active: !cp.active,
-												})
-											}
-										/>
-										{cp.active && (
-											<IconButton
-												icon={RefreshCw}
-												class="icon-btn-danger"
-												label={`${t("reissue")}: ${cp.name}`}
-												tip={t("reissueTip")}
+												icon={cp.active ? EyeOff : Eye}
+												label={`${t(cp.active ? "deactivate" : "activate")}: ${cp.name}`}
+												tip={t(
+													cp.active
+														? "checkpointOffTip"
+														: "checkpointOnTip",
+												)}
 												disabled={busy}
-												onClick={() => reissue(cp)}
+												onClick={() =>
+													void save(cp, {
+														active: !cp.active,
+													})
+												}
 											/>
-										)}
-									</span>
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
+											{cp.active && (
+												<IconButton
+													icon={RefreshCw}
+													class="icon-btn-danger"
+													label={`${t("reissue")}: ${cp.name}`}
+													tip={t("reissueTip")}
+													disabled={busy}
+													onClick={() => reissue(cp)}
+												/>
+											)}
+										</span>
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+				{aside}
 			</div>
 			{picking && (
 				<LocationPicker

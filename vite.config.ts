@@ -42,8 +42,9 @@ export default defineConfig({
 			},
 			workbox: {
 				globPatterns: ["**/*.{js,css,html,png}"],
-				// The supervisor-only map (Leaflet) isn't precached on guards' phones.
-				globIgnores: ["**/map-*"],
+				// Supervisor-only pieces aren't precached on guards' phones: the map (Leaflet) and the
+				// PDF sticker sheet (pdf-lib).
+				globIgnores: ["**/map-*", "**/labelsPdf-*"],
 			}, // app shell cached, so it opens with no signal
 		}),
 	],
