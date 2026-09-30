@@ -168,10 +168,17 @@ try {
 
 	section("checkpoints");
 	await page.getByRole("link", { name: "Checkpoints and QR" }).click();
-	await page.locator(".sticker").first().waitFor({ timeout: 20000 });
-	ok((await page.locator(".sticker").count()) === 8, "8 QR labels render");
-	const codes = await page.locator(".sticker-code").allTextContents();
-	const names = await page.locator(".sticker-name").allTextContents();
+	const route = page.locator("section", {
+		has: page.getByRole("heading", { name: "Round order" }),
+	});
+	await route.locator("tbody tr").first().waitFor({ timeout: 20000 });
+	ok((await route.locator("tbody tr").count()) === 8, "8 checkpoints listed");
+	ok(
+		(await page.locator(".qr-panel").count()) === 0,
+		"no QR panel until a checkpoint is selected",
+	);
+	const codes = await route.locator("td.c-code").allTextContents();
+	const names = await route.locator("td.c-name").allTextContents();
 	ok(
 		codes.every((c) => /^[A-Z2-9]{3}-[A-Z2-9]{3}$/.test(c.trim())),
 		"manual codes shown",
@@ -188,7 +195,7 @@ try {
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
 	await text("Set the checkpoint's location on the map first, then add it.");
 	ok(
-		(await page.locator(".sticker").count()) === 8,
+		(await route.locator("tbody tr").count()) === 8,
 		"a too-short name, a repeated name and a missing location are refused",
 	);
 	await page.getByRole("button", { name: "Set location (required)" }).click();
@@ -201,7 +208,11 @@ try {
 	await picker.getByRole("button", { name: "Save" }).click();
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
 	await text("1 of 9 selected");
-	ok(true, "new checkpoint added and pre-selected for printing");
+	await page.locator(".qr-panel .qr-sticker").first().waitFor();
+	ok(
+		(await page.locator(".qr-panel .qr-sticker").count()) === 1,
+		"new checkpoint added, pre-selected, and its QR shown for printing",
+	);
 	await page.getByLabel("Select all", { exact: true }).check();
 	await text("9 of 9 selected");
 	ok(
@@ -209,9 +220,6 @@ try {
 		"select all enables Print QR (9)",
 	);
 
-	const route = page.locator("section", {
-		has: page.getByRole("heading", { name: "Round order" }),
-	});
 	const lastRow = route.locator("tbody tr").last();
 	await lastRow.getByRole("button", { name: "Rename" }).click();
 	await lastRow.getByRole("textbox").fill("Pos belakang gudang");
@@ -263,7 +271,7 @@ try {
 		.click();
 	await text(`New sticker for "${names[0].trim()}" is ready`);
 	// The table reloads just after the message appears.
-	const firstCode = route.locator("tbody tr").first().locator("td").nth(3);
+	const firstCode = route.locator("tbody tr").first().locator("td.c-code");
 	await page.waitForFunction(
 		([el, old]) => el.textContent.trim() !== old,
 		[await firstCode.elementHandle(), codes[0].trim()],
@@ -274,8 +282,7 @@ try {
 	const lastRowLocation = route
 		.locator("tbody tr")
 		.last()
-		.locator("td")
-		.nth(5);
+		.locator("td.c-loc");
 	ok(
 		/-?\d+\.\d{5}, -?\d+\.\d{5} \(50 m\)/.test(
 			await lastRowLocation.textContent(),
@@ -624,7 +631,7 @@ try {
 	await page.getByText(`2 of ${before} selected`).first().waitFor();
 	ok(
 		await page.getByRole("button", { name: "Print QR (2)" }).isEnabled(),
-		"the round table and the label sheet share one selection",
+		"selected rows are ready to print from the QR panel",
 	);
 	page.once("dialog", (d) => void d.accept());
 	await round.getByRole("button", { name: "Remove selected (2)" }).click();

@@ -1523,71 +1523,306 @@ img {
 		font-size: 0.9rem;
 	}
 
-	.label-toolbar {
+	/*
+	  Checkpoints page (pages/supervisor/Checkpoints.tsx and RouteTable.tsx). Blue comes from .shell.
+	    - below 1024px: each table row is a card, one column on phones and two on tablets
+	    - 1024px and up: a table; from 1280px the QR panel sits beside it when something is
+	      selected (below it on narrower screens)
+	*/
+	.cp-page {
+		display: grid;
+		gap: 1.25rem;
+	}
+	.cp-head {
+		display: grid;
+		gap: 0.35rem;
+	}
+	.cp-section-title {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 800;
+	}
+	.cp-card {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+		padding: 1rem 1.1rem;
+	}
+	.cp-add {
+		display: grid;
+		gap: 0.85rem;
+		max-width: 42rem;
+	}
+	.cp-layout {
+		display: grid;
+		gap: 1.25rem;
+		align-items: start;
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.cp-route {
+		display: grid;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+	.cp-toolbar {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.75rem 1.25rem;
+		gap: 0.5rem 1.25rem;
 	}
-	.label-toolbar input[type="checkbox"] {
-		accent-color: var(--accent);
+	.cp-select-all {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
+		font-weight: 600;
+		cursor: pointer;
 	}
 
-	/* Printable QR stickers: always white, like the real thing */
-	.sticker-grid {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: grid;
-		gap: 1rem;
-		grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+	.cp-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.9375rem;
+		--tone: var(--info);
+		--tone-bg: var(--info-bg);
 	}
-	.sticker {
-		position: relative;
-		display: block;
-		cursor: pointer;
+	.cp-table .c-name {
+		font-weight: 700;
+	}
+	.cp-table td.c-code {
+		font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+		letter-spacing: 0.04em;
+		white-space: nowrap;
+	}
+	.cp-table tr.is-off :is(.c-name, .c-code) {
+		color: var(--muted);
+	}
+	.cp-status {
+		display: inline-block;
+		padding: 0.2rem 0.6rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+	.cp-status.is-on {
+		background: var(--done-bg);
+		color: var(--done);
+	}
+	.cp-status.is-off {
+		background: var(--pending-bg);
+		color: var(--pending);
+	}
+
+	/* The QR panel: the selected checkpoints' stickers, always white like the real thing. */
+	.qr-panel {
+		display: grid;
+		gap: 0.85rem;
+		padding: 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.qr-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.75rem;
+		grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+	}
+	.qr-sticker {
+		padding: 0.9rem 0.75rem 0.75rem;
 		background: #fff;
 		color: #111820;
 		text-align: center;
 		border: 1.5px dashed #8a949e;
-		border-radius: 4px;
-		padding: 1rem 0.75rem 0.85rem;
+		border-radius: 8px;
 	}
-	.sticker.is-selected {
-		border-style: solid;
-		border-color: var(--accent);
-		box-shadow: 0 0 0 2px var(--accent);
-	}
-	.sticker-check {
-		position: absolute;
-		top: 0.6rem;
-		left: 0.6rem;
-		width: 1.25rem;
-		height: 1.25rem;
-		accent-color: var(--accent);
-		cursor: pointer;
-	}
-	.sticker img {
+	.qr-sticker img {
 		width: 100%;
-		max-width: 11rem;
+		max-width: 10rem;
 		margin-inline: auto;
 		image-rendering: pixelated;
 	}
-	.sticker-name {
+	.qr-sticker:only-child img {
+		max-width: 13rem;
+	}
+	.qr-name {
+		margin-top: 0.4rem;
 		font-weight: 700;
-		margin-top: 0.5rem;
 		line-height: 1.3;
 	}
-	.sticker-code {
+	.qr-code {
+		margin-top: 0.15rem;
 		font-size: 1.35rem;
 		letter-spacing: 0.12em;
 		font-variant-numeric: tabular-nums;
-		margin-top: 0.15rem;
 	}
-	.sticker-order {
+	.qr-order {
+		margin-top: 0.15rem;
 		font-size: 0.8125rem;
 		color: #56616d;
-		margin-top: 0.15rem;
+	}
+	.qr-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.6rem;
+	}
+	.qr-actions .btn {
+		flex: 1 1 auto;
+	}
+
+	/* Phones and tablets: every row is a card. Code and location are labelled in the card. */
+	@media (max-width: 1023.98px) {
+		.cp-table,
+		.cp-table tbody {
+			display: block;
+		}
+		.cp-table thead {
+			display: none;
+		}
+		.cp-table tbody {
+			display: grid;
+			gap: 0.75rem;
+		}
+		.cp-table tr {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			grid-template-areas:
+				"no name sel"
+				"code code status"
+				"loc loc loc"
+				"foot foot foot";
+			align-items: center;
+			gap: 0.6rem 0.75rem;
+			padding: 0.85rem 1rem;
+			background: var(--surface);
+			border: 1px solid var(--line);
+			border-radius: 12px;
+		}
+		.cp-table tr.is-selected {
+			border-color: var(--info);
+			box-shadow: inset 0 0 0 1px var(--info);
+			background: color-mix(in srgb, var(--info) 8%, var(--surface));
+		}
+		.cp-table td {
+			display: block;
+			min-width: 0;
+		}
+		.cp-table .c-no {
+			grid-area: no;
+		}
+		.cp-table .c-sel {
+			grid-area: sel;
+		}
+		.cp-table .c-name {
+			grid-area: name;
+		}
+		.cp-table .c-code {
+			grid-area: code;
+		}
+		.cp-table .c-status {
+			grid-area: status;
+			justify-self: end;
+		}
+		.cp-table .c-loc {
+			grid-area: loc;
+		}
+		/* The order arrows and the edit buttons share the last row: arrows left, edits right. */
+		.cp-table .c-move {
+			grid-area: foot;
+			justify-self: start;
+		}
+		.cp-table .c-act {
+			grid-area: foot;
+			justify-self: end;
+		}
+		.cp-table td[data-label]::before {
+			content: attr(data-label);
+			display: block;
+			margin-bottom: 0.1rem;
+			font-family: system-ui, sans-serif;
+			font-size: 0.6875rem;
+			font-weight: 700;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			color: var(--muted);
+		}
+		/* Bigger targets for fingers. */
+		.cp-table .icon-btn {
+			width: 2.75rem;
+			height: 2.75rem;
+		}
+	}
+	@media (min-width: 640px) and (max-width: 1023.98px) {
+		.cp-table tbody {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			align-items: start;
+		}
+	}
+	@media (min-width: 1024px) {
+		.cp-table-wrap {
+			overflow-x: auto;
+			background: var(--surface);
+			border: 1px solid var(--line);
+			border-radius: 12px;
+		}
+		.cp-table th {
+			padding: 0.6rem 0.5rem;
+			text-align: left;
+			font-size: 0.75rem;
+			font-weight: 700;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			white-space: nowrap;
+			color: var(--muted);
+			background: var(--head-bg);
+		}
+		.cp-table td {
+			padding: 0.55rem 0.5rem;
+			border-top: 1px solid var(--row-line);
+			vertical-align: middle;
+		}
+		.cp-table :is(th, td):first-child {
+			padding-left: 1rem;
+		}
+		.cp-table :is(th, td):last-child {
+			padding-right: 1rem;
+		}
+		.cp-table :is(.c-no, .c-sel) {
+			width: 1%;
+		}
+		.cp-table :is(.c-move, .c-status, .c-loc, .c-act) {
+			white-space: nowrap;
+		}
+		/* A selected row: a blue tint and a bar down its left edge, as in the design. */
+		.cp-table tr.is-selected td {
+			background: color-mix(in srgb, var(--info) 10%, transparent);
+		}
+		.cp-table tr.is-selected td:first-child {
+			box-shadow: inset 3px 0 0 var(--info);
+		}
+	}
+	@media (min-width: 1280px) {
+		.cp-layout.has-panel {
+			grid-template-columns: minmax(0, 1fr) 20rem;
+		}
+		.qr-panel {
+			position: sticky;
+			top: calc(env(safe-area-inset-top, 0px) + 5rem);
+			max-height: calc(100dvh - 6.5rem);
+			overflow: auto;
+		}
+		.qr-list {
+			grid-template-columns: minmax(0, 1fr);
+		}
 	}
 }
 

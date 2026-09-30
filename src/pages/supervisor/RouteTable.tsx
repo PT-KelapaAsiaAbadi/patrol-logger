@@ -1,6 +1,7 @@
 /**
  * The checkpoint table on the Checkpoints tab: reorder the round, rename, take in or out of use,
- * replace a sticker, set a location, and select checkpoints to print or remove.
+ * replace a sticker, move a location, and select checkpoints to print or remove.
+ * A table on desktop; below 1024px each row is laid out as a card (index.css, "Checkpoints page").
  */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../../state";
@@ -49,7 +50,7 @@ export function RouteTable({
 	onChanged,
 }: {
 	checkpoints: Checkpoint[];
-	/** Shared with the label sheet: pick checkpoints once, then print or remove them. */
+	/** Shared with the QR panel: pick checkpoints once, then print or remove them. */
 	selected: Set<string>;
 	onSelect: (next: Set<string>) => void;
 	onChanged: (reissued?: Checkpoint) => void;
@@ -131,14 +132,31 @@ export function RouteTable({
 
 	return (
 		<section
-			class="mt-8"
+			class="cp-route"
 			aria-labelledby="route-h">
 			<h2
 				id="route-h"
-				class="text-lg font-semibold mb-3">
+				class="cp-section-title">
 				{t("routeTitle")}
 			</h2>
-			<div class="label-toolbar mb-3">
+			<div class="cp-toolbar">
+				{/* Selects every checkpoint, in use or not; only those in use are printed. */}
+				<label class="cp-select-all">
+					<input
+						ref={allBox}
+						type="checkbox"
+						class="size-5"
+						checked={allChosen}
+						onChange={() =>
+							onSelect(
+								allChosen
+									? new Set()
+									: new Set(checkpoints.map((cp) => cp.id)),
+							)
+						}
+					/>
+					{t("selectAll")}
+				</label>
 				<span
 					class="text-muted tabular-nums"
 					aria-live="polite">
@@ -180,37 +198,48 @@ export function RouteTable({
 					{t("saveError")}
 				</p>
 			)}
-			<div class="table-wrap">
-				<table class="log-table">
+			<div class="cp-table-wrap">
+				<table class="cp-table">
 					<thead>
 						<tr>
-							<th scope="col">
-								<input
-									ref={allBox}
-									type="checkbox"
-									class="size-5"
-									aria-label={t("selectAllCheckpoints")}
-									data-tip={t("selectAllCheckpoints")}
-									checked={allChosen}
-									onChange={() =>
-										onSelect(
-											allChosen
-												? new Set()
-												: new Set(
-														checkpoints.map(
-															(cp) => cp.id,
-														),
-													),
-										)
-									}
-								/>
+							<th
+								scope="col"
+								class="c-no">
+								{t("colNo")}
 							</th>
-							<th scope="col">{t("colStop")}</th>
-							<th scope="col">{t("checkpointName")}</th>
-							<th scope="col">{t("colCode")}</th>
-							<th scope="col">{t("colStatus")}</th>
-							<th scope="col">{t("colLocation")}</th>
-							<th scope="col">
+							<th
+								scope="col"
+								class="c-sel">
+								<span class="sr-only">{t("select")}</span>
+							</th>
+							<th
+								scope="col"
+								class="c-move">
+								{t("colOrder")}
+							</th>
+							<th
+								scope="col"
+								class="c-name">
+								{t("checkpointName")}
+							</th>
+							<th
+								scope="col"
+								class="c-code">
+								{t("colCode")}
+							</th>
+							<th
+								scope="col"
+								class="c-status">
+								{t("colStatus")}
+							</th>
+							<th
+								scope="col"
+								class="c-loc">
+								{t("colLocation")}
+							</th>
+							<th
+								scope="col"
+								class="c-act">
 								<span class="sr-only">{t("colActions")}</span>
 							</th>
 						</tr>
@@ -219,8 +248,13 @@ export function RouteTable({
 						{checkpoints.map((cp, i) => (
 							<tr
 								key={cp.id}
-								class={cp.active ? "" : "text-muted"}>
-								<td>
+								class={`${selected.has(cp.id) ? "is-selected" : ""} ${cp.active ? "" : "is-off"}`}>
+								<td class="c-no">
+									<span class="stop-badge">
+										{cp.routeOrder}
+									</span>
+								</td>
+								<td class="c-sel">
 									<input
 										type="checkbox"
 										class="size-5"
@@ -229,7 +263,7 @@ export function RouteTable({
 										onChange={() => toggle(cp.id)}
 									/>
 								</td>
-								<td class="tabular-nums whitespace-nowrap">
+								<td class="c-move">
 									<span class="inline-flex items-center gap-1">
 										<IconButton
 											icon={ChevronUp}
@@ -252,12 +286,9 @@ export function RouteTable({
 											}
 											onClick={() => void move(cp, false)}
 										/>
-										<span class="ml-1">
-											{cp.routeOrder}
-										</span>
 									</span>
 								</td>
-								<td>
+								<td class="c-name">
 									{editing?.id === cp.id ? (
 										<form
 											class="flex flex-wrap items-center gap-2"
@@ -329,17 +360,24 @@ export function RouteTable({
 										cp.name
 									)}
 								</td>
-								<td class="font-mono whitespace-nowrap">
+								<td
+									class="c-code"
+									data-label={t("colCode")}>
 									{cp.manualCode}
 								</td>
-								<td class="whitespace-nowrap">
-									{t(
-										cp.active
-											? "checkpointInUse"
-											: "checkpointNotInUse",
-									)}
+								<td class="c-status">
+									<span
+										class={`cp-status ${cp.active ? "is-on" : "is-off"}`}>
+										{t(
+											cp.active
+												? "checkpointInUse"
+												: "checkpointNotInUse",
+										)}
+									</span>
 								</td>
-								<td class="whitespace-nowrap">
+								<td
+									class="c-loc"
+									data-label={t("colLocation")}>
 									<span class="inline-flex items-center gap-2">
 										<span
 											class={
@@ -368,7 +406,7 @@ export function RouteTable({
 										/>
 									</span>
 								</td>
-								<td class="whitespace-nowrap">
+								<td class="c-act">
 									<span class="icon-row">
 										<IconButton
 											icon={Pencil}
