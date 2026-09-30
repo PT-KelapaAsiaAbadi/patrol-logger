@@ -30,10 +30,7 @@ export function createPickerMap(
 			'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 	}).addTo(map);
 
-	const accent =
-		getComputedStyle(document.documentElement)
-			.getPropertyValue("--accent")
-			.trim() || "#f0a500";
+	const accent = cssColor(el, "--accent", "#f0a500");
 	// A CSS pin: Leaflet's default marker images don't survive bundling.
 	const icon = L.divIcon({
 		className: "map-pin",
@@ -129,9 +126,13 @@ export interface OverviewMap {
 	destroy(): void;
 }
 
-const cssColor = (name: string, fallback: string) =>
-	getComputedStyle(document.documentElement).getPropertyValue(name).trim() ||
-	fallback;
+/**
+ * A colour token as the map's own element sees it, so a page that remaps a token (supervisor
+ * pages turn --accent blue) colours the map the same way as its CSS.
+ */
+function cssColor(el: Element, name: string, fallback: string) {
+	return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
+}
 
 export function createOverviewMap(el: HTMLElement): OverviewMap {
 	const map = L.map(el).setView(INDONESIA, 5);
@@ -147,10 +148,10 @@ export function createOverviewMap(el: HTMLElement): OverviewMap {
 	return {
 		show(items, path, reframe = false) {
 			layer.clearLayers();
-			const ok = cssColor("--ok-fill", "#1f7a4a");
-			const warn = cssColor("--warn", "#9c3a10");
-			const accent = cssColor("--accent", "#f0a500");
-			const muted = cssColor("--muted", "#56616d");
+			const ok = cssColor(el, "--ok-fill", "#1f7a4a");
+			const warn = cssColor(el, "--warn", "#9c3a10");
+			const accent = cssColor(el, "--accent", "#f0a500");
+			const muted = cssColor(el, "--muted", "#56616d");
 			const points: L.LatLngTuple[] = [];
 
 			if (path.length > 1) {

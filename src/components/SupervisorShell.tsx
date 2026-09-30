@@ -7,7 +7,8 @@
  *     bottom of the screen: Today, Log, Schedule, Map and More. More (pages/supervisor/More.tsx)
  *     holds Accounts, Checkpoints and Sign out.
  * Supervisor pages use the full desktop width (up to 90rem): they're used at a desk, and Today's
- * dashboard needs the room.
+ * dashboard needs the room. They use blue for actions and selection (index.css, .shell); amber
+ * stays for the guard's Scan button and for warnings.
  */
 import type { ComponentChildren } from "preact";
 import { Link, useLocation } from "wouter-preact";
@@ -111,7 +112,7 @@ export function SupervisorShell({ children }: { children: ComponentChildren }) {
 	const signOut = useSignOut();
 
 	return (
-		<div class="min-h-full flex flex-col">
+		<div class="shell min-h-full flex flex-col">
 			<header class="shell-header">
 				<div class="shell-bar">
 					<span class="shell-brand">Patroli</span>

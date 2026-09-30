@@ -39,6 +39,8 @@
 	   the day isn't over), and quieter lines and headers inside the section cards. */
 	--info: #285d91;
 	--info-bg: #dde8f4;
+	/* Text on a solid --info fill (blue buttons, the Checkpoints page). */
+	--info-ink: #ffffff;
 	--pending: #56616d;
 	--pending-bg: #e3e8ed;
 	--pending-edge: #8a95a1;
@@ -73,6 +75,7 @@
 		--review-bg: #3a3012;
 		--info: #8db4e2;
 		--info-bg: #1e3147;
+		--info-ink: #0f1a26;
 		--pending: #a3aeb9;
 		--pending-bg: #262f39;
 		--pending-edge: #6f7c89;
@@ -107,6 +110,7 @@
 	--review-bg: #3a3012;
 	--info: #8db4e2;
 	--info-bg: #1e3147;
+	--info-ink: #0f1a26;
 	--pending: #a3aeb9;
 	--pending-bg: #262f39;
 	--pending-edge: #6f7c89;
@@ -642,9 +646,18 @@ img {
 	    - below 1024px: a slim top bar (name, theme and language) that scrolls away, and a tab bar
 	      fixed to the bottom of the screen (Today, Log, Schedule, Map, More)
 	    - 1024px and up: the header stays at the top with the tabs, the switches, the supervisor
-	      and Sign out; 1024-1279px drops the tab icons and the supervisor to fit
-	  The active tab is marked in blue (--info), like the design; amber stays for scanning.
+	      and Sign out; to fit, 1280-1439px drops the tab icons and 1024-1279px the supervisor too
+	  Every supervisor page uses blue for actions and selection: .shell points --accent at --info,
+	  so buttons, checkboxes, focus rings, the map's route and pins, and the location picker turn
+	  blue. Amber stays for the guard's Scan button and for warnings.
 	*/
+	.shell {
+		--accent: var(--info);
+		--accent-ink: var(--info-ink);
+	}
+	.shell input[type="checkbox"] {
+		accent-color: var(--info);
+	}
 	.shell-header {
 		background: var(--surface);
 		border-bottom: 1px solid var(--line);
@@ -793,6 +806,10 @@ img {
 		.shell-user-text {
 			display: grid;
 			line-height: 1.25;
+			white-space: nowrap;
+		}
+		.shell-signout {
+			white-space: nowrap;
 		}
 		.shell-signout {
 			display: inline-flex;
@@ -822,6 +839,12 @@ img {
 		/* Jumps to a section (Today's tiles) and focused fields stop below the header. */
 		html:has(.shell-header) {
 			scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 5rem);
+		}
+	}
+	/* 1280-1439px: the full header only fits without the tab icons. */
+	@media (min-width: 1280px) and (max-width: 1439.98px) {
+		.shell-tab svg {
+			display: none;
 		}
 	}
 	@media (min-width: 1024px) and (max-width: 1279.98px) {
