@@ -217,3 +217,4 @@ Changes that break one of these are architectural changes.
 | `#/supervisor/guards` | supervisor | `pages/supervisor/Guards.tsx` (Accounts tab) |
 | `#/supervisor/checkpoints` | supervisor | `pages/supervisor/Checkpoints.tsx` |
 | `#/supervisor/scans/:id` | supervisor | `pages/supervisor/ScanDetail.tsx` |
+| `#/supervisor/more` | supervisor | `pages/supervisor/More.tsx` (More in the phone tab bar: Accounts, Checkpoints, Sign out) |

@@ -1,6 +1,7 @@
 /**
- * The bar above every page: the theme switch (system, light, dark) and the language switch.
- * Both choices are remembered on this device (lib/theme.ts, state.tsx).
+ * The theme switch (system, light, dark) and the language switch. Both choices are remembered on
+ * this device (lib/theme.ts, state.tsx). LanguageBar puts them in a bar above the guard and
+ * sign-in pages; supervisor pages show DisplayControls in their own header (SupervisorShell).
  */
 import { useState } from "preact/hooks";
 import { Monitor, Moon, Sun } from "lucide-preact";
@@ -15,14 +16,15 @@ const THEMES: { choice: ThemeChoice; icon: LucideIcon; label: Key }[] = [
 	{ choice: "dark", icon: Moon, label: "themeDark" },
 ];
 
-export function LanguageBar() {
+/** The two segmented switches, theme then language. */
+export function DisplayControls() {
 	const { t, lang, setLang } = useApp();
 	const [theme, setThemeState] = useState<ThemeChoice>(savedTheme);
 
 	return (
-		<div class="lang-bar">
+		<div class="display-controls">
 			<span
-				class="ml-auto inline-flex"
+				class="inline-flex"
 				role="group"
 				aria-label={t("themeLabel")}>
 				{THEMES.map(({ choice, icon: Icon, label }) => (
@@ -59,6 +61,14 @@ export function LanguageBar() {
 					</button>
 				))}
 			</span>
+		</div>
+	);
+}
+
+export function LanguageBar() {
+	return (
+		<div class="lang-bar">
+			<DisplayControls />
 		</div>
 	);
 }

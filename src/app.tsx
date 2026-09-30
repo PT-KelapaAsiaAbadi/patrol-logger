@@ -1,10 +1,10 @@
 /**
  * The app's routes (hash URLs such as #/scan) and who may open each: signed-out people go to
- * the sign-in screen, guards to their round, supervisors to the log. The language bar sits above
- * every page.
+ * the sign-in screen, guards to their round, supervisors to Today. The language bar sits above
+ * the sign-in and guard pages; supervisor pages have the same switches in their own header.
  */
 import type { ComponentChildren } from "preact";
-import { Redirect, Route, Router, Switch } from "wouter-preact";
+import { Redirect, Route, Router, Switch, useLocation } from "wouter-preact";
 import { useHashLocation } from "wouter-preact/use-hash-location";
 import { useApp } from "./state";
 import type { Role } from "./types";
@@ -21,6 +21,13 @@ import { ScanDetail } from "./pages/supervisor/ScanDetail";
 import { Checkpoints } from "./pages/supervisor/Checkpoints";
 import { Guards } from "./pages/supervisor/Guards";
 import { MapView } from "./pages/supervisor/MapView";
+import { More } from "./pages/supervisor/More";
+
+/** The theme and language bar, except on supervisor pages (SupervisorShell has them). */
+function PageLanguageBar() {
+	const [location] = useLocation();
+	return location.startsWith("/supervisor") ? null : <LanguageBar />;
+}
 
 /** Sends signed-out people to /login and each role to its own home. */
 function RequireRole({
@@ -46,7 +53,7 @@ export function App() {
 	return (
 		// oxlint-disable-next-line react/hooks -- wouter takes the location hook itself, by design
 		<Router hook={useHashLocation}>
-			<LanguageBar />
+			<PageLanguageBar />
 			<div class="flex-1 flex flex-col">
 				<Switch>
 					<Route path="/login">
@@ -120,6 +127,13 @@ export function App() {
 						<RequireRole role="supervisor">
 							<SupervisorShell>
 								<Checkpoints />
+							</SupervisorShell>
+						</RequireRole>
+					</Route>
+					<Route path="/supervisor/more">
+						<RequireRole role="supervisor">
+							<SupervisorShell>
+								<More />
 							</SupervisorShell>
 						</RequireRole>
 					</Route>

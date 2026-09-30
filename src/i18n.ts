@@ -75,6 +75,9 @@ const id = {
 	themeDark: "Gelap",
 	navToday: "Hari Ini",
 	navSchedule: "Jadwal",
+	navLogShort: "Riwayat",
+	navMore: "Lainnya",
+	navMain: "Menu utama",
 	scheduleWeekOf: "Minggu mulai {date}",
 	scheduleSample:
 		"Contoh data: penjadwalan belum dibuat. Halaman ini menunjukkan bentuk jadwal mingguan nantinya.",
@@ -428,6 +431,9 @@ const en: Record<Key, string> = {
 	themeDark: "Dark",
 	navToday: "Today",
 	navSchedule: "Schedule",
+	navLogShort: "Log",
+	navMore: "More",
+	navMain: "Main menu",
 	scheduleWeekOf: "Week starting {date}",
 	scheduleSample:
 		"Sample data: scheduling isn't built yet. This page shows how the weekly roster will look.",

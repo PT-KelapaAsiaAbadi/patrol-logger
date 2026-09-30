@@ -18,6 +18,16 @@ export const tidyPersonName = (name: string) =>
 export const keepNameChars = (input: string) =>
 	input.replace(/[^\p{L}\p{M} .,'’-]/gu, "").slice(0, PERSON_NAME_MAX);
 
+/** Up to two initials for an avatar: "Budi Santoso" -> "BS". */
+export const initials = (name: string) =>
+	name
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((w) => w[0])
+		.join("")
+		.toUpperCase();
+
 /** What's wrong with a name, or null if it's fine. */
 export function personNameProblem(name: string): PersonNameProblem | null {
 	const tidy = tidyPersonName(name);

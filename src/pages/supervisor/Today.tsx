@@ -33,6 +33,7 @@ import { useAsync } from "../../hooks";
 import * as api from "../../data/api";
 import { formatLongDate, formatTime, localDateKey } from "../../lib/format";
 import { todayCheckpoints } from "../../lib/today";
+import { initials } from "../../lib/personName";
 import { LocationBadge } from "../../components/LocationBadge";
 import { ICON } from "../../components/IconButton";
 import { LoadError } from "./Log";
@@ -628,16 +629,6 @@ const SAMPLE_GUARDS: {
 	{ name: "Agus Pratama", status: "guardQuiet", scans: 3, lastScan: "14:05" },
 	{ name: "Siti Rahma", status: "guardNotStarted", scans: 0, lastScan: null },
 ];
-
-/** Up to two initials for an avatar: "Budi Santoso" -> "BS". */
-const initials = (name: string) =>
-	name
-		.split(/\s+/)
-		.filter(Boolean)
-		.slice(0, 2)
-		.map((w) => w[0])
-		.join("")
-		.toUpperCase();
 
 function GuardsOnDuty({ scansLabel }: { scansLabel: (n: number) => string }) {
 	const { t } = useApp();
