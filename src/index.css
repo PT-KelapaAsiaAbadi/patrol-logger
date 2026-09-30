@@ -35,6 +35,15 @@
 	--duty-bg: #e2e9f0;
 	--review: #8a6200;
 	--review-bg: #fcf1c7;
+	/* Today dashboard extras: blue for guards on duty, grey for "not visited yet" (not missed:
+	   the day isn't over), and quieter lines and headers inside the section cards. */
+	--info: #285d91;
+	--info-bg: #dde8f4;
+	--pending: #56616d;
+	--pending-bg: #e3e8ed;
+	--pending-edge: #8a95a1;
+	--row-line: #dfe4e9;
+	--head-bg: #f3f5f8;
 	color-scheme: light;
 }
 
@@ -62,6 +71,13 @@
 		--duty-bg: #1f2c39;
 		--review: #f2cf5b;
 		--review-bg: #3a3012;
+		--info: #8db4e2;
+		--info-bg: #1e3147;
+		--pending: #a3aeb9;
+		--pending-bg: #262f39;
+		--pending-edge: #6f7c89;
+		--row-line: #2a3440;
+		--head-bg: #19222b;
 		color-scheme: dark;
 	}
 }
@@ -89,6 +105,13 @@
 	--duty-bg: #1f2c39;
 	--review: #f2cf5b;
 	--review-bg: #3a3012;
+	--info: #8db4e2;
+	--info-bg: #1e3147;
+	--pending: #a3aeb9;
+	--pending-bg: #262f39;
+	--pending-edge: #6f7c89;
+	--row-line: #2a3440;
+	--head-bg: #19222b;
 	color-scheme: dark;
 }
 
@@ -695,152 +718,442 @@ img {
 	}
 
 	/*
-	  Today dashboard (pages/supervisor/Today.tsx). The cards come in phone order in the page
-	  (Needs review, Not yet visited, Completed, Guards on duty):
-	    - phones: one column, each card's table capped in height and scrolling inside it
-	    - tablets (640-1023px): Needs review across the top, then Completed (the widest table) at
-	      full width, then Not yet visited and Guards on duty side by side
-	    - wide screens: checkpoints stacked in a left column 2/3 wide, Needs review above Guards on
-	      duty on the right, each the same height as the left card beside it, filling the window
+	  Today dashboard (pages/supervisor/Today.tsx): count tiles, then four section cards. The
+	  cards come in phone order in the page (Needs review, Not yet visited, Completed, Guards on
+	  duty):
+	    - phones: one column; tables keep 2 or 3 columns, the rest folds into a line under the name
+	    - tablets (640-1023px): Needs review and Completed full width, then Not yet visited and
+	      Guards on duty side by side
+	    - wide screens: three columns, Needs review (2/3) beside Guards on duty, then Not yet
+	      visited beside Completed (2/3); long tables scroll inside their card
+	  Below desktop width a card shows 5 rows and a "Show all" button (ROWS_SHOWN in Today.tsx)
+	  instead of scrolling inside itself, so a swipe always moves the page.
 	*/
 	.today-header {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: flex-start;
+		align-items: flex-end;
 		justify-content: space-between;
 		gap: 0.75rem 1rem;
 		margin-bottom: 1rem;
 	}
-	.today-grid {
-		display: grid;
-		gap: 1rem;
-		grid-template-columns: minmax(0, 1fr);
+	.dash-title {
+		font-size: 1.75rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		line-height: 1.15;
 	}
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-top: 4px solid var(--tone);
-		border-radius: 6px;
+	.dash-refresh {
+		min-width: 44px;
+		padding-inline: 0.75rem;
 	}
-	.overview-card.tone-done {
-		--tone: var(--done);
-		--tone-bg: var(--done-bg);
-	}
-	.overview-card.tone-missed {
-		--tone: var(--missed);
-		--tone-bg: var(--missed-bg);
-	}
-	.overview-card.tone-duty {
-		--tone: var(--duty);
-		--tone-bg: var(--duty-bg);
-	}
-	.overview-card.tone-review {
+
+	/* Tone of a tile or card: text/icon colour, tint behind it, and the edge along its top. */
+	.tone-review {
 		--tone: var(--review);
 		--tone-bg: var(--review-bg);
+		--tone-edge: var(--review);
 	}
-	.overview-head {
+	.tone-pending {
+		--tone: var(--pending);
+		--tone-bg: var(--pending-bg);
+		--tone-edge: var(--pending-edge);
+	}
+	.tone-done {
+		--tone: var(--done);
+		--tone-bg: var(--done-bg);
+		--tone-edge: var(--done);
+	}
+	.tone-duty {
+		--tone: var(--info);
+		--tone-bg: var(--info-bg);
+		--tone-edge: var(--info);
+	}
+
+	.dash-stats {
+		list-style: none;
+		margin: 0 0 1rem;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+	}
+	.stat-tile {
 		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem 0.6rem;
-		padding: 0.8rem 1rem 0.2rem;
-		color: var(--tone);
+		gap: 0.75rem;
+		width: 100%;
+		height: 100%;
+		min-height: 44px;
+		padding: 0.7rem 0.8rem;
+		background: var(--surface);
+		color: var(--ink);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--tone-edge);
+		border-radius: 12px;
+		text-align: left;
+		cursor: pointer;
 	}
-	.overview-head h2 {
-		margin: 0;
-		font-size: 1.2rem;
-		font-weight: 700;
+	.stat-tile:hover {
+		background: var(--sunken);
 	}
-	.overview-count,
-	.overview-badge {
-		margin-left: auto;
-		font-size: 0.8rem;
-		font-weight: 700;
-		padding: 0.1rem 0.55rem;
-		border-radius: 999px;
-		font-variant-numeric: tabular-nums;
-	}
-	.overview-count {
+	.stat-icon {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 10px;
 		background: var(--tone-bg);
 		color: var(--tone);
 	}
-	.overview-badge {
+	.stat-value {
+		font-size: 1.5rem;
+		font-weight: 800;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+	}
+	.stat-label {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--muted);
+		line-height: 1.3;
+	}
+	.stat-sample {
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--review);
+	}
+
+	.dash-grid {
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: minmax(0, 1fr);
+		align-items: start;
+	}
+	.dash-card {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--tone-edge);
+		border-radius: 12px;
+		overflow: hidden;
+		scroll-margin-top: 1rem;
+	}
+	.dash-card:focus {
+		outline: none;
+	}
+	.dash-card:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.dash-head {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.65rem;
+		padding: 0.9rem 1rem 0.8rem;
+	}
+	.dash-icon {
+		flex: none;
+		margin-top: 0.1rem;
+		color: var(--tone);
+	}
+	.dash-head h2 {
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 800;
+		line-height: 1.3;
+	}
+	.dash-desc {
+		margin-top: 0.1rem;
+		font-size: 0.8125rem;
+		line-height: 1.4;
+		color: var(--muted);
+	}
+	.dash-count,
+	.dash-badge {
+		display: inline-block;
+		font-size: 0.75rem;
+		font-weight: 700;
+		padding: 0.15rem 0.6rem;
+		border-radius: 999px;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	.dash-count {
+		flex: none;
+		background: var(--tone-bg);
+		color: var(--tone);
+	}
+	.dash-badge {
+		margin-top: 0.4rem;
 		background: var(--review-bg);
 		color: var(--review);
 		border: 1px solid var(--review);
 	}
-	.overview-desc {
-		padding: 0 1rem 0.6rem;
-		color: var(--muted);
-		font-size: 0.9rem;
-	}
-	.overview-body {
-		flex: 1;
-		min-height: 0;
-		max-height: 22rem;
-		overflow: auto;
+	.dash-body {
 		border-top: 1px solid var(--line);
 	}
-	.overview-empty {
+	.dash-empty {
 		padding: 1rem;
 		color: var(--muted);
 	}
-	.overview-table {
+	.dash-more {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		width: 100%;
+		min-height: 44px;
+		border-top: 1px solid var(--row-line);
+		background: none;
+		color: var(--info);
+		font-size: 0.875rem;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.dash-more:hover {
+		background: var(--sunken);
+	}
+
+	.dash-table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: 0.9rem;
+		font-size: 0.9375rem;
 	}
-	.overview-table th {
+	.dash-table th {
 		position: sticky;
 		top: 0;
 		z-index: 1;
+		padding: 0.55rem 0.5rem;
 		text-align: left;
-		font-size: 0.8rem;
-		font-weight: 600;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 		color: var(--muted);
+		background: var(--head-bg);
+	}
+	.dash-table td {
+		padding: 0.65rem 0.5rem;
+		border-top: 1px solid var(--row-line);
+		vertical-align: middle;
+	}
+	.dash-table :is(th, td):first-child {
+		padding-left: 1rem;
+	}
+	.dash-table :is(th, td):last-child {
+		padding-right: 1rem;
+	}
+	.dash-table .c-stop {
+		width: 3rem;
+	}
+	.dash-table .c-end {
+		white-space: nowrap;
+	}
+	.dash-name {
+		display: block;
+		font-weight: 700;
+		line-height: 1.35;
+	}
+	.dash-sub {
+		display: block;
+		margin-top: 0.1rem;
+		font-size: 0.8125rem;
+		color: var(--muted);
+	}
+	.stop-badge {
+		display: inline-grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 8px;
+		background: var(--tone-bg);
+		color: var(--tone);
+		font-size: 0.8125rem;
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
+	}
+	.loc-line {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.875rem;
+		color: var(--muted);
+	}
+	/* A row that opens a scan: its link stretches over the whole row, so any tap on it works. */
+	.dash-table tr.has-link {
+		position: relative;
+	}
+	.dash-table tr.has-link:hover {
 		background: var(--sunken);
 	}
-	.overview-table th,
-	.overview-table td {
-		padding: 0.45rem 0.7rem;
-		border-bottom: 1px solid var(--line);
+	.row-link {
+		color: inherit;
+		text-decoration: none;
 	}
-	.overview-table tbody tr:last-child td {
-		border-bottom: 0;
+	.row-link::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+	}
+	.row-link:focus-visible {
+		outline: none;
+	}
+	.row-link:focus-visible::after {
+		outline: 3px solid var(--accent);
+		outline-offset: -3px;
+	}
+	.reason-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.2rem 0.55rem;
+		border-radius: 999px;
+		background: var(--review-bg);
+		color: var(--review);
+		font-size: 0.75rem;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+	/* Avatar beside the name and summary; a float keeps the cell a normal table cell. */
+	.guard-cell .dash-name,
+	.guard-cell .dash-sub {
+		overflow: hidden;
+	}
+	.guard-avatar {
+		float: left;
+		margin: 0.1rem 0.75rem 0 0;
+		display: grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 50%;
+		background: var(--info-bg);
+		color: var(--info);
+		font-size: 0.75rem;
+		font-weight: 800;
 	}
 	.guard-status {
 		display: inline-block;
-		padding: 0.05rem 0.5rem;
+		padding: 0.2rem 0.6rem;
 		border-radius: 999px;
-		font-size: 0.8rem;
-		font-weight: 600;
+		font-size: 0.75rem;
+		font-weight: 700;
 		white-space: nowrap;
 	}
 	.guard-status.is-guardPatrolling {
-		background: var(--done-bg);
-		color: var(--done);
+		background: var(--info-bg);
+		color: var(--info);
 	}
 	.guard-status.is-guardQuiet {
-		background: var(--duty-bg);
-		color: var(--duty);
+		background: var(--pending-bg);
+		color: var(--pending);
 	}
 	.guard-status.is-guardNotStarted {
 		background: var(--missed-bg);
 		color: var(--missed);
 	}
-	/* A reason a scan needs review, in the Needs review card. */
-	.review-reason {
-		display: inline-block;
-		padding: 0.05rem 0.5rem;
-		border-radius: 999px;
-		background: var(--review-bg);
-		color: var(--review);
-		font-size: 0.8rem;
-		font-weight: 600;
-		white-space: nowrap;
+
+	/* Phones: column headers are read out but not shown; each row is a line of text. */
+	@media (max-width: 639.98px) {
+		.dash-table thead {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		/* A long status wraps at 7.5rem, so the checkpoint name keeps most of the row; a short
+		   one ("Not set") stays as narrow as its text. */
+		.dash-table .c-end {
+			white-space: normal;
+			text-align: right;
+		}
+		.dash-table .c-end > :not(.dash-sub) {
+			max-width: 7.5rem;
+		}
+		/* LocationBadge's plain spans need a box for max-width; chips keep their inline-flex. */
+		.dash-table .c-end > :is(.loc-ok, .loc-far, .text-muted) {
+			display: inline-block;
+		}
+		.dash-table .c-end .reason-chip {
+			white-space: normal;
+			border-radius: 10px;
+			text-align: left;
+		}
+	}
+	/* Below desktop width: the first rows, then "Show all" (see ROWS_SHOWN in Today.tsx). */
+	@media (max-width: 1023.98px) {
+		.dash-card:not(.is-expanded) .dash-table tbody tr:nth-child(n + 6) {
+			display: none;
+		}
+	}
+	@media (min-width: 640px) {
+		.dash-title {
+			font-size: 2rem;
+		}
+		.dash-stats {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 1rem;
+		}
+		.stat-value {
+			font-size: 1.75rem;
+		}
+	}
+	@media (min-width: 640px) and (max-width: 1023.98px) {
+		.dash-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			grid-template-areas:
+				"review review"
+				"done done"
+				"missed duty";
+		}
+		.dash-grid .area-review {
+			grid-area: review;
+		}
+		.dash-grid .area-missed {
+			grid-area: missed;
+		}
+		.dash-grid .area-done {
+			grid-area: done;
+		}
+		.dash-grid .area-duty {
+			grid-area: duty;
+		}
+	}
+	@media (min-width: 1024px) {
+		.dash-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-areas:
+				"review review duty"
+				"missed done done";
+			gap: 1.25rem;
+		}
+		.dash-grid .area-review {
+			grid-area: review;
+		}
+		.dash-grid .area-missed {
+			grid-area: missed;
+		}
+		.dash-grid .area-done {
+			grid-area: done;
+		}
+		.dash-grid .area-duty {
+			grid-area: duty;
+		}
+		.dash-body {
+			max-height: 26rem;
+			overflow: auto;
+		}
+		.dash-more {
+			display: none;
+		}
 	}
 
 	/* Schedule (pages/supervisor/Schedule.tsx): shift chips, the legend, and today's column. */
@@ -904,54 +1217,6 @@ img {
 		background: var(--review-bg);
 		border-color: var(--review);
 		color: var(--ink);
-	}
-	@media (min-width: 640px) and (max-width: 1023.98px) {
-		.today-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			grid-template-areas:
-				"review review"
-				"done done"
-				"missed duty";
-		}
-		.area-review {
-			grid-area: review;
-		}
-		.area-missed {
-			grid-area: missed;
-		}
-		.area-done {
-			grid-area: done;
-		}
-		.area-duty {
-			grid-area: duty;
-		}
-	}
-	@media (min-width: 1024px) {
-		.today-grid {
-			grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-			/* Two equal rows, so each right card lines up with the left card beside it. */
-			grid-template-rows: repeat(2, minmax(0, 1fr));
-			height: max(36rem, calc(100dvh - 13rem));
-		}
-		.area-done {
-			grid-column: 1;
-			grid-row: 1;
-		}
-		.area-missed {
-			grid-column: 1;
-			grid-row: 2;
-		}
-		.area-review {
-			grid-column: 2;
-			grid-row: 1;
-		}
-		.area-duty {
-			grid-column: 2;
-			grid-row: 2;
-		}
-		.overview-body {
-			max-height: none;
-		}
 	}
 
 	/* Supervisor admin: add guards, add checkpoints */

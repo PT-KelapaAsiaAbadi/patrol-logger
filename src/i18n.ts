@@ -89,7 +89,7 @@ const id = {
 	reasonFar: "Jauh dari titik",
 	reasonNoGps: "Tanpa GPS",
 	reasonReport: "Ada laporan",
-	reasonLate: "Terkirim terlambat",
+	reasonLate: "Telat kirim",
 	reasonTooFast: "Terlalu cepat",
 	navLogDatabase: "Riwayat Scan",
 	logDatabaseSoon:
