@@ -1,5 +1,16 @@
 # Patroli (prototype)
 
+[![CI](https://github.com/PT-KelapaAsiaAbadi/patrol-logger/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/PT-KelapaAsiaAbadi/patrol-logger/actions/workflows/ci.yml)
+![Status: prototype](https://img.shields.io/badge/status-prototype-orange)
+
+[![Preact](https://img.shields.io/github/package-json/dependency-version/PT-KelapaAsiaAbadi/patrol-logger/preact?logo=preact&logoColor=white&color=673AB8)](https://preactjs.com)
+[![TypeScript](https://img.shields.io/github/package-json/dependency-version/PT-KelapaAsiaAbadi/patrol-logger/dev/typescript?logo=typescript&logoColor=white&color=3178C6)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/github/package-json/dependency-version/PT-KelapaAsiaAbadi/patrol-logger/dev/vite?logo=vite&logoColor=white&color=646CFF)](https://vite.dev)
+[![Tailwind CSS](https://img.shields.io/github/package-json/dependency-version/PT-KelapaAsiaAbadi/patrol-logger/dev/tailwindcss?logo=tailwindcss&logoColor=white&color=06B6D4)](https://tailwindcss.com)
+[![Supabase](https://img.shields.io/github/package-json/dependency-version/PT-KelapaAsiaAbadi/patrol-logger/@supabase/supabase-js?label=supabase-js&logo=supabase&logoColor=white&color=3FCF8E)](https://supabase.com)
+![PWA: installable, works offline](https://img.shields.io/badge/PWA-installable%20%C2%B7%20offline-5A0FC8?logo=pwa&logoColor=white)
+![Languages: Bahasa Indonesia, English](https://img.shields.io/badge/languages-Bahasa%20Indonesia%20%C2%B7%20English-blue)
+
 QR checkpoint patrol logger. Guards scan stickers on their round; supervisors see the log.
 
 ## Run locally
