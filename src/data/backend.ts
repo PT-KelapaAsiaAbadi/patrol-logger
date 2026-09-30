@@ -531,19 +531,18 @@ export async function updateCheckpoint(
 	);
 }
 
-/** Pins a checkpoint on the map, or clears its location (null). */
+/** Moves a checkpoint's pin and radius. A location can't be cleared: remove the checkpoint instead. */
 export async function setCheckpointLocation(
 	id: string,
-	location: CheckpointLocation | null,
+	location: CheckpointLocation,
 ): Promise<Checkpoint> {
 	return toCheckpoint(
 		must(
 			await supabase.rpc("set_checkpoint_location", {
 				p_id: id,
-				// The function takes nulls to clear; the generated types don't say so.
-				p_lat: (location?.lat ?? null) as number,
-				p_lng: (location?.lng ?? null) as number,
-				p_radius_m: (location?.radiusM ?? null) as number,
+				p_lat: location.lat,
+				p_lng: location.lng,
+				p_radius_m: location.radiusM,
 			}),
 		),
 	);

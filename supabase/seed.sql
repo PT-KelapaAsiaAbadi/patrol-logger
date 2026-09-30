@@ -38,17 +38,23 @@ begin
 		values (v_user.id, v_user.name, v_user.phone, v_user.role);
 	end loop;
 
-	insert into public.checkpoints (name, route_order, manual_code)
-	select name, ord, private.new_manual_code()
-	from unnest(array[
-		'Lobi utama',
-		'Pintu samping timur',
-		'Parkir basement B1',
-		'Ruang panel listrik',
-		'Tangga darurat lantai 2',
-		'Gudang belakang',
-		'Atap dan tandon air',
-		'Pos jaga gerbang'
-	]) with ordinality as t (name, ord);
+	-- Every checkpoint needs a location. These are a few tens of metres apart around -6.21, 106.81,
+	-- the position the browser test gives the guard's phone, so its scans land "at checkpoint".
+	insert into public.checkpoints (name, route_order, manual_code, latitude, longitude)
+	select name, ord, private.new_manual_code(), lat, lng
+	from unnest(
+		array[
+			'Lobi utama',
+			'Pintu samping timur',
+			'Parkir basement B1',
+			'Ruang panel listrik',
+			'Tangga darurat lantai 2',
+			'Gudang belakang',
+			'Atap dan tandon air',
+			'Pos jaga gerbang'
+		],
+		array[-6.21000, -6.21020, -6.21015, -6.20985, -6.20995, -6.21045, -6.20970, -6.21060],
+		array[106.81000, 106.81030, 106.80990, 106.81015, 106.80975, 106.81005, 106.80995, 106.81050]
+	) with ordinality as t (name, lat, lng, ord);
 end;
 $$;

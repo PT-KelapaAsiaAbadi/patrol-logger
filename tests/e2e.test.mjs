@@ -284,7 +284,7 @@ try {
 	);
 
 	const firstRow = route.locator("tbody tr").first();
-	await firstRow.getByRole("button", { name: /Set location/ }).click();
+	await firstRow.getByRole("button", { name: /^Edit location/ }).click();
 	await picker.getByRole("searchbox").fill("Jl Contoh");
 	await picker.getByRole("button", { name: "Search", exact: true }).click();
 	await picker.getByRole("button", { name: "Jl. Contoh 1, Jakarta" }).click();
@@ -294,10 +294,10 @@ try {
 	await firstRow
 		.getByText("-6.20000, 106.80000 (60 m)")
 		.waitFor({ timeout: 15000 });
-	ok(true, "checkpoint pinned by searching an address");
+	ok(true, "a pin moved by searching an address");
 
 	const secondRow = route.locator("tbody tr").nth(1);
-	await secondRow.getByRole("button", { name: /Set location/ }).click();
+	await secondRow.getByRole("button", { name: /^Edit location/ }).click();
 	await picker.getByLabel("Coordinates").fill("-6.21, 106.81");
 	await picker.getByRole("button", { name: "Go" }).click();
 	await picker.getByText("-6.210000, 106.810000").waitFor();
@@ -305,7 +305,16 @@ try {
 	await secondRow
 		.getByText("-6.21000, 106.81000 (50 m)")
 		.waitFor({ timeout: 15000 });
-	ok(true, "checkpoint pinned by pasting coordinates");
+	ok(true, "a pin moved by pasting coordinates");
+	await firstRow.getByRole("button", { name: /^Edit location/ }).click();
+	await picker.getByRole("button", { name: "Save" }).waitFor();
+	ok(
+		(await picker
+			.getByRole("button", { name: "Remove location" })
+			.count()) === 0,
+		"a location can be moved but not removed",
+	);
+	await picker.getByRole("button", { name: "Cancel" }).click();
 
 	section("accounts");
 	await page.getByRole("link", { name: "Accounts" }).click();
@@ -548,22 +557,24 @@ try {
 	const map = page.locator(".overview-map");
 	await map.locator(".map-pin").first().waitFor({ timeout: 20000 });
 	ok(
-		(await map.locator(".map-pin").count()) === 3,
-		"the 3 pinned checkpoints are on the map",
+		(await map.locator(".map-pin").count()) === 9,
+		"all 9 checkpoints are on the map",
 	);
 	ok(
-		(await map.locator(".map-pin.is-visited").count()) === 2,
-		"the 2 visited ones are green",
+		(await map.locator(".map-pin.is-visited").count()) === 3,
+		"the 3 visited ones are green",
 	);
 	await text("Scans on the map: 4");
 	ok(
-		(await map.locator("path.map-scan.is-ok").count()) === 2 &&
+		(await map.locator("path.map-scan.is-ok").count()) === 3 &&
 			(await map.locator("path.map-scan.is-far").count()) === 1 &&
-			(await map.locator("path.map-scan.is-unknown").count()) === 1,
-		"scans are drawn at-checkpoint, far and unpinned",
+			(await map.locator("path.map-scan.is-unknown").count()) === 0,
+		"scans are drawn at-checkpoint and far",
 	);
-	await text("Checkpoints without a location (not on the map): 6");
-	ok(true, "unpinned checkpoints are counted, not hidden");
+	ok(
+		(await page.getByText("Checkpoints without a location").count()) === 0,
+		"no checkpoint is left off the map for want of a location",
+	);
 	await map.locator('.map-pin[title="Pos belakang gudang"]').click();
 	await map
 		.locator(".leaflet-popup-content")

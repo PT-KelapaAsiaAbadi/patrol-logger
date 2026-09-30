@@ -244,8 +244,8 @@ export type Database = {
     Functions: {
       create_checkpoint: {
         Args: {
-          p_lat?: number
-          p_lng?: number
+          p_lat: number
+          p_lng: number
           p_name: string
           p_radius_m?: number
         }

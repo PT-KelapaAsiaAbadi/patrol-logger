@@ -13,21 +13,14 @@ import {
 import type { PickerMap } from "../lib/map";
 import type { CheckpointLocation } from "../types";
 import { ICON, IconButton } from "../components/IconButton";
-import {
-	ArrowRight,
-	Check,
-	LocateFixed,
-	Search,
-	Trash2,
-	X,
-} from "lucide-preact";
+import { ArrowRight, Check, LocateFixed, Search, X } from "lucide-preact";
 
 const DEFAULT_RADIUS_M = 50;
 
 /**
  * Dialog for pinning a checkpoint: tap or drag on the map, search an address, use the
  * supervisor's own position (handy when standing at the checkpoint), or paste coordinates.
- * `onSave(null)` removes the location.
+ * A location can be moved but not removed: to take it away, remove the checkpoint.
  */
 export function LocationPicker({
 	name,
@@ -37,7 +30,7 @@ export function LocationPicker({
 }: {
 	name: string;
 	initial: CheckpointLocation | null;
-	onSave: (location: CheckpointLocation | null) => Promise<void> | void;
+	onSave: (location: CheckpointLocation) => Promise<void> | void;
 	onClose: () => void;
 }) {
 	const { t, lang } = useApp();
@@ -128,7 +121,7 @@ export function LocationPicker({
 		mapRef.current?.setPoint(c.lat, c.lng);
 	}
 
-	async function save(location: CheckpointLocation | null) {
+	async function save(location: CheckpointLocation) {
 		setBusy(true);
 		setProblem(null);
 		try {
@@ -315,19 +308,6 @@ export function LocationPicker({
 					/>
 					{busy ? t("saving") : t("save")}
 				</button>
-				{initial && (
-					<button
-						type="button"
-						class="btn btn-quiet"
-						disabled={busy}
-						onClick={() => void save(null)}>
-						<Trash2
-							size={ICON}
-							aria-hidden="true"
-						/>
-						{t("removeLocation")}
-					</button>
-				)}
 				<button
 					type="button"
 					class="btn btn-ghost"

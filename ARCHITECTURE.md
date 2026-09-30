@@ -155,7 +155,7 @@ flowchart LR
    - Requires the caller to be a guard. If a scan with this id exists, returns it (idempotent).
    - QR form `PTRL1:<uuid>:<sig>`: the checkpoint must exist and `sig` must equal `private.qr_signature(id, qr_version)` (HMAC with the Vault key). Otherwise the code is matched against `manual_code`.
    - Checkpoint must be `active`.
-   - Location status: `no_fix` (no usable GPS), `not_set` (checkpoint not pinned), `ok` (within `radius_m + min(accuracy, 100)` metres), else `far`. Far scans are flagged, never rejected.
+   - Location status: `no_fix` (no usable GPS), `not_set` (checkpoint not pinned; only on scans from before every checkpoint needed a location), `ok` (within `radius_m + min(accuracy, 100)` metres), else `far`. Far scans are flagged, never rejected.
    - `insert ... on conflict (id) do nothing`. `guard_id` is always `auth.uid()`.
 
 ### 4.2 Report with photos (`api.addReport` -> `backend.submitReport`)

@@ -162,7 +162,7 @@ tests/                  backend.test.mjs (each role against the API), e2e.test.m
 | `listScans`, `exportScans`, `getScan` | the `scan_rows` view, paged with `.range()`; photos shown via signed URLs |
 | `guardSummaries`, `missedCheckpoints` | `guard_summaries()`, `missed_checkpoints()` |
 
-| `setCheckpointLocation` | `set_checkpoint_location()`: a checkpoint's position and radius, or none |
+| `setCheckpointLocation` | `set_checkpoint_location()`: moves a checkpoint's pin and radius (a location can't be cleared: remove the checkpoint instead) |
 
 ## Location checks
 
@@ -173,9 +173,9 @@ Supervisors pin each checkpoint on a map (Checkpoints tab: tap the map, search a
 | At checkpoint | within the radius, allowing for the phone's stated accuracy (up to 100 m extra) |
 | far | further than that; the guard sees a warning, the supervisor sees the distance |
 | No GPS | the phone had no position less than a minute old (permission off, indoors, older app) |
-| Checkpoint not pinned | the checkpoint has no location yet |
+| Checkpoint not pinned | only on scans from before every checkpoint needed a location |
 
-The **Map** tab shows one day at a time: checkpoints (green once visited that day), each scan at the position the phone reported (orange, with a dashed line to its checkpoint, when far), and, when one guard is chosen, that guard's route in time order. Scans without GPS and checkpoints without a location are counted under the map rather than drawn.
+The **Map** tab shows one day at a time: checkpoints (green once visited that day), each scan at the position the phone reported (orange, with a dashed line to its checkpoint, when far), and, when one guard is chosen, that guard's route in time order. Scans without GPS are counted under the map rather than drawn.
 
 Scans that are far away are **flagged, not rejected**: GPS is often weak or missing in basements and stairwells, and blocking those scans would stop honest guards. The distance is stored with the scan, so moving a checkpoint later doesn't rewrite history. Limits: a phone with a GPS-spoofing app can fake its position, and indoor readings can be off by tens of metres, so treat a single "far" as a question, not proof.
 
@@ -219,7 +219,7 @@ Dashboard refactor (branch `refactor/dashboard-rework`), done step by step:
 - [ ] **Needs review** shows sample rows (one per planned reason, tagged "Sample data, not live yet") until the rules below are built.
 - [ ] **Schedule** tab shows a sample weekly roster (tagged as sample data; "Add shift" disabled). To build: a `shifts` table (guard, start, end; night shifts cross midnight) written through supervisor-checked functions; add, edit, copy last week and remove shifts; move between weeks. Then Today's Guards on duty can show who is scheduled now, and missed checkpoints can be counted per shift. Shift names and times to agree with the owner (the sample uses 07-15, 15-23, 23-07) ([src/pages/supervisor/Schedule.tsx](src/pages/supervisor/Schedule.tsx)).
 - [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
-- [ ] **New checkpoints need a location.** The app requires it and `create_checkpoint` saves name and location in one step, but the database still accepts a name alone so the app version currently deployed keeps working. Once the new app is live, make `p_lat` / `p_lng` required in `create_checkpoint` ([supabase/migrations/20260928130000_checkpoint_location_on_create.sql](supabase/migrations/20260928130000_checkpoint_location_on_create.sql)).
+- [ ] **Every checkpoint needs a location: run the migration on PatrolLogger.** The app requires a location when adding a checkpoint and can only move a pin, not remove it (to take a location away, remove the checkpoint). [supabase/migrations/20260930120000_checkpoint_location_required.sql](supabase/migrations/20260930120000_checkpoint_location_required.sql) makes the database agree: it deletes checkpoints without a location that were never scanned, removes those that were (their scans keep them), then refuses a checkpoint in use without a location and makes `p_lat` / `p_lng` required in `create_checkpoint`. Before running it: deploy the app version that always sends a location (older ones add checkpoints by name alone), and pin any unpinned checkpoint you want to keep.
 - [ ] **Checkpoint names:** the app allows 3 to 50 characters, no repeats (ignoring case), and at least one letter or digit ([src/lib/checkpointName.ts](src/lib/checkpointName.ts)). The database still allows up to 80. Tighten it once hosted names have been checked against the new rule.
 - [ ] **Account names and phones:** full names are 1 to 70 characters of letters, spaces and `. , ' -` ([src/lib/personName.ts](src/lib/personName.ts)); phones are stored as text in E.164 digits (no `+`), Indonesian mobiles only 10 to 13 digits as typed ([src/lib/phone.ts](src/lib/phone.ts)). Both are checked again on the server (`_shared/names.ts`, `_shared/phone.ts`). The database's `profiles` checks are looser (names up to 120; any 8 to 15 digits): tighten them once hosted accounts have been checked. If many numbers from other countries get registered, validate with `libphonenumber-js` instead of the 8 to 15 digit rule (roughly 80 KB or more on guards' prepaid data).
 

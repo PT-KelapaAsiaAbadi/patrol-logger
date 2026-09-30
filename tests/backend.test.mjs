@@ -62,7 +62,7 @@ const { data: route } = await guard.rpc("route_checkpoints");
 
 	for (const [fn, args] of [
 		["qr_payload", { p_checkpoint_id: route[0].id }],
-		["create_checkpoint", { p_name: "Sneaky" }],
+		["create_checkpoint", { p_name: "Sneaky", p_lat: -6.2, p_lng: 106.8 }],
 		[
 			"update_checkpoint",
 			{ p_id: route[0].id, p_name: "x", p_active: false },
@@ -134,13 +134,15 @@ const { data: payload, error: pe } = await sup.rpc("qr_payload", {
 
 	const { data: added, error } = await sup.rpc("create_checkpoint", {
 		p_name: "  Pintu   belakang  ",
+		p_lat: -6.2105,
+		p_lng: 106.8102,
 	});
 	ok(
 		!error && added.route_order === 9 && added.name === "Pintu belakang",
 		"create_checkpoint appends and tidies the name",
 	);
 
-	// The app now sends the location with the name, saved in the same step.
+	// The location is saved with the name, in the same step.
 	const { data: pinned, error: pe2 } = await sup.rpc("create_checkpoint", {
 		p_name: "Pos pinned",
 		p_lat: -6.2,
@@ -155,9 +157,20 @@ const { data: payload, error: pe } = await sup.rpc("qr_payload", {
 		"create_checkpoint saves the location with the name",
 		pe2?.message,
 	);
+	const { error: none } = await sup.rpc("create_checkpoint", {
+		p_name: "Pos tanpa lokasi",
+		p_lat: null,
+		p_lng: null,
+	});
+	ok(
+		none?.message === "location_required",
+		"a checkpoint without a location is refused",
+		none?.message,
+	);
 	const { error: half } = await sup.rpc("create_checkpoint", {
 		p_name: "Pos setengah",
 		p_lat: -6.2,
+		p_lng: null,
 	});
 	ok(
 		half?.message === "location_incomplete",
@@ -533,11 +546,6 @@ section("location checks");
 		none.location_status === "no_fix" && none.latitude === null,
 		"no position gives no_fix",
 	);
-	const unpinned = await scanAt(cps[6], -6.2, 106.8, 10);
-	ok(
-		unpinned.location_status === "not_set" && unpinned.distance_m === null,
-		"an unpinned checkpoint gives not_set",
-	);
 
 	const { data: row } = await sup
 		.from("scan_rows")
@@ -548,15 +556,31 @@ section("location checks");
 		row.location_status === "far" && row.checkpoint_latitude === -6.2,
 		"the log shows the flag and where the checkpoint is",
 	);
-	const { data: cleared } = await sup.rpc("set_checkpoint_location", {
+	const { error: cleared } = await sup.rpc("set_checkpoint_location", {
 		p_id: cps[5].id,
 		p_lat: null,
 		p_lng: null,
 		p_radius_m: null,
 	});
 	ok(
-		cleared.latitude === null && cleared.radius_m === 50,
-		"a location can be removed",
+		cleared?.message === "location_required",
+		"a location can't be removed, only moved",
+		cleared?.message,
+	);
+	// Move the pin to where the far scan was made.
+	const { data: moved, error: me } = await sup.rpc(
+		"set_checkpoint_location",
+		{
+			p_id: cps[5].id,
+			p_lat: -6.21,
+			p_lng: 106.8,
+			p_radius_m: 50,
+		},
+	);
+	ok(
+		!me && moved.latitude === -6.21,
+		"a supervisor moves a pin",
+		me?.message,
 	);
 	const { data: stillFar } = await sup
 		.from("scans")
@@ -566,6 +590,16 @@ section("location checks");
 	ok(
 		stillFar.location_status === "far",
 		"past scans keep their result when the checkpoint moves",
+	);
+	const { data: unpinned } = await sup
+		.from("checkpoints")
+		.select("id")
+		.is("removed_at", null)
+		.is("latitude", null);
+	ok(
+		unpinned?.length === 0,
+		"every checkpoint in use has a location",
+		unpinned?.length,
 	);
 }
 
