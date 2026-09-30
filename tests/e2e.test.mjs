@@ -315,6 +315,13 @@ try {
 	const firstRow = route.locator("tbody tr").first();
 	await firstRow.getByRole("button", { name: /^Edit location/ }).click();
 	await picker.getByRole("searchbox").fill("Jl Contoh");
+	// A modal dialog is drawn above the page, so a tip left on the page would sit behind it.
+	await picker.getByRole("button", { name: "Search", exact: true }).hover();
+	await picker
+		.locator(".tooltip:not([hidden])")
+		.getByText("Search this address")
+		.waitFor({ timeout: 5000 });
+	ok(true, "help text inside a dialog shows on top of it");
 	await picker.getByRole("button", { name: "Search", exact: true }).click();
 	await picker.getByRole("button", { name: "Jl. Contoh 1, Jakarta" }).click();
 	await picker.getByText("-6.200000, 106.800000").waitFor();

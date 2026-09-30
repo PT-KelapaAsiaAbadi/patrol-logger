@@ -3,6 +3,8 @@
  * keyboard focus. It's fixed-position on the page, so tables that scroll sideways can't clip it.
  * Touch taps don't show it (there's no hover on a phone); icon-only buttons still have an
  * aria-label for screen readers.
+ * An open modal dialog sits in the browser's top layer, above anything on the page whatever its
+ * z-index, so for an element inside one the tip moves into that dialog to be drawn on top of it.
  */
 export function startTooltips() {
 	const tip = document.createElement("div");
@@ -14,6 +16,9 @@ export function startTooltips() {
 
 	function show(el: HTMLElement) {
 		current = el;
+		// Also re-attaches the tip if a closed dialog took it out of the page.
+		const host = el.closest("dialog[open]") ?? document.body;
+		if (tip.parentElement !== host) host.append(tip);
 		tip.textContent = el.dataset.tip ?? "";
 		tip.hidden = false;
 		const r = el.getBoundingClientRect();
