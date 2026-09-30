@@ -655,6 +655,27 @@ section("removing checkpoints");
 		aAfter.route_order === a.route_order,
 		"moving down past removed checkpoints does nothing",
 	);
+	const { data: live } = await sup
+		.from("checkpoints")
+		.select("route_order")
+		.is("removed_at", null)
+		.order("route_order");
+	ok(
+		live.every((cp, i) => cp.route_order === i + 1),
+		"stop numbers close up after a removal",
+		live.map((cp) => cp.route_order).join(","),
+	);
+	const { data: next, error: ne } = await sup.rpc("create_checkpoint", {
+		p_name: "Pos sesudah hapus",
+		p_lat: -6.2103,
+		p_lng: 106.8104,
+	});
+	ok(
+		!ne && next.route_order === live.length + 1,
+		"a new checkpoint takes the next number after those in the round",
+		ne?.message ?? next?.route_order,
+	);
+	await sup.rpc("remove_checkpoints", { p_ids: [next.id] });
 }
 
 section("accounts: create, reset, deactivate");
