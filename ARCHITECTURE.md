@@ -33,7 +33,7 @@ Patroli is a QR checkpoint patrol logger. Guards scan QR stickers on their round
 | `storage` | Storage bucket `report-photos` | schema migration | Private. Guards upload to `<user id>/<report id>/`; supervisors and owners read via signed URLs |
 | `edge` | Edge Functions | `supabase/functions/create-guards`, `reset-password`, `staff-phone`, `_shared/supervisor.ts`, `_shared/phone.ts`, `_shared/names.ts` | Hold the service-role key. Each calls `requireSupervisor` first, then uses the Auth admin API |
 
-The three newest migrations (`20260930120000_checkpoint_location_required.sql`, `20260930130000_contiguous_stop_numbers.sql`, `20261002120000_shifts.sql`) run locally but not yet on the hosted project (README > Status and TODO > Launch).
+Every migration, up to `20261002120000_shifts.sql`, is applied on the hosted project (checked 2 October 2026). Check with `npx supabase migration list --linked`; apply new ones with `npx supabase db push --linked`.
 
 ### External
 
