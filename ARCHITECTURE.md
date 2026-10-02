@@ -330,9 +330,10 @@ Supervisors decide; the app saves and warns, it never assigns anyone by itself.
 
 1. The page loads the week's shifts (`listShifts` on the `shift_rows` view) plus the day either side, and the active guards (`listAccounts`). "The week" is Monday to Sunday in the device's time zone; a shift belongs to the day it starts.
 2. `shiftsBySlot` groups shifts into slots: a day and one of `SHIFT_KINDS` (Morning 07-15, Afternoon 15-23, Night 23-07), recognised from the start time and length. Shifts at other times show in a line under the grid.
-3. Assigning: the dialog ticks guards for one slot. Saving calls `remove_shift` for unticked guards and `assign_shift(guard, start, end)` for new ones; `shiftTimes(day, kind)` turns the slot into timestamps. The database refuses a non-guard (`not_a_guard`), an overlap (`shift_overlap`, from the `shifts_no_overlap` constraint) and anything over 16 hours.
+3. Assigning: the dialog ticks guards for one slot. Saving calls `remove_shift` for unticked guards and `assign_shift(guard, start, end)` for new ones; `shiftTimes(day, kind)` turns the slot into timestamps. The database refuses a non-guard (`not_a_guard`), an overlap (`shift_overlap`, from the `shifts_no_overlap` constraint), anything over 16 hours, and a shift on a day before today (`shift_in_past`).
 4. Warnings (`scheduleWarnings`, `emptySlots`, thresholds in `SCHEDULE_RULES`): slots nobody works, more than 40 hours in the week, under 8 hours between one shift's end and the next one's start (checked into the neighbouring weeks). The dialog shows the same warnings beside each ticked guard before saving.
-5. "Copy last week": `copy_shifts(from, to, 7, time zone)` repeats the previous week's shifts at the same local times (so a daylight-saving change doesn't shift them), skipping inactive guards and clashes; running it twice adds nothing.
+5. "Copy last week": `copy_shifts(from, to, 7, time zone)` repeats the previous week's shifts at the same local times (so a daylight-saving change doesn't shift them), skipping inactive guards, clashes and copies that would land before today; running it twice adds nothing.
+6. Days before today are history. The page shows them but disables their cells (and hides Assign on phones); "shifts nobody works" counts only today onwards; Copy last week is off for a week that has passed. The database agrees: `assign_shift` and `remove_shift` take the device's time zone (`p_tz`) and refuse a shift whose start date is before today there (`private.local_today`).
 
 Not yet: nothing outside this page reads shifts (Today, the guard's home, missed checkpoints per shift); see 7.3.
 
@@ -351,7 +352,7 @@ Changes that break one of these are architectural changes.
 9. `localStorage` caches are for display only; nothing on the server trusts them.
 10. A new app version reloads only on a screen with nothing to type, and only after `outboxSaved()` resolves.
 11. Every checkpoint in use has a location (`checkpoints_location_required`). A pin can be moved, never cleared: to drop a location, remove the checkpoint.
-12. A guard is never on two overlapping shifts (`shifts_no_overlap`), and only active guard accounts can be given shifts.
+12. A guard is never on two overlapping shifts (`shifts_no_overlap`), and only active guard accounts can be given shifts. Shifts on days that have passed can't be added or removed.
 
 ## 6. Routes (`src/app.tsx`, hash routing)
 
