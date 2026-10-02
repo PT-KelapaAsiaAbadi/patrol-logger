@@ -157,14 +157,36 @@ try {
 		.waitFor();
 	ok(true, "before any scan, Needs review is empty");
 	await page.getByRole("link", { name: "Schedule" }).click();
-	await text("Sample data: scheduling isn't built yet.");
-	ok(
-		(await page.locator(".roster-table tbody tr").count()) === 4 &&
-			(await page
-				.getByRole("button", { name: "Add shift" })
-				.isDisabled()),
-		"Schedule shows a sample week and a disabled Add shift",
+	section("schedule");
+	await text("21 shifts have nobody assigned.");
+	ok(true, "an empty week: every shift is flagged as having nobody");
+	const morningToday = page.locator(
+		".sched-grid tbody tr:first-child td.is-today .sched-cell",
 	);
+	await morningToday.click();
+	const assignDialog = page.locator(".sched-dialog");
+	await assignDialog.getByLabel("Budi Santoso").check();
+	await assignDialog.getByRole("button", { name: "Save" }).click();
+	await morningToday.getByText("Budi Santoso").waitFor({ timeout: 15000 });
+	await text("20 shifts have nobody assigned.");
+	ok(true, "a supervisor assigns a guard to today's morning shift");
+	await page.getByRole("button", { name: "Copy last week" }).click();
+	await text("Nothing to copy: last week has no shifts that fit.");
+	await page.getByRole("button", { name: "Next week" }).click();
+	await page.getByRole("button", { name: "Copy last week" }).click();
+	await text("1 shift copied from last week.");
+	await page
+		.locator(".sched-grid tbody tr:first-child")
+		.getByText("Budi Santoso")
+		.waitFor({ timeout: 15000 });
+	ok(true, "copy last week repeats the shift in the next week");
+	await page.getByRole("button", { name: "This week" }).click();
+	await morningToday.getByText("Budi Santoso").waitFor({ timeout: 15000 });
+	await morningToday.click();
+	await assignDialog.getByLabel("Budi Santoso").uncheck();
+	await assignDialog.getByRole("button", { name: "Save" }).click();
+	await morningToday.getByText("Assign").waitFor({ timeout: 15000 });
+	ok(true, "taking the guard off the shift empties it again");
 	await page.getByRole("link", { name: "Log Database" }).click();
 	await text("Every scan, newest first.");
 	ok(true, "Log Database opens");

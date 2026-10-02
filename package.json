@@ -20,7 +20,8 @@
     "test:format": "node --experimental-strip-types --no-warnings tests/format.test.mjs",
     "test:today": "node --experimental-strip-types --no-warnings tests/today.test.mjs",
     "test:accounts": "node --experimental-strip-types --no-warnings tests/accounts.test.mjs",
-    "test:unit": "npm run test:format && npm run test:today && npm run test:accounts"
+    "test:schedule": "node --experimental-strip-types --no-warnings tests/schedule.test.mjs",
+    "test:unit": "npm run test:format && npm run test:today && npm run test:accounts && npm run test:schedule"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",

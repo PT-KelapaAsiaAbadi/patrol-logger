@@ -89,6 +89,15 @@ export interface Page<T> {
 	pageSize: number;
 }
 
+/** One guard on one shift (the Schedule page). A night shift ends the next morning. */
+export interface Shift {
+	id: string;
+	guardId: string;
+	guardName: string;
+	startsAt: string; // ISO
+	endsAt: string; // ISO
+}
+
 export interface GuardSummary {
 	guardId: string;
 	guardName: string;

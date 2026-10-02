@@ -202,6 +202,48 @@ export type Database = {
           },
         ]
       }
+      shifts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          guard_id: string
+          id: string
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          guard_id: string
+          id?: string
+          starts_at: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          guard_id?: string
+          id?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shifts_guard_id_fkey"
+            columns: ["guard_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       scan_rows: {
@@ -240,8 +282,47 @@ export type Database = {
           },
         ]
       }
+      shift_rows: {
+        Row: {
+          ends_at: string | null
+          guard_id: string | null
+          guard_name: string | null
+          id: string | null
+          starts_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_guard_id_fkey"
+            columns: ["guard_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      assign_shift: {
+        Args: { p_ends_at: string; p_guard_id: string; p_starts_at: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          guard_id: string
+          id: string
+          starts_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      copy_shifts: {
+        Args: { p_days?: number; p_from: string; p_to: string; p_tz?: string }
+        Returns: number
+      }
       create_checkpoint: {
         Args: {
           p_lat: number
@@ -328,6 +409,7 @@ export type Database = {
         }
       }
       remove_checkpoints: { Args: { p_ids: string[] }; Returns: number }
+      remove_shift: { Args: { p_id: string }; Returns: undefined }
       route_checkpoints: {
         Args: never
         Returns: {

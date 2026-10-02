@@ -906,4 +906,172 @@ section("accounts: changing phone numbers");
 	);
 }
 
+section("shifts (manual scheduling)");
+{
+	// A week well in the future, so nothing else in these tests touches it.
+	const at = (day, hour) =>
+		new Date(Date.UTC(2030, 0, day, hour)).toISOString();
+	const assign = (client, who, from, to) =>
+		client.rpc("assign_shift", {
+			p_guard_id: who,
+			p_starts_at: from,
+			p_ends_at: to,
+		});
+
+	const { data: s1, error: e1 } = await assign(
+		sup,
+		guardId,
+		at(7, 0),
+		at(7, 8),
+	);
+	ok(
+		!e1 && s1?.guard_id === guardId,
+		"a supervisor puts a guard on a shift",
+		e1?.message,
+	);
+	const { error: back } = await assign(sup, guardId, at(7, 8), at(7, 16));
+	ok(!back, "back to back with the previous shift is allowed", back?.message);
+
+	const { error: overlap } = await assign(sup, guardId, at(7, 4), at(7, 12));
+	ok(
+		overlap?.message === "shift_overlap",
+		"an overlapping shift is refused",
+		overlap?.message,
+	);
+	const { error: notGuard } = await assign(sup, supId, at(7, 0), at(7, 8));
+	ok(
+		notGuard?.message === "not_a_guard",
+		"only guards can be put on shifts",
+		notGuard?.message,
+	);
+	const { error: long } = await assign(sup, guardId, at(8, 0), at(9, 0));
+	ok(!!long, "a shift longer than 16 hours is refused");
+	const { error: backwards } = await assign(sup, guardId, at(8, 8), at(8, 0));
+	ok(!!backwards, "a shift that ends before it starts is refused");
+
+	for (const [fn, args] of [
+		[
+			"assign_shift",
+			{ p_guard_id: guardId, p_starts_at: at(9, 0), p_ends_at: at(9, 8) },
+		],
+		["remove_shift", { p_id: s1.id }],
+		["copy_shifts", { p_from: at(6, 0), p_to: at(13, 0), p_days: 7 }],
+	]) {
+		const { error } = await guard.rpc(fn, args);
+		ok(
+			error?.message === "not_allowed",
+			`a guard cannot call ${fn}`,
+			error?.message,
+		);
+	}
+	const { error: direct } = await sup.from("shifts").insert({
+		guard_id: guardId,
+		starts_at: at(10, 0),
+		ends_at: at(10, 8),
+	});
+	ok(!!direct, "not even a supervisor can write the table directly");
+
+	// Someone else's shift, written with the service key: the guard mustn't see it.
+	const { data: other } = await admin()
+		.from("shifts")
+		.insert({ guard_id: supId, starts_at: at(7, 0), ends_at: at(7, 8) })
+		.select()
+		.single();
+	const { data: mine } = await guard
+		.from("shift_rows")
+		.select("id, guard_id, guard_name")
+		.gte("starts_at", at(6, 0))
+		.lt("starts_at", at(13, 0));
+	ok(
+		mine?.length === 2 &&
+			mine.every((r) => r.guard_id === guardId) &&
+			mine[0].guard_name === "Budi Santoso",
+		"a guard reads only their own shifts, with their name",
+		JSON.stringify(mine),
+	);
+	const { data: all } = await sup
+		.from("shift_rows")
+		.select("id")
+		.gte("starts_at", at(6, 0))
+		.lt("starts_at", at(13, 0));
+	ok(all?.length === 3, "a supervisor reads everyone's", all?.length);
+	await admin().from("shifts").delete().eq("id", other.id);
+
+	const { data: copied, error: ce } = await sup.rpc("copy_shifts", {
+		p_from: at(6, 0),
+		p_to: at(13, 0),
+		p_days: 7,
+	});
+	ok(
+		!ce && copied === 2,
+		"copy last week repeats the week's shifts 7 days later",
+		ce?.message ?? copied,
+	);
+	const { data: again } = await sup.rpc("copy_shifts", {
+		p_from: at(6, 0),
+		p_to: at(13, 0),
+		p_days: 7,
+	});
+	ok(again === 0, "copying again adds nothing (no double shifts)", again);
+	const { error: bad } = await sup.rpc("copy_shifts", {
+		p_from: at(13, 0),
+		p_to: at(6, 0),
+		p_days: 7,
+	});
+	ok(
+		bad?.message === "bad_range",
+		"a backwards range is refused",
+		bad?.message,
+	);
+
+	// Copies keep their local time across a daylight-saving change (Sydney moves its clocks on
+	// 6 October 2030); Indonesia has none, but a copy must never drift.
+	const { data: before } = await assign(
+		sup,
+		guardId,
+		"2030-09-29T21:00:00.000Z", // Monday 30 September, 07:00 in Sydney (UTC+10)
+		"2030-09-30T05:00:00.000Z",
+	);
+	const { data: dstCopied } = await sup.rpc("copy_shifts", {
+		p_from: "2030-09-29T14:00:00.000Z",
+		p_to: "2030-10-06T13:00:00.000Z",
+		p_days: 7,
+		p_tz: "Australia/Sydney",
+	});
+	const { data: after } = await sup
+		.from("shift_rows")
+		.select("starts_at")
+		.eq("guard_id", guardId)
+		.gte("starts_at", "2030-10-06T00:00:00.000Z")
+		.lt("starts_at", "2030-10-08T00:00:00.000Z");
+	ok(
+		before &&
+			dstCopied === 1 &&
+			new Date(after?.[0]?.starts_at).toISOString() ===
+				"2030-10-06T20:00:00.000Z",
+		"a copied shift keeps its local start time across a clock change (07:00 stays 07:00)",
+		JSON.stringify(after),
+	);
+	const { error: tz } = await sup.rpc("copy_shifts", {
+		p_from: at(6, 0),
+		p_to: at(13, 0),
+		p_days: 7,
+		p_tz: "Mars/Olympus",
+	});
+	ok(
+		tz?.message === "bad_time_zone",
+		"an unknown time zone is refused",
+		tz?.message,
+	);
+
+	const { error: re } = await sup.rpc("remove_shift", { p_id: s1.id });
+	ok(!re, "a supervisor takes a guard off a shift", re?.message);
+	const { error: gone } = await sup.rpc("remove_shift", { p_id: s1.id });
+	ok(
+		gone?.message === "not_found",
+		"removing it twice says not found",
+		gone?.message,
+	);
+}
+
 done();

@@ -2183,67 +2183,263 @@ img {
 		}
 	}
 
-	/* Schedule (pages/supervisor/Schedule.tsx): shift chips, the legend, and today's column. */
-	.shift-chip {
-		display: inline-block;
-		min-width: 5.5rem;
-		padding: 0.15rem 0.5rem;
-		border-radius: 4px;
-		border: 1px solid transparent;
-		font-size: 0.85rem;
-		font-weight: 600;
-		text-align: center;
-		white-space: nowrap;
+	/*
+	  Schedule (pages/supervisor/Schedule.tsx): manual scheduling. Desktop: one card with a grid,
+	  a row per shift and a column per day, each cell a button listing its guards (or "Assign").
+	  Below 1024px: a strip of days, then a card per shift for the chosen day. "Check this week"
+	  lists warnings in the review colour. Assigning opens .sched-dialog.
+	*/
+	.sched-page {
+		display: grid;
+		gap: 1rem;
 	}
-	.shift-chip.is-shiftMorning {
-		background: var(--done-bg);
-		color: var(--done);
-	}
-	.shift-chip.is-shiftAfternoon {
-		background: var(--duty-bg);
-		color: var(--duty);
-	}
-	.shift-chip.is-shiftNight {
-		background: var(--ink);
-		color: var(--bg);
-	}
-	.shift-chip.is-shiftOff {
-		border: 1px dashed var(--line);
-		color: var(--muted);
-	}
-	.shift-legend {
+	.sched-head {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem 1.25rem;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 0.75rem 1rem;
+	}
+	.sched-tools {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+	}
+	.sched-weeknav {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.sched-checks {
+		display: grid;
+		gap: 0.4rem;
+		padding: 0.85rem 1rem;
+		background: var(--review-bg);
+		border: 1px solid var(--review);
+		border-radius: 12px;
+	}
+	.sched-checks h2 {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-weight: 700;
+		color: var(--review);
+	}
+	.sched-checks ul {
+		margin: 0;
+		padding-left: 1.25rem;
+		list-style: disc;
+	}
+	.sched-card {
+		overflow-x: auto;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	.sched-grid {
+		width: 100%;
+		border-collapse: collapse;
+		table-layout: fixed;
+	}
+	.sched-grid th,
+	.sched-grid td {
+		padding: 0.5rem;
+		vertical-align: top;
+		border-top: 1px solid var(--row-line);
+	}
+	.sched-grid td {
+		border-left: 1px solid var(--row-line);
+	}
+	.sched-grid thead th {
+		border-top: 0;
+		padding-block: 0.7rem;
+		background: var(--head-bg);
+		font-size: 0.8125rem;
+		font-weight: 700;
+		text-align: left;
+		color: var(--muted);
+		border-bottom: 3px solid transparent;
+	}
+	.sched-grid thead th:first-child {
+		width: 9.5rem;
+		padding-left: 1rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-size: 0.75rem;
+	}
+	.sched-grid thead th.is-today {
+		color: var(--ink);
+		border-bottom-color: var(--info);
+	}
+	.sched-grid tbody th {
+		padding: 1rem;
+		text-align: left;
+	}
+	.sched-shift-name {
+		display: block;
+		font-size: 1rem;
+		font-weight: 800;
+	}
+	.sched-grid tbody th .text-muted {
+		font-size: 0.8125rem;
+	}
+	.sched-grid td.is-today {
+		background: color-mix(in srgb, var(--info) 5%, transparent);
+	}
+	/* A cell: its guards in a blue box, or a dashed "Assign". The whole cell is the button. */
+	.sched-cell {
+		display: block;
+		width: 100%;
+		min-height: 4.5rem;
+		padding: 0.5rem 0.6rem;
+		text-align: left;
+		background: var(--info-bg);
+		border: 0;
+		border-top: 3px solid var(--info);
+		border-radius: 8px;
+		color: var(--ink);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.sched-cell ul {
+		display: grid;
+		gap: 0.2rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		font-size: 0.9rem;
+		overflow-wrap: anywhere;
 	}
-	.shift-legend li {
+	.sched-cell.is-empty {
+		display: grid;
+		place-items: center;
+		background: transparent;
+		border: 1px dashed var(--line);
+		color: var(--info);
+		font-weight: 700;
+	}
+	.sched-cell:hover {
+		filter: brightness(0.97);
+	}
+	.sched-cell.is-empty:hover {
+		background: var(--info-bg);
+	}
+	.sched-cell:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.sched-assign {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.25rem;
 	}
-	.roster-table th[scope="row"] {
-		text-align: left;
-		white-space: nowrap;
+	/* Phones and tablets: pick a day, then one card per shift. */
+	.sched-days {
+		display: grid;
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+		gap: 0.375rem;
+	}
+	.sched-day {
+		min-height: 3.5rem;
+		padding: 0.25rem;
+		border: 1px solid var(--line);
+		border-radius: 12px;
 		background: var(--surface);
 		color: var(--ink);
+		font-size: 0.8125rem;
+		font-weight: 700;
+		line-height: 1.25;
+		cursor: pointer;
 	}
-	/* Today's column: a neutral tint, so every shift colour stays readable on it. */
-	.roster-table .is-today {
-		background: color-mix(in srgb, var(--ink) 6%, transparent);
+	.sched-day.is-today {
+		border-color: var(--info);
 	}
-	.roster-table th.is-today {
-		color: var(--ink);
-		box-shadow: inset 0 3px 0 var(--ink);
+	.sched-day[aria-pressed="true"] {
+		background: var(--info);
+		border-color: var(--info);
+		color: var(--info-ink);
 	}
-
-	.notice-soon {
-		background: var(--review-bg);
-		border-color: var(--review);
-		color: var(--ink);
+	.sched-slot-card {
+		display: grid;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.sched-slot-card.is-empty {
+		border-style: dashed;
+		border-top-width: 1px;
+	}
+	.sched-slot-card .btn {
+		justify-self: start;
+	}
+	.sched-slot-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+	.sched-slot-head h2 {
+		font-size: 1.125rem;
+		font-weight: 800;
+	}
+	.sched-guards,
+	.sched-pick {
+		display: grid;
+		gap: 0.6rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.sched-guards li,
+	.sched-pick label {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		font-weight: 600;
+	}
+	.sched-guards .guard-avatar,
+	.sched-pick .guard-avatar {
+		float: none;
+		margin: 0;
+		flex: none;
+	}
+	/* The assign dialog: narrower than the add-checkpoint one it borrows its frame from (the
+	   double class outranks .add-dialog's width, which comes later in this file). */
+	.add-dialog.sched-dialog {
+		width: min(30rem, calc(100vw - 2rem));
+	}
+	.sched-dialog-body {
+		display: grid;
+		gap: 1rem;
+		padding: 1.25rem;
+	}
+	.sched-dialog-body fieldset {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		min-width: 0;
+	}
+	.sched-pick label {
+		min-height: 2.75rem;
+		cursor: pointer;
+	}
+	.sched-pick input {
+		accent-color: var(--info);
+	}
+	.sched-note {
+		display: block;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--review);
+	}
+	.sched-dialog-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
 	}
 
 	/* Supervisor admin: add guards, add checkpoints */
