@@ -116,6 +116,19 @@ export function App() {
 							</SupervisorShell>
 						</RequireRole>
 					</Route>
+					<Route path="/supervisor/map/checkpoint/:id">
+						{(params) => (
+							<RequireRole role="supervisor">
+								<SupervisorShell>
+									{/* A new key per checkpoint, so the map starts fresh on it. */}
+									<MapView
+										key={params.id}
+										focusId={params.id}
+									/>
+								</SupervisorShell>
+							</RequireRole>
+						)}
+					</Route>
 					<Route path="/supervisor/guards">
 						<RequireRole role="supervisor">
 							<SupervisorShell>

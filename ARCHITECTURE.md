@@ -345,6 +345,7 @@ Changes that break one of these are architectural changes.
 | `#/supervisor/log` | supervisor | `pages/supervisor/Log.tsx` (Log Database tab) |
 | `#/supervisor/schedule` | supervisor | `pages/supervisor/Schedule.tsx` (Schedule tab, sample data for now) |
 | `#/supervisor/map` | supervisor | `pages/supervisor/MapView.tsx` |
+| `#/supervisor/map/checkpoint/:id` | supervisor | `pages/supervisor/MapView.tsx`, opened on one checkpoint with its popup showing (the map-pin links in Today's Not yet visited; Back returns to Today) |
 | `#/supervisor/guards` | supervisor | `pages/supervisor/Guards.tsx` (Accounts tab) |
 | `#/supervisor/checkpoints` | supervisor | `pages/supervisor/Checkpoints.tsx` |
 | `#/supervisor/scans/:id` | supervisor | `pages/supervisor/ScanDetail.tsx` |

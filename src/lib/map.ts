@@ -100,6 +100,8 @@ export type OverviewItem =
 			radiusM: number;
 			visited: boolean;
 			name: string;
+			/** Frame the map on this checkpoint and open its popup (when the view is reframed). */
+			focus?: boolean;
 			popup: () => HTMLElement;
 	  }
 	| {
@@ -153,6 +155,7 @@ export function createOverviewMap(el: HTMLElement): OverviewMap {
 			const accent = cssColor(el, "--accent", "#f0a500");
 			const muted = cssColor(el, "--muted", "#56616d");
 			const points: L.LatLngTuple[] = [];
+			let focused: L.Marker | null = null;
 
 			if (path.length > 1) {
 				L.polyline(path, {
@@ -172,7 +175,7 @@ export function createOverviewMap(el: HTMLElement): OverviewMap {
 						fillOpacity: 0.08,
 						interactive: false,
 					}).addTo(layer);
-					L.marker([item.lat, item.lng], {
+					const marker = L.marker([item.lat, item.lng], {
 						icon: L.divIcon({
 							className: `map-pin${item.visited ? " is-visited" : ""}`,
 							iconSize: [26, 26],
@@ -185,6 +188,7 @@ export function createOverviewMap(el: HTMLElement): OverviewMap {
 					})
 						.bindPopup(item.popup)
 						.addTo(layer);
+					if (item.focus) focused = marker;
 				} else {
 					if (item.tone === "far" && item.checkpoint) {
 						L.polyline(
@@ -220,7 +224,10 @@ export function createOverviewMap(el: HTMLElement): OverviewMap {
 
 			if ((reframe || !fitted) && points.length) {
 				fitted = true;
-				if (points.length === 1) map.setView(points[0], 17);
+				if (focused) {
+					map.setView(focused.getLatLng(), 18);
+					focused.openPopup();
+				} else if (points.length === 1) map.setView(points[0], 17);
 				else map.fitBounds(points, { padding: [30, 30], maxZoom: 18 });
 			}
 		},

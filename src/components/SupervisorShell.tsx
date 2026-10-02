@@ -65,7 +65,8 @@ const MAP: Destination = {
 	href: "/supervisor/map",
 	icon: Map,
 	label: "navMap",
-	current: (l) => l === "/supervisor/map",
+	// Includes a map opened on one checkpoint (from Today).
+	current: (l) => l.startsWith("/supervisor/map"),
 };
 const ACCOUNTS: Destination = {
 	href: "/supervisor/guards",

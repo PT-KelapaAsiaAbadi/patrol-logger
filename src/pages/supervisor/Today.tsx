@@ -49,7 +49,7 @@ import {
 import type { Lang } from "../../i18n";
 import { initials } from "../../lib/personName";
 import { LocationBadge } from "../../components/LocationBadge";
-import { ICON } from "../../components/IconButton";
+import { ICON, IconLink } from "../../components/IconButton";
 import { LoadError } from "./Log";
 
 /** How often the page fetches fresh data while it's open. */
@@ -257,24 +257,24 @@ export function Today() {
 												</span>
 											</td>
 											<td class="c-end">
-												<span class="loc-line">
-													{c.location ? (
-														<MapPin
-															size={15}
-															aria-hidden="true"
-														/>
-													) : (
+												{/* Opens the Map on this checkpoint; Back returns here. */}
+												{c.location ? (
+													<IconLink
+														icon={MapPin}
+														label={t("showOnMap", {
+															name: c.name,
+														})}
+														href={`/supervisor/map/checkpoint/${c.id}`}
+													/>
+												) : (
+													<span class="loc-line">
 														<MapPinOff
 															size={15}
 															aria-hidden="true"
 														/>
-													)}
-													{t(
-														c.location
-															? "pinnedOnMap"
-															: "locationNotSet",
-													)}
-												</span>
+														{t("locationNotSet")}
+													</span>
+												)}
 											</td>
 										</tr>
 									))}
