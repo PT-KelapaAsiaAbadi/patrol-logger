@@ -192,20 +192,68 @@ Scans that are far away are **flagged, not rejected**: GPS is often weak or miss
 
 Row Level Security: guards read only their own profile, scans and reports; supervisors read everything. Guards never see manual codes. No table accepts writes from the app directly: every write goes through a function that checks the caller.
 
-## TODO
+## Status and TODO
 
-Open work before real use. `TODO:` comments in the code are highlighted by the TODO Highlight extension (`.vscode/settings.json`).
+What the prototype does today, what's still to build, and what's waiting on a decision. `TODO:` comments in the code are highlighted by the TODO Highlight extension (`.vscode/settings.json`).
 
-### Launch
+### Built
+
+**Guard app** (phone only)
+
+- [x] Sign in with phone number and password (show/hide password).
+- [x] Today's round: every checkpoint in round order, ticked once scanned, with progress.
+- [x] Scan a QR sticker with the camera, or type the code printed under it. A flashlight button where the browser can switch the torch (Chromium browsers on Android).
+- [x] GPS position sent with each scan; a scan far from its checkpoint is logged but flagged, and the guard is told.
+- [x] Report on a scan: a note and photos (shrunk before upload).
+- [x] Works offline: scans and reports wait on the phone (IndexedDB) and send when there's signal; Try again and Discard for ones the server refused; signing out warns about anything unsent.
+- [x] Installable app (PWA); a new version switches in only on a screen where a reload loses nothing.
+
+**Supervisor screens** (phone, tablet and desktop layouts)
+
+- [x] Today: Needs review (far, no GPS, has a report, sent late, too fast), Not yet visited, Completed checkpoints, Guards on duty (Patrolling, Quiet, Not started). Refreshes every minute and when the tab comes back.
+- [x] Log Database: every scan, filtered by date, guard and checkpoint, paged, with CSV export.
+- [x] Scan detail: time, guard, location check, report and photos, map links.
+- [x] Map: one day's checkpoints and scans; one guard's route in time order.
+- [x] Accounts: add one or import a CSV, a new password, change a number, deactivate.
+- [x] Checkpoints and QR: add (a location is required: map, address search, own position or coordinates), rename, reorder, take out of use, move a pin, replace a sticker, remove; select some to print a QR sheet or download it as a PDF; a QR panel beside the table on desktop.
+
+**Both**
+
+- [x] Bahasa Indonesia and English; system, light and dark themes; 44 px tap targets on touch screens.
+
+**Backend and checks**
+
+- [x] Row Level Security on every table; every write goes through a server function that checks the caller.
+- [x] Signed QR codes (HMAC, key in Vault); "Replace sticker" invalidates every copy of the old one.
+- [x] Report photos in a private bucket, shown through short-lived signed URLs.
+- [x] Accounts managed through Edge Functions (`create-guards`, `reset-password`, `staff-phone`).
+- [x] CI: lint, formatting, type check, build, then unit, backend, browser, camera and location tests against a local Supabase.
+
+### Not built yet
+
+**Launch**
 
 - [ ] Implement one-time codes to confirm a staff member's number. Removed for now because PatrolLogger's phone provider has placeholder Twilio values (sign-in only, see "Hosted project"). Needs a real provider's details, or a Send SMS hook that delivers codes another way. The UI is in place but disabled: the "Send a one-time code" option ([src/pages/supervisor/Guards.tsx](src/pages/supervisor/Guards.tsx)) and the "Confirm number" button ([src/pages/supervisor/AccountsTable.tsx](src/pages/supervisor/AccountsTable.tsx)). `profiles.phone_verified_at` is ready and always null for now. A working version, with tests, is in commit `947b3c6`: `staff-phone` `send_code` / `verify_code`, `sendCode` in `create-guards`, `PhoneCode.tsx`, and fixed local test codes in `config.toml`. Until then, check numbers in person.
-
 - [ ] Deploy the backend to PatrolLogger (commands above), then in the dashboard: turn off sign-up, turn on the Phone provider with an SMS provider, set the minimum password length to 10 and the site URL to the app's address, give existing accounts a phone number or create the first supervisor.
+- [ ] **Run the two newest migrations on PatrolLogger.** [20260930120000_checkpoint_location_required.sql](supabase/migrations/20260930120000_checkpoint_location_required.sql) deletes checkpoints without a location that were never scanned, removes those that were (their scans keep them), then refuses a checkpoint in use without a location and makes `p_lat` / `p_lng` required in `create_checkpoint`. Before running it: deploy the app version that always sends a location (older ones add checkpoints by name alone), and pin any unpinned checkpoint you want to keep. [20260930130000_contiguous_stop_numbers.sql](supabase/migrations/20260930130000_contiguous_stop_numbers.sql) keeps stop numbers 1, 2, 3… with no gaps after a removal.
 - [ ] Host the app over https (Netlify, Cloudflare Pages or Vercel) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` set in the host's build settings.
 - [ ] Test on real phones at the site: a cheap Android and an iPhone, installed from the browser, scanning printed stickers, offline in basements and stairwells.
 - [ ] Run Supabase's Security and Performance Advisors on the hosted project.
 
-### Operations
+**Screens**
+
+- [ ] **Schedule** shows a sample weekly roster (tagged as sample data; "Add shift" disabled). To build: a `shifts` table (guard, start, end; night shifts cross midnight) written through supervisor-checked functions; add, edit, copy last week and remove shifts; move between weeks ([src/pages/supervisor/Schedule.tsx](src/pages/supervisor/Schedule.tsx)). Depends on the shift decisions below.
+- [ ] **Today: Guards on duty** shows every active guard from their last scan. Once shifts exist, show who is scheduled now, and a "Late start" for a shift that began with no scans.
+- [ ] **Today: Needs review** lists every flagged scan until the day ends. Add a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans) so handled ones drop off. Rules and thresholds: [src/lib/today.ts](src/lib/today.ts).
+- [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
+- [ ] Phone layouts for the Log, Accounts and Schedule tables (they scroll sideways on a phone for now).
+
+**Database tidy-ups**
+
+- [ ] **Checkpoint names:** the app allows 3 to 50 characters, no repeats (ignoring case), and at least one letter or digit ([src/lib/checkpointName.ts](src/lib/checkpointName.ts)). The database still allows up to 80. Tighten it once hosted names have been checked against the new rule.
+- [ ] **Account names and phones:** full names are 1 to 70 characters of letters, spaces and `. , ' -` ([src/lib/personName.ts](src/lib/personName.ts)); phones are stored as text in E.164 digits (no `+`), Indonesian mobiles only 10 to 13 digits as typed ([src/lib/phone.ts](src/lib/phone.ts)). Both are checked again on the server (`_shared/names.ts`, `_shared/phone.ts`). The database's `profiles` checks are looser (names up to 120; any 8 to 15 digits): tighten them once hosted accounts have been checked. If many numbers from other countries get registered, validate with `libphonenumber-js` instead of the 8 to 15 digit rule (roughly 80 KB or more on guards' prepaid data).
+
+**Operations**
 
 - [ ] Error reporting (for example Sentry), so failures on guards' phones are visible.
 - [ ] Supabase plan with restorable backups.
@@ -214,26 +262,27 @@ Open work before real use. `TODO:` comments in the code are highlighted by the T
 - [ ] How one-time passwords reach guards, and when the password CSV is deleted.
 - [ ] One-page guard guide (Indonesian) and a supervisor guide.
 
-### Supervisor screens
+### Not decided yet
 
-Dashboard refactor (branch `refactor/dashboard-rework`), done step by step:
+**Per-guard checkpoints and shifts** (the owner's new requirement: each guard has a schedule, and may cover a different set of checkpoints). Questions for the owner before building:
 
-- [ ] **Today: Guards on duty** shows every active guard as Patrolling, Quiet or Not started from their last scan. Once shifts exist, show who is scheduled now (see Schedule below).
-- [ ] **Today: Needs review** lists every flagged scan until the day ends. Add a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans) so handled ones drop off. Rules and thresholds: [src/lib/today.ts](src/lib/today.ts).
-- [ ] **Schedule** tab shows a sample weekly roster (tagged as sample data; "Add shift" disabled). To build: a `shifts` table (guard, start, end; night shifts cross midnight) written through supervisor-checked functions; add, edit, copy last week and remove shifts; move between weeks. Then Today's Guards on duty can show who is scheduled now, and missed checkpoints can be counted per shift. Shift names and times to agree with the owner (the sample uses 07-15, 15-23, 23-07) ([src/pages/supervisor/Schedule.tsx](src/pages/supervisor/Schedule.tsx)).
-- [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
-- [ ] **Every checkpoint needs a location: run the migration on PatrolLogger.** The app requires a location when adding a checkpoint and can only move a pin, not remove it (to take a location away, remove the checkpoint). [supabase/migrations/20260930120000_checkpoint_location_required.sql](supabase/migrations/20260930120000_checkpoint_location_required.sql) makes the database agree: it deletes checkpoints without a location that were never scanned, removes those that were (their scans keep them), then refuses a checkpoint in use without a location and makes `p_lat` / `p_lng` required in `create_checkpoint`. Before running it: deploy the app version that always sends a location (older ones add checkpoints by name alone), and pin any unpinned checkpoint you want to keep.
-- [ ] **Checkpoint names:** the app allows 3 to 50 characters, no repeats (ignoring case), and at least one letter or digit ([src/lib/checkpointName.ts](src/lib/checkpointName.ts)). The database still allows up to 80. Tighten it once hosted names have been checked against the new rule.
-- [ ] **Account names and phones:** full names are 1 to 70 characters of letters, spaces and `. , ' -` ([src/lib/personName.ts](src/lib/personName.ts)); phones are stored as text in E.164 digits (no `+`), Indonesian mobiles only 10 to 13 digits as typed ([src/lib/phone.ts](src/lib/phone.ts)). Both are checked again on the server (`_shared/names.ts`, `_shared/phone.ts`). The database's `profiles` checks are looser (names up to 120; any 8 to 15 digits): tighten them once hosted accounts have been checked. If many numbers from other countries get registered, validate with `libphonenumber-js` instead of the 8 to 15 digit rule (roughly 80 KB or more on guards' prepaid data).
+- [ ] Is a guard's checkpoint list fixed, or chosen per shift (for example 1-3 on mornings, 6-8 on nights)? Proposed: named routes, assigned per shift, defaulting to the guard's usual one.
+- [ ] Does each guard walk the checkpoints in their own order?
+- [ ] When two guards share a checkpoint, does one scan count for both, or must each scan it?
+- [ ] A scan of a checkpoint not on the guard's list, or outside their shift: proposed to accept and flag it (rejecting would break scans sent later from offline).
+- [ ] Rounds per shift: once, or every few hours?
+- [ ] What a guard with no shift right now sees.
+- [ ] Shift names and times (the sample uses 07-15, 15-23, 23-07). Until shifts exist, "missed checkpoints" is per calendar day, so a night shift over midnight is split.
 
-### Decisions (not built)
+**Several sites** (each with its own guards, supervisors, checkpoints and logs). Proposed: one Supabase project per client company, several sites inside each, and an admin role across sites. Open: whether a supervisor covers several sites, whether guards move between sites, hosting region.
 
-- [ ] Shifts: "missed checkpoints" is per calendar day, so a night shift over midnight is split and rounds within a shift aren't tracked.
-- [ ] Several sites or routes (there's one route for everyone).
+**Other**
+
 - [ ] Alerts to supervisors for incident reports or missed checkpoints.
 - [ ] Time zones: "today" is the supervisor's device's day; wrong if sites span WIB, WITA and WIT.
 - [ ] One-time codes by WhatsApp instead of SMS (Supabase supports it only through Twilio or Twilio Verify, with a WhatsApp sender approved by Meta).
 - [ ] Self-service password reset with a texted code (the SMS provider is in place; needs a screen and a rule for who may use it).
+- [ ] Live updates on Today (Supabase Realtime) instead of a refresh every minute.
 
 ### Portability: phone sign-in without Supabase
 

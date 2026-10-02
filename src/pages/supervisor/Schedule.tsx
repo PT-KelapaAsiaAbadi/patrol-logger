@@ -10,7 +10,7 @@
  *   - Today's "Guards on duty" then lists who is scheduled now, and "Not yet visited" / missed
  *     checkpoints can be counted per shift instead of per calendar day
  *   - decide shift names and times with the owner (the sample uses 07-15, 15-23, 23-07)
- * See README > TODO > Decisions (Shifts).
+ * See README > Status and TODO > Not decided yet (per-guard checkpoints and shifts).
  */
 import { useApp } from "../../state";
 import {
