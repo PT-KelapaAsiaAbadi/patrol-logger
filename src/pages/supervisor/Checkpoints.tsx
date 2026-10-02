@@ -51,11 +51,13 @@ export function Checkpoints() {
 	);
 	// Same breakpoint as the desktop header (index.css).
 	const desktop = useMediaQuery("(min-width: 1024px)");
+
 	// Desktop only: the add-checkpoint dialog is open, and the last checkpoint it added.
 	const [adding, setAdding] = useState(false);
 	const [addedName, setAddedName] = useState<string | null>(null);
 	const addButton = useRef<HTMLButtonElement>(null);
 	const wasAdding = useRef(false);
+
 	// Closing the card hands focus back to the button that opened it.
 	useEffect(() => {
 		if (wasAdding.current && !adding) addButton.current?.focus();
@@ -91,7 +93,7 @@ export function Checkpoints() {
 		try {
 			const { labelsPdf } = await import("../../lib/labelsPdf");
 			saveFile(
-				"label-titik-patroli.pdf",
+				"patroli-checkpoints.pdf",
 				await labelsPdf(chosen),
 				"application/pdf",
 			);
