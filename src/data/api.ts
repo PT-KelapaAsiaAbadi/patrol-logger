@@ -456,7 +456,7 @@ export const updateCheckpoint = (
 
 export const setCheckpointLocation = (
 	id: string,
-	location: CheckpointLocation | null,
+	location: CheckpointLocation,
 ) => needsNetwork(() => backend.setCheckpointLocation(id, location));
 
 export const removeCheckpoints = (ids: string[]) =>
@@ -518,3 +518,20 @@ export {
 	clearRejected,
 	onOutboxChange,
 } from "./queue";
+
+// ---------- shifts (supervisor, online only) ----------
+
+export const listShifts = (from: string, to: string) =>
+	needsNetwork(() => backend.listShifts(from, to));
+
+export const assignShift = (
+	guardId: string,
+	startsAt: string,
+	endsAt: string,
+) => needsNetwork(() => backend.assignShift(guardId, startsAt, endsAt));
+
+export const removeShift = (id: string) =>
+	needsNetwork(() => backend.removeShift(id));
+
+export const copyShifts = (from: string, to: string) =>
+	needsNetwork(() => backend.copyShifts(from, to));

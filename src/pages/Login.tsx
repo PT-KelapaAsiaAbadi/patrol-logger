@@ -1,14 +1,15 @@
 /**
  * The sign-in screen (phone number and password). Afterwards guards go to their round and
- * supervisors to the log. There's no sign-up: a supervisor creates every account.
+ * supervisors to Today. There's no sign-up: a supervisor creates every account.
+ * Looks like the supervisor pages: blue, a card with the form (index.css, "Sign-in page").
  */
 import { useState } from "preact/hooks";
 import { useLocation } from "wouter-preact";
 import { useApp } from "../state";
 import * as api from "../data/api";
-import { ICON } from "../components/IconButton";
+import { ICON, IconButton } from "../components/IconButton";
 import { keepPhoneChars, PHONE_INPUT_MAX } from "../lib/phone";
-import { LogIn } from "lucide-preact";
+import { Eye, EyeOff, LogIn, ShieldCheck } from "lucide-preact";
 
 /**
  * Login page for both Guards and Supervisors (they share the same one).
@@ -19,6 +20,7 @@ export function Login() {
 
 	const [phone, setPhone] = useState("");
 	const [password, setPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<"wrong" | "unreachable" | null>(null);
@@ -42,67 +44,97 @@ export function Login() {
 	}
 
 	return (
-		<main class="mx-auto w-full max-w-sm px-5 pt-10 pb-12">
-			<h1 class="text-2xl font-bold mb-6">{t("signInTitle")}</h1>
+		<main class="login-page">
+			<div class="login-inner">
+				<div class="login-head">
+					<span
+						class="login-badge"
+						aria-hidden="true">
+						<ShieldCheck size={28} />
+					</span>
+					<h1 class="dash-title">{t("signInTitle")}</h1>
+					<p class="text-muted">{t("signInHint")}</p>
+				</div>
 
-			<form
-				class="grid gap-4"
-				onSubmit={(e) => {
-					e.preventDefault();
-					void submit();
-				}}>
-				<label class="grid gap-1">
-					<span class="font-medium">{t("phone")}</span>
-					{/* "username" so password managers save the number with the password */}
-					<input
-						class="field"
-						type="tel"
-						inputMode="tel"
-						autoComplete="username"
-						placeholder={t("phonePlaceholder")}
-						required
-						maxLength={PHONE_INPUT_MAX}
-						value={phone}
-						onInput={(e) => {
-							const kept = keepPhoneChars(e.currentTarget.value);
-							e.currentTarget.value = kept;
-							setPhone(kept);
-						}}
-					/>
-				</label>
-				<label class="grid gap-1">
-					<span class="font-medium">{t("password")}</span>
-					<input
-						class="field"
-						type="password"
-						autoComplete="current-password"
-						autoCapitalize="none"
-						required
-						value={password}
-						onInput={(e) => setPassword(e.currentTarget.value)}
-					/>
-				</label>
-				{error && (
-					<p
-						class="notice notice-warn"
-						role="alert">
-						{t(
-							error === "wrong"
-								? "signInError"
-								: "signInUnreachable",
-						)}
-					</p>
-				)}
-				<button
-					class="btn btn-primary btn-lg"
-					disabled={busy}>
-					<LogIn
-						size={ICON}
-						aria-hidden="true"
-					/>
-					{busy ? t("signingIn") : t("signIn")}
-				</button>
-			</form>
+				<form
+					class="login-card"
+					onSubmit={(e) => {
+						e.preventDefault();
+						void submit();
+					}}>
+					<label class="grid gap-1">
+						<span class="font-medium">{t("phone")}</span>
+						{/* Autofill hint: marks this as the login, so password managers save and fill it with
+						    the password. The login is a phone number; "username" is the standard name. */}
+						<input
+							class="field"
+							type="tel"
+							inputMode="tel"
+							autoComplete="username"
+							placeholder={t("phonePlaceholder")}
+							required
+							maxLength={PHONE_INPUT_MAX}
+							value={phone}
+							onInput={(e) => {
+								const kept = keepPhoneChars(
+									e.currentTarget.value,
+								);
+								e.currentTarget.value = kept;
+								setPhone(kept);
+							}}
+						/>
+					</label>
+					<div class="password-wrap">
+						<label class="grid gap-1">
+							<span class="font-medium">{t("password")}</span>
+							{/* The show/hide button sits beside the label, not inside it, so it isn't part of
+						    the field's name and pressing it doesn't focus the field. */}
+							<input
+								class="field password-input"
+								type={showPassword ? "text" : "password"}
+								autoComplete="current-password"
+								autoCapitalize="none"
+								autoCorrect="off"
+								spellcheck={false}
+								required
+								value={password}
+								onInput={(e) =>
+									setPassword(e.currentTarget.value)
+								}
+							/>
+						</label>
+						<IconButton
+							icon={showPassword ? EyeOff : Eye}
+							class="password-toggle"
+							label={t(
+								showPassword ? "hidePassword" : "showPassword",
+							)}
+							onClick={() => setShowPassword((s) => !s)}
+						/>
+					</div>
+					{error && (
+						<p
+							class="notice notice-warn"
+							role="alert">
+							{t(
+								error === "wrong"
+									? "signInError"
+									: "signInUnreachable",
+							)}
+						</p>
+					)}
+					<button
+						class="btn btn-primary btn-lg w-full"
+						disabled={busy}>
+						<LogIn
+							size={ICON}
+							aria-hidden="true"
+						/>
+						{busy ? t("signingIn") : t("signIn")}
+					</button>
+				</form>
+				<p class="login-foot">{t("forgotPassword")}</p>
+			</div>
 		</main>
 	);
 }

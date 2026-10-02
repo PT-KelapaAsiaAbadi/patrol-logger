@@ -1,16 +1,28 @@
 /**
- * The Checkpoints tab: add a checkpoint, manage the round (RouteTable), and print or download
- * QR sticker sheets for the selected checkpoints.
+ * The Checkpoints tab: add a checkpoint, manage the round (RouteTable), and print or download (as
+ * a PDF) the QR stickers of the selected checkpoints. Their QR codes show in a panel (index.css,
+ * "Checkpoints page"):
+ *   - desktop: Download as PDF and Print selected sit beside Add checkpoint; from 1280px the panel
+ *     is a column beside the table, always there and as tall as it, empty until something is
+ *     selected and scrolling when several are
+ *   - phones and tablets: Download as PDF and Print sit under Remove selected, and the panel
+ *     appears below the table once something is selected
+ * Adding a checkpoint: on a desktop, a button beside the title opens a wide dialog with the form
+ * on the left and the map on the right; on phones and tablets the form is a card on the page and the
+ * map opens in its own dialog.
  */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../../state";
-import { useAsync } from "../../hooks";
+import { useAsync, useMediaQuery } from "../../hooks";
 import * as api from "../../data/api";
 import { labelsDocument, qrImage } from "../../lib/labels";
 import { saveFile } from "../../lib/download";
 import { printDocument } from "../../lib/print";
 import type { Checkpoint, CheckpointLocation } from "../../types";
-import { LocationPicker } from "../../components/LocationPicker";
+import {
+	LocationFields,
+	LocationPicker,
+} from "../../components/LocationPicker";
 import {
 	CHECKPOINT_NAME_MAX,
 	CHECKPOINT_NAME_MIN,
@@ -20,13 +32,37 @@ import {
 import { formatLocation } from "./RouteTable";
 import { LoadError } from "./Log";
 import { RouteTable } from "./RouteTable";
-import { ICON } from "../../components/IconButton";
-import { Download, MapPinPen, MapPinPlus, Plus, Printer } from "lucide-preact";
+import { ICON, IconButton } from "../../components/IconButton";
+import {
+	FileDown,
+	MapPinPen,
+	MapPinPlus,
+	Plus,
+	Printer,
+	QrCode,
+	X,
+} from "lucide-preact";
 
 export function Checkpoints() {
 	const { t } = useApp();
 	const [selected, setSelected] = useState<Set<string>>(new Set());
-	const [saved, setSaved] = useState(false);
+	const [pdf, setPdf] = useState<"idle" | "busy" | "saved" | "failed">(
+		"idle",
+	);
+	// Same breakpoint as the desktop header (index.css).
+	const desktop = useMediaQuery("(min-width: 1024px)");
+
+	// Desktop only: the add-checkpoint dialog is open, and the last checkpoint it added.
+	const [adding, setAdding] = useState(false);
+	const [addedName, setAddedName] = useState<string | null>(null);
+	const addButton = useRef<HTMLButtonElement>(null);
+	const wasAdding = useRef(false);
+
+	// Closing the card hands focus back to the button that opened it.
+	useEffect(() => {
+		if (wasAdding.current && !adding) addButton.current?.focus();
+		wasAdding.current = adding;
+	}, [adding]);
 	const labels = useAsync(async () => {
 		const cps = await api.allCheckpoints();
 		return Promise.all(
@@ -40,183 +76,235 @@ export function Checkpoints() {
 	const all = labels.data ?? [];
 	const items = all.filter(({ cp }) => cp.active); // only checkpoints in use get printed
 	const chosen = items.filter(({ cp }) => selected.has(cp.id));
-	const allChosen = items.length > 0 && chosen.length === items.length;
-
-	const allBox = useRef<HTMLInputElement>(null);
-	useEffect(() => {
-		if (allBox.current)
-			allBox.current.indeterminate = chosen.length > 0 && !allChosen;
-	});
+	// Selected but out of use: listed in the panel as not printed.
+	const notPrinted = all.filter(
+		({ cp }) => !cp.active && selected.has(cp.id),
+	).length;
+	const anySelected = chosen.length + notPrinted > 0;
 
 	function select(next: Set<string>) {
 		setSelected(next);
-		setSaved(false);
+		setPdf("idle");
 	}
 
-	function toggle(id: string) {
-		const next = new Set(selected);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		select(next);
+	/** The sticker sheet as a PDF. pdf-lib is only downloaded now, the first time it's needed. */
+	async function downloadPdf() {
+		setPdf("busy");
+		try {
+			const { labelsPdf } = await import("../../lib/labelsPdf");
+			saveFile(
+				"patroli-checkpoints.pdf",
+				await labelsPdf(chosen),
+				"application/pdf",
+			);
+			setPdf("saved");
+		} catch {
+			setPdf("failed");
+		}
 	}
 
-	function download() {
-		saveFile(
-			"label-titik-patroli.html",
-			labelsDocument(chosen),
-			"text/html",
-		);
-		setSaved(true);
-	}
+	/** Download as PDF, then Print: in the desktop header, or under the QR codes on a phone. */
+	const printButtons = (
+		<>
+			<button
+				type="button"
+				class="btn btn-outline"
+				disabled={chosen.length === 0 || pdf === "busy"}
+				onClick={() => void downloadPdf()}>
+				<FileDown
+					size={ICON}
+					aria-hidden="true"
+				/>
+				{pdf === "busy" ? t("makingPdf") : t("downloadPdf")}
+			</button>
+			<button
+				type="button"
+				class={desktop ? "btn btn-outline" : "btn btn-primary"}
+				disabled={chosen.length === 0}
+				onClick={() => printDocument(labelsDocument(chosen))}>
+				<Printer
+					size={ICON}
+					aria-hidden="true"
+				/>
+				{desktop
+					? t("printSelectedPlain")
+					: t("printSelected", { n: chosen.length })}
+			</button>
+		</>
+	);
+	const pdfStatus =
+		pdf === "saved" ? (
+			<span
+				class="text-muted"
+				role="status">
+				{t("downloaded")}
+			</span>
+		) : pdf === "failed" ? (
+			<span
+				class="text-warn"
+				role="alert">
+				{t("pdfFailed")}
+			</span>
+		) : null;
 
 	return (
-		<>
-			<h1 class="text-xl font-bold">{t("navCheckpoints")}</h1>
-			<p class="mt-2 max-w-prose text-muted">{t("qrIntro")}</p>
-
-			<AddCheckpoint
-				existing={all.map(({ cp }) => cp)}
-				onAdded={(cp) => {
-					select(new Set(selected).add(cp.id)); // ready to print straight away
-					labels.reload();
-				}}
-			/>
-
-			{labels.error && (
-				<div class="mt-4">
-					<LoadError onRetry={labels.reload} />
+		<div class="cp-page">
+			<header class="cp-head">
+				<div class="grid gap-1 min-w-0">
+					<h1 class="dash-title">{t("navCheckpoints")}</h1>
+					<p class="text-muted max-w-prose">{t("qrIntro")}</p>
 				</div>
+				{desktop && (
+					<div class="cp-head-actions">
+						{pdfStatus}
+						{printButtons}
+						{/* Hidden while the dialog is open, so one "Add checkpoint" button shows at a time. */}
+						{!adding && (
+							<button
+								ref={addButton}
+								type="button"
+								class="btn btn-primary"
+								aria-haspopup="dialog"
+								onClick={() => {
+									setAddedName(null);
+									setAdding(true);
+								}}>
+								<Plus
+									size={ICON}
+									aria-hidden="true"
+								/>
+								{t("addCheckpoint")}
+							</button>
+						)}
+					</div>
+				)}
+			</header>
+
+			{desktop && addedName && (
+				<p
+					class="notice notice-ok"
+					role="status">
+					{t("checkpointAdded", { name: addedName })}
+				</p>
 			)}
+
+			{/* One place in the tree for both layouts, so what's typed survives a tablet turning past
+			    the desktop breakpoint. */}
+			{(!desktop || adding) && (
+				<AddCheckpoint
+					dialog={desktop}
+					onClose={() => setAdding(false)}
+					existing={all.map(({ cp }) => cp)}
+					onAdded={(cp) => {
+						select(new Set(selected).add(cp.id)); // ready to print straight away
+						labels.reload();
+						if (desktop) {
+							setAdding(false);
+							setAddedName(cp.name);
+						}
+					}}
+				/>
+			)}
+
+			{labels.error && <LoadError onRetry={labels.reload} />}
 			{labels.loading && !labels.data && (
-				<p class="mt-6 text-muted">{t("loading")}</p>
+				<p class="text-muted">{t("loading")}</p>
 			)}
 			{labels.data &&
 				(all.length === 0 ? (
-					<p class="mt-6 text-muted">{t("noCheckpoints")}</p>
+					<p class="text-muted">{t("noCheckpoints")}</p>
 				) : (
-					<>
-						<RouteTable
-							checkpoints={all.map(({ cp }) => cp)}
-							selected={selected}
-							onSelect={select}
-							onChanged={(reissued) => {
-								// A replaced sticker must be printed straight away.
-								if (reissued)
-									select(new Set(selected).add(reissued.id));
-								labels.reload();
-							}}
-						/>
-
-						<h2 class="text-lg font-semibold mt-10">
-							{t("printTitle")}
-						</h2>
-						<div class="label-toolbar mt-3">
-							<label class="inline-flex items-center gap-2 font-medium">
-								<input
-									ref={allBox}
-									type="checkbox"
-									class="size-5"
-									checked={allChosen}
-									onChange={() =>
-										select(
-											allChosen
-												? new Set()
-												: new Set(
-														items.map(
-															({ cp }) => cp.id,
-														),
-													),
-										)
-									}
-								/>
-								{t("selectAll")}
-							</label>
-							<span
-								class="text-muted tabular-nums"
-								aria-live="polite">
-								{t("selectedCount", {
-									n: chosen.length,
-									total: items.length,
-								})}
-							</span>
-							<span class="flex flex-wrap items-center gap-3 sm:ml-auto">
-								<button
-									type="button"
-									class="btn btn-primary"
-									disabled={chosen.length === 0}
-									onClick={() =>
-										printDocument(labelsDocument(chosen))
-									}>
-									<Printer
-										size={ICON}
-										aria-hidden="true"
-									/>
-									{t("printSelected", { n: chosen.length })}
-								</button>
-								<button
-									type="button"
-									class="btn btn-quiet"
-									disabled={chosen.length === 0}
-									onClick={download}>
-									<Download
-										size={ICON}
-										aria-hidden="true"
-									/>
-									{t("downloadLabels")}
-								</button>
-								{saved && (
-									<span
-										class="text-muted"
-										role="status">
-										{t("downloaded")}
-									</span>
-								)}
-							</span>
-						</div>
-
-						<ul
-							class={`sticker-grid mt-4 ${labels.loading ? "opacity-60 transition-opacity" : ""}`}>
-							{items.map(({ cp, img }) => (
-								<li key={cp.id}>
-									<label
-										class={`sticker ${selected.has(cp.id) ? "is-selected" : ""}`}>
-										<input
-											type="checkbox"
-											class="sticker-check"
-											checked={selected.has(cp.id)}
-											onChange={() => toggle(cp.id)}
+					<RouteTable
+						checkpoints={all.map(({ cp }) => cp)}
+						selected={selected}
+						onSelect={select}
+						onChanged={(reissued) => {
+							// A replaced sticker must be printed straight away.
+							if (reissued)
+								select(new Set(selected).add(reissued.id));
+							labels.reload();
+						}}
+						// Always there on a desktop (empty until something is selected); on phones only
+						// once something is.
+						aside={
+							(desktop || anySelected) && (
+								<aside
+									class={`qr-panel ${anySelected ? "" : "is-empty"} ${labels.loading ? "opacity-60 transition-opacity" : ""}`}
+									aria-labelledby="qr-h">
+									<h2
+										id="qr-h"
+										class="cp-section-title">
+										<QrCode
+											size={20}
+											aria-hidden="true"
 										/>
-										<img
-											src={img}
-											alt={`QR ${cp.name}`}
-										/>
-										<p class="sticker-name">{cp.name}</p>
-										<p class="sticker-code">
-											{cp.manualCode}
+										{t("qrPanelTitle")}
+									</h2>
+									{chosen.length > 0 && (
+										<ul class="qr-list">
+											{chosen.map(({ cp, img }) => (
+												<li
+													key={cp.id}
+													class="qr-sticker">
+													<img
+														src={img}
+														alt={`QR ${cp.name}`}
+													/>
+													<p class="qr-name">
+														{cp.name}
+													</p>
+													<p class="qr-code">
+														{cp.manualCode}
+													</p>
+													<p class="qr-order">
+														{t("routeOrder", {
+															n: cp.routeOrder,
+														})}
+													</p>
+												</li>
+											))}
+										</ul>
+									)}
+									{notPrinted > 0 && (
+										<p class="text-sm text-muted">
+											{t("notPrinted", { n: notPrinted })}
 										</p>
-										<p class="sticker-order">
-											{t("routeOrder", {
-												n: cp.routeOrder,
-											})}
-										</p>
-									</label>
-								</li>
-							))}
-						</ul>
-					</>
+									)}
+								</aside>
+							)
+						}
+						// Phones and tablets: under Remove selected (desktop has them in the header).
+						actions={
+							!desktop && (
+								<>
+									{printButtons}
+									{pdfStatus}
+								</>
+							)
+						}
+					/>
 				))}
-		</>
+		</div>
 	);
 }
 
 /**
  * Adds a checkpoint. A name and a map location are both required: the location is what scans are
  * checked against, so a checkpoint without one can't flag a guard who scanned from elsewhere.
+ *   - `dialog` (desktop): a wide dialog, the form on the left and the map on the right; picking a
+ *     spot fills in the location straight away. It closes once the checkpoint is added.
+ *   - otherwise (phones and tablets): a card on the page; "Set location" opens the map in its own
+ *     dialog with Save and Cancel.
  */
 function AddCheckpoint({
+	dialog,
+	onClose,
 	existing,
 	onAdded,
 }: {
+	dialog: boolean;
+	/** Closes the desktop dialog. */
+	onClose: () => void;
 	/** The checkpoints already in the round, to catch a repeated name. */
 	existing: Checkpoint[];
 	onAdded: (cp: Checkpoint) => void;
@@ -231,6 +319,15 @@ function AddCheckpoint({
 	const [outcome, setOutcome] = useState<
 		{ kind: "added"; name: string } | { kind: "error" } | null
 	>(null);
+	const dialogRef = useRef<HTMLDialogElement>(null);
+	const nameField = useRef<HTMLInputElement>(null);
+
+	// The desktop dialog opens modal, with the cursor in the name field.
+	useEffect(() => {
+		if (!dialog) return;
+		dialogRef.current?.showModal();
+		nameField.current?.focus();
+	}, [dialog]);
 
 	const nameProblem = checkpointNameProblem(name, existing);
 
@@ -256,59 +353,66 @@ function AddCheckpoint({
 		}
 	}
 
-	return (
-		<section
-			class="panel mt-6 max-w-2xl"
-			aria-labelledby="add-cp-h">
-			<h2
-				id="add-cp-h"
-				class="font-semibold mb-3">
-				{t("addCheckpointTitle")}
-			</h2>
-			{/* noValidate: the app shows its own messages (in the chosen language) instead of the
-			    browser's. maxLength still stops typing at the limit. */}
-			<form
-				class="grid gap-3"
-				noValidate
-				onSubmit={(e) => {
-					e.preventDefault();
-					void submit();
-				}}>
-				<label class="grid gap-1">
-					<span class="font-medium">{t("checkpointName")}</span>
-					<input
-						class="field"
-						required
-						minLength={CHECKPOINT_NAME_MIN}
-						maxLength={CHECKPOINT_NAME_MAX}
-						autoComplete="off"
-						placeholder={t("checkpointPlaceholder")}
-						aria-invalid={tried && !!nameProblem}
-						value={name}
-						onInput={(e) => setName(e.currentTarget.value)}
-					/>
-				</label>
-				{tried && nameProblem && (
-					<p
-						class="notice notice-warn"
-						role="alert">
-						{t(nameProblem, {
-							min: CHECKPOINT_NAME_MIN,
-							max: CHECKPOINT_NAME_MAX,
-						})}
-					</p>
-				)}
+	const title = (
+		<h2
+			id="add-cp-h"
+			class="cp-section-title">
+			<MapPinPlus
+				size={20}
+				aria-hidden="true"
+			/>
+			{t("addCheckpointTitle")}
+		</h2>
+	);
 
-				<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-					<span class="font-medium">{t("colLocation")}:</span>
-					<span class={location ? "font-mono text-sm" : "text-muted"}>
-						{location
-							? formatLocation(location)
-							: t("locationNotSet")}
-					</span>
+	// noValidate: the app shows its own messages (in the chosen language) instead of the browser's.
+	// maxLength still stops typing at the limit.
+	const form = (
+		<form
+			class="grid gap-3"
+			noValidate
+			onSubmit={(e) => {
+				e.preventDefault();
+				void submit();
+			}}>
+			<label class="grid gap-1">
+				<span class="font-medium">{t("checkpointName")}</span>
+				<input
+					ref={nameField}
+					class="field"
+					required
+					minLength={CHECKPOINT_NAME_MIN}
+					maxLength={CHECKPOINT_NAME_MAX}
+					autoComplete="off"
+					placeholder={t("checkpointPlaceholder")}
+					aria-invalid={tried && !!nameProblem}
+					value={name}
+					onInput={(e) => setName(e.currentTarget.value)}
+				/>
+			</label>
+			{tried && nameProblem && (
+				<p
+					class="notice notice-warn"
+					role="alert">
+					{t(nameProblem, {
+						min: CHECKPOINT_NAME_MIN,
+						max: CHECKPOINT_NAME_MAX,
+					})}
+				</p>
+			)}
+
+			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+				<span class="font-medium">{t("colLocation")}:</span>
+				<span class={location ? "font-mono text-sm" : "text-muted"}>
+					{location
+						? formatLocation(location)
+						: t(dialog ? "pickOnMap" : "locationNotSet")}
+				</span>
+				{/* On a desktop the map is already beside the form. */}
+				{!dialog && (
 					<button
 						type="button"
-						class="link-btn"
+						class="btn btn-quiet"
 						onClick={() => setPicking(true)}>
 						{location ? (
 							<MapPinPen
@@ -325,47 +429,88 @@ function AddCheckpoint({
 							? t("editLocation")
 							: t("setLocationRequired")}
 					</button>
-				</div>
-				{tried && !location && (
-					<p
-						class="notice notice-warn"
-						role="alert">
-						{t("locationRequired")}
-					</p>
 				)}
+			</div>
+			{tried && !location && (
+				<p
+					class="notice notice-warn"
+					role="alert">
+					{t("locationRequired")}
+				</p>
+			)}
 
-				<ul class="hint-list">
-					<li>{t("checkpointHintName")}</li>
-					<li>{t("checkpointHintLocation")}</li>
-					<li>{t("checkpointHintOrder")}</li>
-				</ul>
+			<ul class="hint-list">
+				<li>{t("checkpointHintName")}</li>
+				<li>{t("checkpointHintLocation")}</li>
+				<li>{t("checkpointHintOrder")}</li>
+			</ul>
 
-				{outcome?.kind === "added" && (
-					<p
-						class="notice notice-ok"
-						role="status">
-						{t("checkpointAdded", { name: outcome.name })}
-					</p>
-				)}
-				{outcome?.kind === "error" && (
-					<p
-						class="notice notice-warn"
-						role="alert">
-						{t("saveError")}
-					</p>
-				)}
+			{/* The desktop dialog closes on success; the page says so instead. */}
+			{!dialog && outcome?.kind === "added" && (
+				<p
+					class="notice notice-ok"
+					role="status">
+					{t("checkpointAdded", { name: outcome.name })}
+				</p>
+			)}
+			{outcome?.kind === "error" && (
+				<p
+					class="notice notice-warn"
+					role="alert">
+					{t("saveError")}
+				</p>
+			)}
 
-				{/* Last in the card, after everything it depends on. */}
-				<button
-					class="btn btn-primary"
-					disabled={busy}>
-					<Plus
-						size={ICON}
-						aria-hidden="true"
+			{/* Last in the form, after everything it depends on. */}
+			<button
+				class="btn btn-primary w-full"
+				disabled={busy}>
+				<Plus
+					size={ICON}
+					aria-hidden="true"
+				/>
+				{busy ? t("saving") : t("addCheckpoint")}
+			</button>
+		</form>
+	);
+
+	if (dialog)
+		return (
+			<dialog
+				ref={dialogRef}
+				class="add-dialog"
+				aria-labelledby="add-cp-h"
+				onCancel={(e) => {
+					e.preventDefault();
+					onClose();
+				}}>
+				<div class="add-dialog-head">
+					{title}
+					<IconButton
+						icon={X}
+						label={t("close")}
+						onClick={onClose}
 					/>
-					{busy ? t("saving") : t("addCheckpoint")}
-				</button>
-			</form>
+				</div>
+				<div class="add-dialog-body">
+					{form}
+					<div class="add-dialog-map">
+						<p class="text-muted text-sm mb-3">{t("pickerHint")}</p>
+						<LocationFields
+							initial={location}
+							onChange={setLocation}
+						/>
+					</div>
+				</div>
+			</dialog>
+		);
+
+	return (
+		<section
+			class="cp-card cp-add"
+			aria-labelledby="add-cp-h">
+			{title}
+			{form}
 			{/* Outside the form, so the picker's own buttons can never submit it. */}
 			{picking && (
 				<LocationPicker

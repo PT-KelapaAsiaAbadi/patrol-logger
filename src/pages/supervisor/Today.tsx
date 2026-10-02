@@ -1,21 +1,25 @@
 /**
- * The Today tab, the supervisor's start page: how today's patrol is going, in four sections.
- *   - Completed checkpoints and Not yet visited: live, from today's scans (lib/today.ts).
- *   - Guards on duty: layout only, with sample data for now (TODO below).
- *   - Needs review: not built yet (TODO below).
- * Refreshes itself every minute, and on the refresh button.
+ * The Today tab, the supervisor's start page: how today's patrol is going, in four sections, all
+ * worked out from today's scans (rules in lib/today.ts): Needs review, Not yet visited, Completed
+ * checkpoints and Guards on duty.
+ * Refreshes itself every minute while it's on screen, as soon as it's back on screen after that,
+ * and on the refresh button.
  *
- * Layout (index.css, .today-grid): on a wide screen, the two checkpoint sections stack in a left
- * column 2/3 wide; Needs review sits above Guards on duty on the right, each as tall as the left
- * card beside it. Each
- * section scrolls inside itself. Narrower screens get one column, most urgent first.
+ * Layout (index.css, "Today dashboard"): a row of count tiles that jump to their section, then the
+ * four section cards. Phones get one column, most urgent first; tablets two; wide screens three,
+ * with Needs review beside Guards on duty and Not yet visited beside Completed. Below desktop
+ * width a card shows its first rows and a "Show all" button instead of scrolling inside itself.
  */
 import { useEffect, useState } from "preact/hooks";
 import { Link } from "wouter-preact";
 import type { ComponentChildren } from "preact";
 import type { LucideIcon } from "lucide-preact";
 import {
+	ChevronDown,
+	ChevronUp,
+	MapPin,
 	MapPinCheck,
+	MapPinOff,
 	MapPinX,
 	RefreshCw,
 	ShieldUser,
@@ -24,14 +28,41 @@ import {
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";
 import * as api from "../../data/api";
-import { formatLongDate, formatTime, localDateKey } from "../../lib/format";
-import { todayCheckpoints } from "../../lib/today";
+import {
+	formatDistance,
+	formatLongDate,
+	formatTime,
+	localDateKey,
+} from "../../lib/format";
+import {
+	guardsOnDuty,
+	needsReview,
+	todayCheckpoints,
+	type GuardOnDuty,
+	type ReviewFlag,
+	type ReviewItem,
+} from "../../lib/today";
+import type { Lang } from "../../i18n";
+import { initials } from "../../lib/personName";
 import { LocationBadge } from "../../components/LocationBadge";
-import { IconButton } from "../../components/IconButton";
+import { ReasonChip } from "../../components/ReasonChip";
+import { ICON, IconLink } from "../../components/IconButton";
 import { LoadError } from "./Log";
 
 /** How often the page fetches fresh data while it's open. */
 const REFRESH_MS = 60_000;
+
+type Area = "done" | "missed" | "duty" | "review";
+type Tone = "done" | "pending" | "duty" | "review";
+
+/** Scrolls to a section card and moves focus to it, for the count tiles. */
+function jumpTo(area: Area) {
+	const el = document.getElementById(`today-${area}`);
+	if (!el) return;
+	const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+	el.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+	el.focus({ preventScroll: true });
+}
 
 export function Today() {
 	const { t, lang } = useApp();
@@ -41,6 +72,7 @@ export function Today() {
 			Promise.all([
 				api.allCheckpoints(),
 				api.exportScans({ date: today }),
+				api.guardSummaries(today),
 			]),
 		[today],
 	);
@@ -51,23 +83,47 @@ export function Today() {
 		if (data.data) setUpdatedAt(new Date().toISOString());
 	}, [data.data]);
 
-	// Keep the page current while it's open; skip the fetch when the tab is in the background.
+	// Keep the page current while it's open; skip the fetch when the tab is in the background, and
+	// catch up as soon as it's back if a refresh was missed. Statuses that depend on the time
+	// (Patrolling) are worked out again with each fetch.
 	useEffect(() => {
+		let last = Date.now();
+		const refresh = () => {
+			last = Date.now();
+			reload();
+		};
 		const id = setInterval(() => {
-			if (document.visibilityState === "visible") reload();
+			if (document.visibilityState === "visible") refresh();
 		}, REFRESH_MS);
-		return () => clearInterval(id);
+		const onShow = () => {
+			if (
+				document.visibilityState === "visible" &&
+				Date.now() - last >= REFRESH_MS
+			)
+				refresh();
+		};
+		document.addEventListener("visibilitychange", onShow);
+		return () => {
+			clearInterval(id);
+			document.removeEventListener("visibilitychange", onShow);
+		};
 	}, [reload]);
 
 	const sections = data.data
 		? todayCheckpoints(data.data[0], data.data[1])
 		: null;
+	const review = data.data ? needsReview(data.data[1]) : null;
+	const guards = data.data ? guardsOnDuty(data.data[2]) : null;
+	const patrolling =
+		guards?.filter((g) => g.status === "guardPatrolling").length ?? 0;
+	const scansLabel = (n: number) =>
+		t(n === 1 ? "scanOne" : "scanMany", { n });
 
 	return (
 		<>
 			<header class="today-header">
 				<div class="min-w-0 flex-1">
-					<h1 class="text-2xl font-bold">{t("navToday")}</h1>
+					<h1 class="dash-title">{t("navToday")}</h1>
 					<p class="text-muted">
 						{formatLongDate(today, lang)}
 						{updatedAt && (
@@ -80,14 +136,18 @@ export function Today() {
 						)}
 					</p>
 				</div>
-				<IconButton
-					icon={RefreshCw}
-					label={t("refresh")}
-					tip={t("refreshTodayTip")}
-					class={`icon-btn-lg ${data.loading ? "is-spinning" : ""}`}
+				<button
+					type="button"
+					class={`btn btn-quiet dash-refresh ${data.loading ? "is-spinning" : ""}`}
+					data-tip={t("refreshTodayTip")}
 					disabled={data.loading}
-					onClick={() => data.reload()}
-				/>
+					onClick={() => data.reload()}>
+					<RefreshCw
+						size={ICON}
+						aria-hidden="true"
+					/>
+					<span class="max-sm:sr-only">{t("refresh")}</span>
+				</button>
 			</header>
 
 			{data.error && (
@@ -96,40 +156,67 @@ export function Today() {
 				</div>
 			)}
 
-			{/* DOM order = phone order (most urgent first); wide screens place them by grid area. */}
-			<div class="today-grid">
+			<ul
+				class="dash-stats"
+				aria-label={t("todayAtAGlance")}>
+				<StatTile
+					area="review"
+					tone="review"
+					icon={TriangleAlert}
+					value={review ? String(review.length) : "-"}
+					label={t("tileReview")}
+				/>
+				<StatTile
+					area="missed"
+					tone="pending"
+					icon={MapPinX}
+					value={sections ? String(sections.notVisited.length) : "-"}
+					label={t("tileNotVisited")}
+				/>
+				<StatTile
+					area="done"
+					tone="done"
+					icon={MapPinCheck}
+					value={
+						sections
+							? `${sections.completed.length}/${sections.total}`
+							: "-"
+					}
+					label={t("tileDone")}
+				/>
+				<StatTile
+					area="duty"
+					tone="duty"
+					icon={ShieldUser}
+					value={guards ? `${patrolling}/${guards.length}` : "-"}
+					label={t("tileGuards")}
+				/>
+			</ul>
+
+			{/* DOM order = phone order (most urgent first); wider screens place them by grid area. */}
+			<div class="dash-grid">
 				<OverviewCard
 					area="review"
 					tone="review"
 					icon={TriangleAlert}
 					title={t("reviewTitle")}
 					description={t("reviewDesc")}
-					badge={t("sampleData")}>
-					{/*
-						TODO: implement Needs review (it shows sample data, tagged as such, until then).
-						List today's scans that need a supervisor's look,
-						newest first, each with its reasons as labels and a link to the scan:
-						  - far from the checkpoint (location_status = 'far')
-						  - no GPS (location_status = 'no_fix')
-						  - has a report (the guard wrote a note or added photos: likely an incident)
-						  - sent late: received_at more than 60 min after scanned_at (long offline, or a
-						    wrong phone clock)
-						  - too fast: the same guard scanned two different checkpoints less than 1 min apart
-						Not included on purpose: "no report" (reports are optional, so it would flag almost
-						every scan) and "checkpoint not pinned" (a setup issue, not the guard's).
-						Put the thresholds in one constants block, and the rules in lib/today.ts with tests.
-						Later: a "Mark as reviewed" action (needs reviewed_at / reviewed_by on scans).
-						See README > TODO.
-					*/}
-					<NeedsReview />
+					rows={review?.length ?? 0}>
+					{review &&
+						(review.length === 0 ? (
+							<p class="dash-empty">{t("nothingToReview")}</p>
+						) : (
+							<NeedsReview items={review} />
+						))}
 				</OverviewCard>
 
 				<OverviewCard
 					area="missed"
-					tone="missed"
+					tone="pending"
 					icon={MapPinX}
 					title={t("notVisitedTitle")}
 					description={t("notVisitedDesc")}
+					rows={sections?.notVisited.length ?? 0}
 					count={
 						sections &&
 						t("countOf", {
@@ -139,12 +226,16 @@ export function Today() {
 					}>
 					{sections &&
 						(sections.notVisited.length === 0 ? (
-							<p class="overview-empty">{t("allVisited")}</p>
+							<p class="dash-empty">{t("allVisited")}</p>
 						) : (
-							<table class="overview-table">
+							<table class="dash-table">
 								<thead>
 									<tr>
-										<th scope="col">{t("colStop")}</th>
+										<th
+											scope="col"
+											class="c-stop">
+											{t("colStop")}
+										</th>
 										<th scope="col">{t("checkpoint")}</th>
 										<th scope="col">{t("colLocation")}</th>
 									</tr>
@@ -152,15 +243,34 @@ export function Today() {
 								<tbody>
 									{sections.notVisited.map((c) => (
 										<tr key={c.id}>
-											<td class="tabular-nums">
-												{c.routeOrder}
+											<td class="c-stop">
+												<span class="stop-badge">
+													{c.routeOrder}
+												</span>
 											</td>
-											<td>{c.name}</td>
-											<td class="whitespace-nowrap text-muted">
-												{t(
-													c.location
-														? "pinnedOnMap"
-														: "locationNotSet",
+											<td>
+												<span class="dash-name">
+													{c.name}
+												</span>
+											</td>
+											<td class="c-end">
+												{/* Opens the Map on this checkpoint; Back returns here. */}
+												{c.location ? (
+													<IconLink
+														icon={MapPin}
+														label={t("showOnMap", {
+															name: c.name,
+														})}
+														href={`/supervisor/map/checkpoint/${c.id}`}
+													/>
+												) : (
+													<span class="loc-line">
+														<MapPinOff
+															size={15}
+															aria-hidden="true"
+														/>
+														{t("locationNotSet")}
+													</span>
 												)}
 											</td>
 										</tr>
@@ -176,6 +286,7 @@ export function Today() {
 					icon={MapPinCheck}
 					title={t("completedTitle")}
 					description={t("completedDesc")}
+					rows={sections?.completed.length ?? 0}
 					count={
 						sections &&
 						t("countOf", {
@@ -185,15 +296,23 @@ export function Today() {
 					}>
 					{sections &&
 						(sections.completed.length === 0 ? (
-							<p class="overview-empty">{t("noneCompleted")}</p>
+							<p class="dash-empty">{t("noneCompleted")}</p>
 						) : (
-							<table class="overview-table">
+							<table class="dash-table">
 								<thead>
 									<tr>
-										<th scope="col">{t("colStop")}</th>
+										<th
+											scope="col"
+											class="c-stop">
+											{t("colStop")}
+										</th>
 										<th scope="col">{t("checkpoint")}</th>
-										<th scope="col">{t("colLastScan")}</th>
-										{/* Hidden on phones, with Scans, so Location still fits. */}
+										{/* On phones these three fold into a line under the name. */}
+										<th
+											scope="col"
+											class="hidden sm:table-cell">
+											{t("colLastScan")}
+										</th>
 										<th
 											scope="col"
 											class="hidden sm:table-cell">
@@ -214,20 +333,37 @@ export function Today() {
 											lastScan: s,
 											scans,
 										}) => (
-											<tr key={c.id}>
-												<td class="tabular-nums">
-													{c.routeOrder}
+											<tr
+												key={c.id}
+												class="has-link">
+												<td class="c-stop">
+													<span class="stop-badge">
+														{c.routeOrder}
+													</span>
 												</td>
-												<td>{c.name}</td>
-												<td class="tabular-nums whitespace-nowrap">
+												<td>
+													{/* The link covers the whole row (index.css, .row-link). */}
 													<Link
 														href={`/supervisor/scans/${s.id}`}
-														class="underline">
+														class="row-link dash-name">
+														{c.name}
+													</Link>
+													<span class="dash-sub tabular-nums sm:hidden">
 														{formatTime(
 															s.scannedAt,
 															lang,
 														)}
-													</Link>
+														{" · "}
+														{s.guardName}
+														{" · "}
+														{scansLabel(scans)}
+													</span>
+												</td>
+												<td class="hidden sm:table-cell tabular-nums whitespace-nowrap">
+													{formatTime(
+														s.scannedAt,
+														lang,
+													)}
 												</td>
 												<td class="hidden sm:table-cell">
 													{s.guardName}
@@ -235,7 +371,7 @@ export function Today() {
 												<td class="hidden sm:table-cell tabular-nums">
 													{scans}
 												</td>
-												<td class="whitespace-nowrap">
+												<td class="c-end">
 													<LocationBadge scan={s} />
 												</td>
 											</tr>
@@ -252,8 +388,24 @@ export function Today() {
 					icon={ShieldUser}
 					title={t("guardsTitle")}
 					description={t("guardsDesc")}
-					badge={t("sampleData")}>
-					<GuardsOnDuty />
+					rows={guards?.length ?? 0}
+					count={
+						guards &&
+						guards.length > 0 &&
+						t("patrollingCount", {
+							n: patrolling,
+							total: guards.length,
+						})
+					}>
+					{guards &&
+						(guards.length === 0 ? (
+							<p class="dash-empty">{t("noGuards")}</p>
+						) : (
+							<GuardsOnDuty
+								guards={guards}
+								scansLabel={scansLabel}
+							/>
+						))}
 				</OverviewCard>
 			</div>
 			{data.loading && !data.data && (
@@ -263,7 +415,43 @@ export function Today() {
 	);
 }
 
-type Tone = "done" | "missed" | "duty" | "review";
+/** A count at the top of the page. Selecting it jumps to its section. */
+function StatTile({
+	area,
+	tone,
+	icon: Icon,
+	value,
+	label,
+}: {
+	area: Area;
+	tone: Tone;
+	icon: LucideIcon;
+	value: string;
+	label: string;
+}) {
+	return (
+		<li>
+			<button
+				type="button"
+				class={`stat-tile tone-${tone}`}
+				onClick={() => jumpTo(area)}>
+				<span class="stat-icon">
+					<Icon
+						size={20}
+						aria-hidden="true"
+					/>
+				</span>
+				<span class="grid min-w-0">
+					<span class="stat-value">{value}</span>
+					<span class="stat-label">{label}</span>
+				</span>
+			</button>
+		</li>
+	);
+}
+
+/** Rows a card shows below desktop width before its "Show all" button (index.css keeps this in step). */
+const ROWS_SHOWN = 5;
 
 /** One of the four sections: a coloured header with icon and count, a line of description, then its content. */
 function OverviewCard({
@@ -273,98 +461,91 @@ function OverviewCard({
 	title,
 	description,
 	count,
-	badge,
+	rows,
 	children,
 }: {
-	/** Where it goes in the wide-screen grid (index.css, .today-grid). */
-	area: "done" | "missed" | "duty" | "review";
+	/** Where it goes in the wide-screen grid (index.css, .dash-grid). */
+	area: Area;
 	tone: Tone;
 	icon: LucideIcon;
 	title: string;
 	description: string;
 	/** e.g. "3 of 9", shown beside the title. */
-	count?: string | null;
-	/** A warning tag, e.g. "Sample data". */
-	badge?: string;
+	count?: string | false | null;
+	/** How many rows the table has, to offer "Show all" when some are folded away. */
+	rows: number;
 	children: ComponentChildren;
 }) {
-	const id = `overview-${area}`;
+	const { t } = useApp();
+	const [expanded, setExpanded] = useState(false);
+	const headingId = `today-${area}-h`;
 	return (
 		<section
-			class={`overview-card tone-${tone} area-${area}`}
-			aria-labelledby={id}>
-			<div class="overview-head">
+			id={`today-${area}`}
+			tabIndex={-1}
+			class={`dash-card tone-${tone} area-${area} ${expanded ? "is-expanded" : ""}`}
+			aria-labelledby={headingId}>
+			<div class="dash-head">
 				<Icon
 					size={22}
+					class="dash-icon"
 					aria-hidden="true"
 				/>
-				<h2 id={id}>{title}</h2>
-				{count && <span class="overview-count">{count}</span>}
-				{badge && <span class="overview-badge">{badge}</span>}
+				<div class="min-w-0 flex-1">
+					<h2 id={headingId}>{title}</h2>
+					<p class="dash-desc">{description}</p>
+				</div>
+				{count && <span class="dash-count">{count}</span>}
 			</div>
-			<p class="overview-desc">{description}</p>
-			<div class="overview-body">{children}</div>
+			<div class="dash-body">{children}</div>
+			{rows > ROWS_SHOWN && (
+				<button
+					type="button"
+					class="dash-more"
+					aria-expanded={expanded}
+					onClick={() => setExpanded((e) => !e)}>
+					{expanded ? (
+						<ChevronUp
+							size={ICON}
+							aria-hidden="true"
+						/>
+					) : (
+						<ChevronDown
+							size={ICON}
+							aria-hidden="true"
+						/>
+					)}
+					{expanded ? t("showFewer") : t("showAll", { n: rows })}
+				</button>
+			)}
 		</section>
 	);
 }
 
-type ReviewReason =
-	| "reasonFar"
-	| "reasonNoGps"
-	| "reasonReport"
-	| "reasonLate"
-	| "reasonTooFast";
+type Translate = ReturnType<typeof useApp>["t"];
 
-/*
-	Sample data for Needs review, one row per planned reason (see the TODO in the card above).
-	The detail is what the real rule would show: distance, delay, or gap since the last scan.
-*/
-const SAMPLE_REVIEW: {
-	time: string;
-	guard: string;
-	checkpoint: string;
-	reason: ReviewReason;
-	detail?: string;
-}[] = [
-	{
-		time: "17:05",
-		guard: "Budi Santoso",
-		checkpoint: "Pintu samping timur",
-		reason: "reasonFar",
-		detail: "5.6 km",
-	},
-	{
-		time: "16:42",
-		guard: "Siti Rahma",
-		checkpoint: "Parkir basement B1",
-		reason: "reasonNoGps",
-	},
-	{
-		time: "15:20",
-		guard: "Agus Pratama",
-		checkpoint: "Gudang belakang",
-		reason: "reasonReport",
-	},
-	{
-		time: "14:58",
-		guard: "Budi Santoso",
-		checkpoint: "Tangga darurat lantai 2",
-		reason: "reasonLate",
-		detail: "+2 h 10 min",
-	},
-	{
-		time: "14:31",
-		guard: "Siti Rahma",
-		checkpoint: "Ruang panel listrik",
-		reason: "reasonTooFast",
-		detail: "40 s",
-	},
-];
+/** A length of time, roughly: "40 s", "25 min", "2 h 10 min". */
+function formatSpan(ms: number, t: Translate) {
+	// Rounded up, so a gap of a split second reads "1 s", not "0 s".
+	const s = Math.max(0, Math.ceil(ms / 1000));
+	if (s < 60) return t("spanSeconds", { s });
+	const m = Math.floor(s / 60);
+	if (m < 60) return t("spanMinutes", { m });
+	return t("spanHours", { h: Math.floor(m / 60), m: m % 60 });
+}
 
-function NeedsReview() {
-	const { t } = useApp();
+/** The detail under a reason: how far, how late, or how soon after the guard's previous scan. */
+function flagDetail(f: ReviewFlag, t: Translate, lang: Lang): string | null {
+	if (f.amount === undefined) return null;
+	if (f.reason === "reasonFar") return formatDistance(f.amount, lang);
+	if (f.reason === "reasonLate") return `+${formatSpan(f.amount, t)}`;
+	return formatSpan(f.amount, t);
+}
+
+function NeedsReview({ items }: { items: ReviewItem[] }) {
+	const { t, lang } = useApp();
 	return (
-		<table class="overview-table">
+		<table class="dash-table">
 			<thead>
 				<tr>
 					<th scope="col">{t("time")}</th>
@@ -373,23 +554,41 @@ function NeedsReview() {
 				</tr>
 			</thead>
 			<tbody>
-				{SAMPLE_REVIEW.map((r) => (
-					<tr key={`${r.time}-${r.reason}`}>
-						<td class="tabular-nums">{r.time}</td>
-						{/* Checkpoint and guard share a cell: the card is only a third of the width. */}
-						<td>
-							{r.checkpoint}
-							<span class="block text-sm text-muted">
-								{r.guard}
-							</span>
+				{items.map(({ scan: s, flags }) => (
+					<tr
+						key={s.id}
+						class="has-link">
+						<td class="tabular-nums font-bold">
+							{formatTime(s.scannedAt, lang)}
 						</td>
+						{/* Checkpoint and guard share a cell, so the table fits a phone. */}
 						<td>
-							<span class="review-reason">{t(r.reason)}</span>
-							{r.detail && (
-								<span class="block text-sm text-muted tabular-nums">
-									{r.detail}
-								</span>
-							)}
+							{/* The link covers the whole row (index.css, .row-link). */}
+							<Link
+								href={`/supervisor/scans/${s.id}`}
+								class="row-link dash-name">
+								{s.checkpointName}
+							</Link>
+							<span class="dash-sub">{s.guardName}</span>
+						</td>
+						<td class="c-end">
+							<span class="reason-list">
+								{flags.map((f) => {
+									const detail = flagDetail(f, t, lang);
+									return (
+										<span
+											key={f.reason}
+											class="reason">
+											<ReasonChip reason={f.reason} />
+											{detail && (
+												<span class="dash-sub tabular-nums">
+													{detail}
+												</span>
+											)}
+										</span>
+									);
+								})}
+							</span>
 						</td>
 					</tr>
 				))}
@@ -398,57 +597,48 @@ function NeedsReview() {
 	);
 }
 
-type GuardStatus = "guardPatrolling" | "guardQuiet" | "guardNotStarted";
-
-/*
-	TODO: implement Guards on duty with real data (this is sample data, and the card says so).
-	List every active guard (guardSummaries(today) already returns name, scans today, last scan),
-	with a status worked out from the last scan:
-	  - Patrolling: scanned in the last 60 minutes
-	  - Quiet: scanned today, but not in the last 60 minutes
-	  - Not started: no scans today
-	The app has no shift schedule yet, so "on duty" can't mean "scheduled"; see README > TODO.
-*/
-const SAMPLE_GUARDS: {
-	name: string;
-	status: GuardStatus;
-	scans: number;
-	lastScan: string | null;
-}[] = [
-	{
-		name: "Budi Santoso",
-		status: "guardPatrolling",
-		scans: 6,
-		lastScan: "17:32",
-	},
-	{ name: "Agus Pratama", status: "guardQuiet", scans: 3, lastScan: "14:05" },
-	{ name: "Siti Rahma", status: "guardNotStarted", scans: 0, lastScan: null },
-];
-
-function GuardsOnDuty() {
-	const { t } = useApp();
+function GuardsOnDuty({
+	guards,
+	scansLabel,
+}: {
+	guards: GuardOnDuty[];
+	scansLabel: (n: number) => string;
+}) {
+	const { t, lang } = useApp();
 	return (
-		<table class="overview-table">
+		<table class="dash-table">
 			<thead>
 				<tr>
 					<th scope="col">{t("guard")}</th>
 					<th scope="col">{t("colStatus")}</th>
-					<th scope="col">{t("colScans")}</th>
-					<th scope="col">{t("colLastScan")}</th>
 				</tr>
 			</thead>
 			<tbody>
-				{SAMPLE_GUARDS.map((g) => (
-					<tr key={g.name}>
-						<td>{g.name}</td>
-						<td>
+				{guards.map((g) => (
+					<tr key={g.guardId}>
+						<td class="guard-cell">
+							<span
+								class="guard-avatar"
+								aria-hidden="true">
+								{initials(g.guardName)}
+							</span>
+							<span class="dash-name">{g.guardName}</span>
+							<span class="dash-sub tabular-nums">
+								{g.lastScanAt
+									? t("guardSummary", {
+											scans: scansLabel(g.scansToday),
+											time: formatTime(
+												g.lastScanAt,
+												lang,
+											),
+										})
+									: t("guardNoScans")}
+							</span>
+						</td>
+						<td class="c-end">
 							<span class={`guard-status is-${g.status}`}>
 								{t(g.status)}
 							</span>
-						</td>
-						<td class="tabular-nums">{g.scans}</td>
-						<td class="tabular-nums text-muted">
-							{g.lastScan ?? "-"}
 						</td>
 					</tr>
 				))}

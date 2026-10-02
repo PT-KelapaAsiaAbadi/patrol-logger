@@ -62,7 +62,7 @@ const { data: route } = await guard.rpc("route_checkpoints");
 
 	for (const [fn, args] of [
 		["qr_payload", { p_checkpoint_id: route[0].id }],
-		["create_checkpoint", { p_name: "Sneaky" }],
+		["create_checkpoint", { p_name: "Sneaky", p_lat: -6.2, p_lng: 106.8 }],
 		[
 			"update_checkpoint",
 			{ p_id: route[0].id, p_name: "x", p_active: false },
@@ -134,13 +134,15 @@ const { data: payload, error: pe } = await sup.rpc("qr_payload", {
 
 	const { data: added, error } = await sup.rpc("create_checkpoint", {
 		p_name: "  Pintu   belakang  ",
+		p_lat: -6.2105,
+		p_lng: 106.8102,
 	});
 	ok(
 		!error && added.route_order === 9 && added.name === "Pintu belakang",
 		"create_checkpoint appends and tidies the name",
 	);
 
-	// The app now sends the location with the name, saved in the same step.
+	// The location is saved with the name, in the same step.
 	const { data: pinned, error: pe2 } = await sup.rpc("create_checkpoint", {
 		p_name: "Pos pinned",
 		p_lat: -6.2,
@@ -155,9 +157,20 @@ const { data: payload, error: pe } = await sup.rpc("qr_payload", {
 		"create_checkpoint saves the location with the name",
 		pe2?.message,
 	);
+	const { error: none } = await sup.rpc("create_checkpoint", {
+		p_name: "Pos tanpa lokasi",
+		p_lat: null,
+		p_lng: null,
+	});
+	ok(
+		none?.message === "location_required",
+		"a checkpoint without a location is refused",
+		none?.message,
+	);
 	const { error: half } = await sup.rpc("create_checkpoint", {
 		p_name: "Pos setengah",
 		p_lat: -6.2,
+		p_lng: null,
 	});
 	ok(
 		half?.message === "location_incomplete",
@@ -533,11 +546,6 @@ section("location checks");
 		none.location_status === "no_fix" && none.latitude === null,
 		"no position gives no_fix",
 	);
-	const unpinned = await scanAt(cps[6], -6.2, 106.8, 10);
-	ok(
-		unpinned.location_status === "not_set" && unpinned.distance_m === null,
-		"an unpinned checkpoint gives not_set",
-	);
 
 	const { data: row } = await sup
 		.from("scan_rows")
@@ -548,15 +556,31 @@ section("location checks");
 		row.location_status === "far" && row.checkpoint_latitude === -6.2,
 		"the log shows the flag and where the checkpoint is",
 	);
-	const { data: cleared } = await sup.rpc("set_checkpoint_location", {
+	const { error: cleared } = await sup.rpc("set_checkpoint_location", {
 		p_id: cps[5].id,
 		p_lat: null,
 		p_lng: null,
 		p_radius_m: null,
 	});
 	ok(
-		cleared.latitude === null && cleared.radius_m === 50,
-		"a location can be removed",
+		cleared?.message === "location_required",
+		"a location can't be removed, only moved",
+		cleared?.message,
+	);
+	// Move the pin to where the far scan was made.
+	const { data: moved, error: me } = await sup.rpc(
+		"set_checkpoint_location",
+		{
+			p_id: cps[5].id,
+			p_lat: -6.21,
+			p_lng: 106.8,
+			p_radius_m: 50,
+		},
+	);
+	ok(
+		!me && moved.latitude === -6.21,
+		"a supervisor moves a pin",
+		me?.message,
 	);
 	const { data: stillFar } = await sup
 		.from("scans")
@@ -566,6 +590,16 @@ section("location checks");
 	ok(
 		stillFar.location_status === "far",
 		"past scans keep their result when the checkpoint moves",
+	);
+	const { data: unpinned } = await sup
+		.from("checkpoints")
+		.select("id")
+		.is("removed_at", null)
+		.is("latitude", null);
+	ok(
+		unpinned?.length === 0,
+		"every checkpoint in use has a location",
+		unpinned?.length,
 	);
 }
 
@@ -621,6 +655,27 @@ section("removing checkpoints");
 		aAfter.route_order === a.route_order,
 		"moving down past removed checkpoints does nothing",
 	);
+	const { data: live } = await sup
+		.from("checkpoints")
+		.select("route_order")
+		.is("removed_at", null)
+		.order("route_order");
+	ok(
+		live.every((cp, i) => cp.route_order === i + 1),
+		"stop numbers close up after a removal",
+		live.map((cp) => cp.route_order).join(","),
+	);
+	const { data: next, error: ne } = await sup.rpc("create_checkpoint", {
+		p_name: "Pos sesudah hapus",
+		p_lat: -6.2103,
+		p_lng: 106.8104,
+	});
+	ok(
+		!ne && next.route_order === live.length + 1,
+		"a new checkpoint takes the next number after those in the round",
+		ne?.message ?? next?.route_order,
+	);
+	await sup.rpc("remove_checkpoints", { p_ids: [next.id] });
 }
 
 section("accounts: create, reset, deactivate");
@@ -848,6 +903,250 @@ section("accounts: changing phone numbers");
 	ok(
 		self.status === 403 && self.body?.error === "cannot_change_self",
 		"supervisors cannot change their own number here",
+	);
+}
+
+section("shifts (manual scheduling)");
+{
+	// A week well in the future, so nothing else in these tests touches it.
+	const at = (day, hour) =>
+		new Date(Date.UTC(2030, 0, day, hour)).toISOString();
+	const assign = (client, who, from, to) =>
+		client.rpc("assign_shift", {
+			p_guard_id: who,
+			p_starts_at: from,
+			p_ends_at: to,
+		});
+
+	const { data: s1, error: e1 } = await assign(
+		sup,
+		guardId,
+		at(7, 0),
+		at(7, 8),
+	);
+	ok(
+		!e1 && s1?.guard_id === guardId,
+		"a supervisor puts a guard on a shift",
+		e1?.message,
+	);
+	const { error: back } = await assign(sup, guardId, at(7, 8), at(7, 16));
+	ok(!back, "back to back with the previous shift is allowed", back?.message);
+
+	const { error: overlap } = await assign(sup, guardId, at(7, 4), at(7, 12));
+	ok(
+		overlap?.message === "shift_overlap",
+		"an overlapping shift is refused",
+		overlap?.message,
+	);
+	const { error: notGuard } = await assign(sup, supId, at(7, 0), at(7, 8));
+	ok(
+		notGuard?.message === "not_a_guard",
+		"only guards can be put on shifts",
+		notGuard?.message,
+	);
+	const { error: long } = await assign(sup, guardId, at(8, 0), at(9, 0));
+	ok(!!long, "a shift longer than 16 hours is refused");
+	const { error: backwards } = await assign(sup, guardId, at(8, 8), at(8, 0));
+	ok(!!backwards, "a shift that ends before it starts is refused");
+
+	for (const [fn, args] of [
+		[
+			"assign_shift",
+			{ p_guard_id: guardId, p_starts_at: at(9, 0), p_ends_at: at(9, 8) },
+		],
+		["remove_shift", { p_id: s1.id }],
+		["copy_shifts", { p_from: at(6, 0), p_to: at(13, 0), p_days: 7 }],
+	]) {
+		const { error } = await guard.rpc(fn, args);
+		ok(
+			error?.message === "not_allowed",
+			`a guard cannot call ${fn}`,
+			error?.message,
+		);
+	}
+	const { error: direct } = await sup.from("shifts").insert({
+		guard_id: guardId,
+		starts_at: at(10, 0),
+		ends_at: at(10, 8),
+	});
+	ok(!!direct, "not even a supervisor can write the table directly");
+
+	// Someone else's shift, written with the service key: the guard mustn't see it.
+	const { data: other } = await admin()
+		.from("shifts")
+		.insert({ guard_id: supId, starts_at: at(7, 0), ends_at: at(7, 8) })
+		.select()
+		.single();
+	const { data: mine } = await guard
+		.from("shift_rows")
+		.select("id, guard_id, guard_name")
+		.gte("starts_at", at(6, 0))
+		.lt("starts_at", at(13, 0));
+	ok(
+		mine?.length === 2 &&
+			mine.every((r) => r.guard_id === guardId) &&
+			mine[0].guard_name === "Budi Santoso",
+		"a guard reads only their own shifts, with their name",
+		JSON.stringify(mine),
+	);
+	const { data: all } = await sup
+		.from("shift_rows")
+		.select("id")
+		.gte("starts_at", at(6, 0))
+		.lt("starts_at", at(13, 0));
+	ok(all?.length === 3, "a supervisor reads everyone's", all?.length);
+	await admin().from("shifts").delete().eq("id", other.id);
+
+	const { data: copied, error: ce } = await sup.rpc("copy_shifts", {
+		p_from: at(6, 0),
+		p_to: at(13, 0),
+		p_days: 7,
+	});
+	ok(
+		!ce && copied === 2,
+		"copy last week repeats the week's shifts 7 days later",
+		ce?.message ?? copied,
+	);
+	const { data: again } = await sup.rpc("copy_shifts", {
+		p_from: at(6, 0),
+		p_to: at(13, 0),
+		p_days: 7,
+	});
+	ok(again === 0, "copying again adds nothing (no double shifts)", again);
+	const { error: bad } = await sup.rpc("copy_shifts", {
+		p_from: at(13, 0),
+		p_to: at(6, 0),
+		p_days: 7,
+	});
+	ok(
+		bad?.message === "bad_range",
+		"a backwards range is refused",
+		bad?.message,
+	);
+
+	// Copies keep their local time across a daylight-saving change (Sydney moves its clocks on
+	// 6 October 2030); Indonesia has none, but a copy must never drift.
+	const { data: before } = await assign(
+		sup,
+		guardId,
+		"2030-09-29T21:00:00.000Z", // Monday 30 September, 07:00 in Sydney (UTC+10)
+		"2030-09-30T05:00:00.000Z",
+	);
+	const { data: dstCopied } = await sup.rpc("copy_shifts", {
+		p_from: "2030-09-29T14:00:00.000Z",
+		p_to: "2030-10-06T13:00:00.000Z",
+		p_days: 7,
+		p_tz: "Australia/Sydney",
+	});
+	const { data: after } = await sup
+		.from("shift_rows")
+		.select("starts_at")
+		.eq("guard_id", guardId)
+		.gte("starts_at", "2030-10-06T00:00:00.000Z")
+		.lt("starts_at", "2030-10-08T00:00:00.000Z");
+	ok(
+		before &&
+			dstCopied === 1 &&
+			new Date(after?.[0]?.starts_at).toISOString() ===
+				"2030-10-06T20:00:00.000Z",
+		"a copied shift keeps its local start time across a clock change (07:00 stays 07:00)",
+		JSON.stringify(after),
+	);
+	const { error: tz } = await sup.rpc("copy_shifts", {
+		p_from: at(6, 0),
+		p_to: at(13, 0),
+		p_days: 7,
+		p_tz: "Mars/Olympus",
+	});
+	ok(
+		tz?.message === "bad_time_zone",
+		"an unknown time zone is refused",
+		tz?.message,
+	);
+
+	// Days before today (in the given time zone) are read-only.
+	const daysAgo = (n, hour = 7) => {
+		const d = new Date();
+		d.setUTCDate(d.getUTCDate() - n);
+		d.setUTCHours(hour, 0, 0, 0);
+		return d.toISOString();
+	};
+	const plus8 = (iso) => new Date(Date.parse(iso) + 8 * 3600e3).toISOString();
+	const { error: pastAssign } = await sup.rpc("assign_shift", {
+		p_guard_id: guardId,
+		p_starts_at: daysAgo(2),
+		p_ends_at: plus8(daysAgo(2)),
+		p_tz: "UTC",
+	});
+	ok(
+		pastAssign?.message === "shift_in_past",
+		"a shift on a day that has passed is refused",
+		pastAssign?.message,
+	);
+	const { data: oldShift } = await admin()
+		.from("shifts")
+		.insert({
+			guard_id: guardId,
+			starts_at: daysAgo(3),
+			ends_at: plus8(daysAgo(3)),
+		})
+		.select()
+		.single();
+	const { error: pastRemove } = await sup.rpc("remove_shift", {
+		p_id: oldShift.id,
+		p_tz: "UTC",
+	});
+	ok(
+		pastRemove?.message === "shift_in_past",
+		"a shift on a day that has passed can't be removed",
+		pastRemove?.message,
+	);
+	const { data: lands } = await admin()
+		.from("shifts")
+		.insert({
+			guard_id: guardId,
+			starts_at: daysAgo(5),
+			ends_at: plus8(daysAgo(5)),
+		})
+		.select()
+		.single();
+	// Copying a week on: the shift from 9 days ago would land 2 days ago (skipped); the one from
+	// 5 days ago lands 2 days from now (added).
+	const { data: nine } = await admin()
+		.from("shifts")
+		.insert({
+			guard_id: guardId,
+			starts_at: daysAgo(9),
+			ends_at: plus8(daysAgo(9)),
+		})
+		.select()
+		.single();
+	const { data: pastCopied } = await sup.rpc("copy_shifts", {
+		p_from: daysAgo(10, 0),
+		p_to: daysAgo(4, 0),
+		p_days: 7,
+		p_tz: "UTC",
+	});
+	ok(
+		pastCopied === 1,
+		"copy last week skips copies that would land on a day that has passed",
+		pastCopied,
+	);
+	await admin()
+		.from("shifts")
+		.delete()
+		.eq("guard_id", guardId)
+		.gte("starts_at", daysAgo(10, 0))
+		.lt("starts_at", daysAgo(-3, 0));
+	ok(Boolean(lands && nine), "(test shifts cleaned up)");
+
+	const { error: re } = await sup.rpc("remove_shift", { p_id: s1.id });
+	ok(!re, "a supervisor takes a guard off a shift", re?.message);
+	const { error: gone } = await sup.rpc("remove_shift", { p_id: s1.id });
+	ok(
+		gone?.message === "not_found",
+		"removing it twice says not found",
+		gone?.message,
 	);
 }
 

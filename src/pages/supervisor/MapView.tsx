@@ -33,8 +33,10 @@ function popup(lines: (string | { text: string; href: string })[]) {
 /**
  * One day on a map: checkpoints (green when visited that day), each scan at the position the
  * phone reported (orange and joined to its checkpoint when far), and one guard's route.
+ * With `focusId` (#/supervisor/map/checkpoint/:id, linked from Today) it opens zoomed in on that
+ * checkpoint with its popup showing.
  */
-export function MapView() {
+export function MapView({ focusId }: { focusId?: string }) {
 	const { t, lang } = useApp();
 	const today = localDateKey();
 	const [date, setDate] = useState(today);
@@ -106,6 +108,7 @@ export function MapView() {
 			radiusM: c.location!.radiusM,
 			visited: visits.length > 0,
 			name: c.name,
+			focus: c.id === focusId,
 			popup: () =>
 				popup([
 					c.name,

@@ -7,6 +7,7 @@
  *   - createGuards       -> the create-guards Edge Function (needs the service-role key)
  *   - phone numbers      -> the staff-phone Edge Function (change a number)
  *   - report photos      -> the private report-photos Storage bucket
+ *   - shifts             -> the shift_rows view; assign_shift, remove_shift, copy_shifts
  *
  * The UI never imports this file directly. It goes through `api.ts`.
  * Database rows are snake_case; everything returned from here is the camelCase shape in types.ts.
@@ -27,6 +28,7 @@ import type {
 	Scan,
 	ScanQuery,
 	ScanRow,
+	Shift,
 	User,
 } from "../types";
 import type { Tables } from "../../database.types";
@@ -531,19 +533,18 @@ export async function updateCheckpoint(
 	);
 }
 
-/** Pins a checkpoint on the map, or clears its location (null). */
+/** Moves a checkpoint's pin and radius. A location can't be cleared: remove the checkpoint instead. */
 export async function setCheckpointLocation(
 	id: string,
-	location: CheckpointLocation | null,
+	location: CheckpointLocation,
 ): Promise<Checkpoint> {
 	return toCheckpoint(
 		must(
 			await supabase.rpc("set_checkpoint_location", {
 				p_id: id,
-				// The function takes nulls to clear; the generated types don't say so.
-				p_lat: (location?.lat ?? null) as number,
-				p_lng: (location?.lng ?? null) as number,
-				p_radius_m: (location?.radiusM ?? null) as number,
+				p_lat: location.lat,
+				p_lng: location.lng,
+				p_radius_m: location.radiusM,
 			}),
 		),
 	);
@@ -649,4 +650,70 @@ export async function missedCheckpoints(date: string): Promise<Checkpoint[]> {
 	return must(
 		await supabase.rpc("missed_checkpoints", { p_from: from, p_to: to }),
 	).map(toCheckpoint);
+}
+
+// ---------- shifts (Schedule page) ----------
+
+/**
+ * The device's time zone, sent with every change: the database uses it to tell which days have
+ * passed (they're read-only) and to keep copied shifts at the same local time.
+ */
+const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** Shifts starting in [from, to), earliest first, with their guard's name. */
+export async function listShifts(from: string, to: string): Promise<Shift[]> {
+	return must(
+		await supabase
+			.from("shift_rows")
+			.select("*")
+			.gte("starts_at", from)
+			.lt("starts_at", to)
+			.order("starts_at")
+			.order("guard_name"),
+	).map((r) => ({
+		id: r.id!,
+		guardId: r.guard_id!,
+		guardName: r.guard_name!,
+		startsAt: iso(r.starts_at!),
+		endsAt: iso(r.ends_at!),
+	}));
+}
+
+/**
+ * Puts a guard on a shift. Refused: shift_in_past (a day before today), shift_overlap (the guard
+ * already works then), not_a_guard.
+ */
+export async function assignShift(
+	guardId: string,
+	startsAt: string,
+	endsAt: string,
+): Promise<void> {
+	must(
+		await supabase.rpc("assign_shift", {
+			p_guard_id: guardId,
+			p_starts_at: startsAt,
+			p_ends_at: endsAt,
+			p_tz: timeZone(),
+		}),
+	);
+}
+
+/** Takes a guard off a shift. Refused for a day before today (shift_in_past). */
+export async function removeShift(id: string): Promise<void> {
+	maybe(await supabase.rpc("remove_shift", { p_id: id, p_tz: timeZone() }));
+}
+
+/**
+ * Repeats the shifts starting in [from, to) one week later, skipping clashes and days that have
+ * passed. Returns how many.
+ */
+export async function copyShifts(from: string, to: string): Promise<number> {
+	return must(
+		await supabase.rpc("copy_shifts", {
+			p_from: from,
+			p_to: to,
+			p_days: 7,
+			p_tz: timeZone(),
+		}),
+	);
 }

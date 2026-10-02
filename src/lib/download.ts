@@ -1,5 +1,9 @@
 /** Saves a generated file with the standard Blob + <a download> approach. */
-export function saveFile(filename: string, data: string, mime: string): void {
+export function saveFile(
+	filename: string,
+	data: string | Uint8Array<ArrayBuffer>,
+	mime: string,
+): void {
 	const url = URL.createObjectURL(new Blob([data], { type: mime }));
 	const a = Object.assign(document.createElement("a"), {
 		href: url,

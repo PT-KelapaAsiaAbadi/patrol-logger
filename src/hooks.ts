@@ -36,6 +36,22 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[]) {
 	return { ...state, reload };
 }
 
+/**
+ * Whether a CSS media query matches, kept up to date as the window resizes. For layouts that
+ * change behaviour, not just look (plain CSS covers the rest).
+ */
+export function useMediaQuery(query: string): boolean {
+	const [matches, setMatches] = useState(() => matchMedia(query).matches);
+	useEffect(() => {
+		const mq = matchMedia(query);
+		const update = () => setMatches(mq.matches);
+		update();
+		mq.addEventListener("change", update);
+		return () => mq.removeEventListener("change", update);
+	}, [query]);
+	return matches;
+}
+
 export function useOnline(): boolean {
 	const [online, setOnline] = useState(isOnline);
 	useEffect(() => {

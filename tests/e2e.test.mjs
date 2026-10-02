@@ -3,6 +3,7 @@
 // Browser: Chromium from `npx playwright-core install chromium`, or set PW_CHANNEL
 // (defaults to the installed Microsoft Edge on Windows).
 import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { localStack, reporter, SEED } from "./local-supabase.mjs";
 
@@ -92,7 +93,8 @@ page.on("response", (r) => {
 async function signIn(phone, password) {
 	await page.goto(BASE + "#/login");
 	await page.getByLabel("Phone number").fill(phone);
-	await page.getByLabel("Password").fill(password);
+	// exact: the show/hide button is labelled "Show password".
+	await page.getByLabel("Password", { exact: true }).fill(password);
 	await page.getByRole("button", { name: "Sign in" }).click();
 }
 async function signOut() {
@@ -140,41 +142,110 @@ try {
 		(await notVisitedCard.locator("tbody tr").count()) === 8,
 		"before any scan, all 8 checkpoints are not yet visited",
 	);
-	await page
-		.locator("section.area-duty")
-		.getByText("Sample data, not live yet")
+	const dutyCard = page.locator("section.area-duty");
+	await dutyCard
+		.locator("tr", { hasText: "Budi Santoso" })
+		.getByText("Not started")
 		.waitFor();
-	ok(true, "Guards on duty is marked as sample data");
+	ok(
+		(await dutyCard.getByText("0 of 1 patrolling").count()) === 1,
+		"before any scan, the guard is listed as not started",
+	);
 	await page
 		.locator("section.area-review")
-		.getByText("Sample data, not live yet")
+		.getByText("No scans need a look today.")
 		.waitFor();
-	ok(
-		(await page.locator("section.area-review tbody tr").count()) === 5,
-		"Needs review shows its sample rows, marked as sample data",
-	);
+	ok(true, "before any scan, Needs review is empty");
 	await page.getByRole("link", { name: "Schedule" }).click();
-	await text("Sample data: scheduling isn't built yet.");
-	ok(
-		(await page.locator(".roster-table tbody tr").count()) === 4 &&
-			(await page
-				.getByRole("button", { name: "Add shift" })
-				.isDisabled()),
-		"Schedule shows a sample week and a disabled Add shift",
+	section("schedule");
+	// Only today and later count (past days are read-only): 3 shifts a day to Sunday.
+	const daysLeft = 7 - ((new Date().getDay() + 6) % 7);
+	await text(`${daysLeft * 3} shifts have nobody assigned.`);
+	ok(true, "an empty week: every shift is flagged as having nobody");
+	const morningToday = page.locator(
+		".sched-grid tbody tr:first-child td.is-today .sched-cell",
 	);
+	await morningToday.click();
+	const assignDialog = page.locator(".sched-dialog");
+	await assignDialog.getByLabel("Budi Santoso").check();
+	await assignDialog.getByRole("button", { name: "Save" }).click();
+	await morningToday.getByText("Budi Santoso").waitFor({ timeout: 15000 });
+	await text(`${daysLeft * 3 - 1} shifts have nobody assigned.`);
+	ok(true, "a supervisor assigns a guard to today's morning shift");
+	await page.getByRole("button", { name: "Copy last week" }).click();
+	await text("Nothing to copy: last week has no shifts that fit.");
+	await page.getByRole("button", { name: "Next week" }).click();
+	await page.getByRole("button", { name: "Copy last week" }).click();
+	await text("1 shift copied from last week.");
+	await page
+		.locator(".sched-grid tbody tr:first-child")
+		.getByText("Budi Santoso")
+		.waitFor({ timeout: 15000 });
+	ok(true, "copy last week repeats the shift in the next week");
+	await page.getByRole("button", { name: "Previous week" }).click();
+	await page.getByRole("button", { name: "Previous week" }).click();
+	await text("This week has passed: its schedule can only be viewed.");
+	ok(
+		(await page.locator(".sched-cell:not(:disabled)").count()) === 0 &&
+			(await page
+				.getByRole("button", { name: "Copy last week" })
+				.isDisabled()),
+		"a week that has passed is read-only: no cell opens, nothing can be copied in",
+	);
+	await page.getByRole("button", { name: "This week" }).click();
+	await morningToday.getByText("Budi Santoso").waitFor({ timeout: 15000 });
+	await morningToday.click();
+	await assignDialog.getByLabel("Budi Santoso").uncheck();
+	await assignDialog.getByRole("button", { name: "Save" }).click();
+	await morningToday.getByText("Assign").waitFor({ timeout: 15000 });
+	ok(true, "taking the guard off the shift empties it again");
 	await page.getByRole("link", { name: "Log Database" }).click();
-	await text("This page will be updated.");
-	ok(true, "Log Database shows the scan log with a to-be-updated notice");
+	await text("Every scan, newest first.");
+	ok(true, "Log Database opens");
 
 	section("checkpoints");
 	await page.getByRole("link", { name: "Checkpoints and QR" }).click();
-	await page.locator(".sticker").first().waitFor({ timeout: 20000 });
-	ok((await page.locator(".sticker").count()) === 8, "8 QR labels render");
-	const codes = await page.locator(".sticker-code").allTextContents();
-	const names = await page.locator(".sticker-name").allTextContents();
+	const route = page.locator("section", {
+		has: page.getByRole("heading", { name: "Round order" }),
+	});
+	await route.locator("tbody tr").first().waitFor({ timeout: 20000 });
+	ok((await route.locator("tbody tr").count()) === 8, "8 checkpoints listed");
+	// On a desktop the QR column is always there, empty until something is selected.
+	ok(
+		(await page.locator(".qr-panel").isVisible()) &&
+			(await page.locator(".qr-panel .qr-sticker").count()) === 0,
+		"the QR column is empty until a checkpoint is selected",
+	);
+	ok(
+		(await page
+			.getByRole("button", { name: "Print selected" })
+			.isDisabled()) &&
+			(await page
+				.getByRole("button", { name: "Download as PDF" })
+				.isDisabled()),
+		"Print selected and Download as PDF wait for a selection",
+	);
+	const codes = await route.locator("td.c-code").allTextContents();
+	const names = await route.locator("td.c-name").allTextContents();
 	ok(
 		codes.every((c) => /^[A-Z2-9]{3}-[A-Z2-9]{3}$/.test(c.trim())),
 		"manual codes shown",
+	);
+
+	// On a desktop the form opens from the button beside the title.
+	ok(
+		!(await page.getByLabel("Checkpoint name").isVisible()),
+		"no add-checkpoint form on the page on a desktop",
+	);
+	await page.getByRole("button", { name: "Add checkpoint" }).click();
+	// A wide dialog: the form on the left, the map on the right.
+	const picker = page.getByRole("dialog");
+	await picker.getByLabel("Checkpoint name").waitFor();
+	ok(
+		await picker
+			.getByLabel("Checkpoint name")
+			.evaluate((el) => el === document.activeElement),
+		"Add checkpoint opens a dialog with the cursor in the name field",
 	);
 
 	// Name rules and the required location are checked before anything is saved.
@@ -188,30 +259,48 @@ try {
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
 	await text("Set the checkpoint's location on the map first, then add it.");
 	ok(
-		(await page.locator(".sticker").count()) === 8,
+		(await route.locator("tbody tr").count()) === 8,
 		"a too-short name, a repeated name and a missing location are refused",
 	);
-	await page.getByRole("button", { name: "Set location (required)" }).click();
-	const picker = page.getByRole("dialog");
 	await picker.locator(".leaflet-container").waitFor({ timeout: 15000 });
 	await picker.locator(".picker-map").click(); // drop the pin by tapping the map
 	await picker.getByText(/^-?\d+\.\d{6}, -?\d+\.\d{6}$/).waitFor();
 	await picker.getByText("Near: Jl. Contoh 1, Jakarta").waitFor();
-	ok(true, "tapping the map drops a pin and shows the nearest address");
-	await picker.getByRole("button", { name: "Save" }).click();
+	await picker.getByText(/^-?\d+\.\d{5}, -?\d+\.\d{5} \(50 m\)$/).waitFor();
+	ok(
+		true,
+		"tapping the map drops a pin, shows the nearest address, and fills in the form",
+	);
 	await page.getByRole("button", { name: "Add checkpoint" }).click();
+	await page
+		.getByRole("dialog")
+		.waitFor({ state: "detached", timeout: 15000 });
+	await text('"Pos belakang" added and selected for printing.');
+	ok(true, "the dialog closes once the checkpoint is added");
 	await text("1 of 9 selected");
-	ok(true, "new checkpoint added and pre-selected for printing");
+	await page.locator(".qr-panel .qr-sticker").first().waitFor();
+	ok(
+		(await page.locator(".qr-panel .qr-sticker").count()) === 1,
+		"new checkpoint added, pre-selected, and its QR shown for printing",
+	);
 	await page.getByLabel("Select all", { exact: true }).check();
 	await text("9 of 9 selected");
 	ok(
-		await page.getByRole("button", { name: "Print QR (9)" }).isEnabled(),
-		"select all enables Print QR (9)",
+		await page.getByRole("button", { name: "Print selected" }).isEnabled(),
+		"select all enables Print selected",
+	);
+	const [pdf] = await Promise.all([
+		page.waitForEvent("download"),
+		page.getByRole("button", { name: "Download as PDF" }).click(),
+	]);
+	const pdfBytes = readFileSync(await pdf.path());
+	ok(
+		pdf.suggestedFilename() === "patroli-checkpoints.pdf" &&
+			pdfBytes.subarray(0, 5).toString() === "%PDF-",
+		"Download as PDF saves a PDF sticker sheet",
+		`${pdf.suggestedFilename()}, ${pdfBytes.length} bytes`,
 	);
 
-	const route = page.locator("section", {
-		has: page.getByRole("heading", { name: "Round order" }),
-	});
 	const lastRow = route.locator("tbody tr").last();
 	await lastRow.getByRole("button", { name: "Rename" }).click();
 	await lastRow.getByRole("textbox").fill("Pos belakang gudang");
@@ -263,7 +352,7 @@ try {
 		.click();
 	await text(`New sticker for "${names[0].trim()}" is ready`);
 	// The table reloads just after the message appears.
-	const firstCode = route.locator("tbody tr").first().locator("td").nth(3);
+	const firstCode = route.locator("tbody tr").first().locator("td.c-code");
 	await page.waitForFunction(
 		([el, old]) => el.textContent.trim() !== old,
 		[await firstCode.elementHandle(), codes[0].trim()],
@@ -274,8 +363,7 @@ try {
 	const lastRowLocation = route
 		.locator("tbody tr")
 		.last()
-		.locator("td")
-		.nth(5);
+		.locator("td.c-loc");
 	ok(
 		/-?\d+\.\d{5}, -?\d+\.\d{5} \(50 m\)/.test(
 			await lastRowLocation.textContent(),
@@ -284,8 +372,15 @@ try {
 	);
 
 	const firstRow = route.locator("tbody tr").first();
-	await firstRow.getByRole("button", { name: /Set location/ }).click();
+	await firstRow.getByRole("button", { name: /^Edit location/ }).click();
 	await picker.getByRole("searchbox").fill("Jl Contoh");
+	// A modal dialog is drawn above the page, so a tip left on the page would sit behind it.
+	await picker.getByRole("button", { name: "Search", exact: true }).hover();
+	await picker
+		.locator(".tooltip:not([hidden])")
+		.getByText("Search this address")
+		.waitFor({ timeout: 5000 });
+	ok(true, "help text inside a dialog shows on top of it");
 	await picker.getByRole("button", { name: "Search", exact: true }).click();
 	await picker.getByRole("button", { name: "Jl. Contoh 1, Jakarta" }).click();
 	await picker.getByText("-6.200000, 106.800000").waitFor();
@@ -294,10 +389,10 @@ try {
 	await firstRow
 		.getByText("-6.20000, 106.80000 (60 m)")
 		.waitFor({ timeout: 15000 });
-	ok(true, "checkpoint pinned by searching an address");
+	ok(true, "a pin moved by searching an address");
 
 	const secondRow = route.locator("tbody tr").nth(1);
-	await secondRow.getByRole("button", { name: /Set location/ }).click();
+	await secondRow.getByRole("button", { name: /^Edit location/ }).click();
 	await picker.getByLabel("Coordinates").fill("-6.21, 106.81");
 	await picker.getByRole("button", { name: "Go" }).click();
 	await picker.getByText("-6.210000, 106.810000").waitFor();
@@ -305,7 +400,16 @@ try {
 	await secondRow
 		.getByText("-6.21000, 106.81000 (50 m)")
 		.waitFor({ timeout: 15000 });
-	ok(true, "checkpoint pinned by pasting coordinates");
+	ok(true, "a pin moved by pasting coordinates");
+	await firstRow.getByRole("button", { name: /^Edit location/ }).click();
+	await picker.getByRole("button", { name: "Save" }).waitFor();
+	ok(
+		(await picker
+			.getByRole("button", { name: "Remove location" })
+			.count()) === 0,
+		"a location can be moved but not removed",
+	);
+	await picker.getByRole("button", { name: "Cancel" }).click();
 
 	section("accounts");
 	await page.getByRole("link", { name: "Accounts" }).click();
@@ -426,7 +530,7 @@ try {
 
 	await page.getByRole("link", { name: "Add report" }).click();
 	await page.getByLabel("What happened?").fill("Lampu koridor mati.");
-	await page.locator('input[type="file"]').setInputFiles({
+	await page.getByLabel("From gallery").setInputFiles({
 		name: "photo.png",
 		mimeType: "image/png",
 		buffer: Buffer.from(
@@ -437,7 +541,7 @@ try {
 	await page.locator("ul img").first().waitFor({ timeout: 15000 });
 	await page.getByRole("button", { name: "Send report" }).click();
 	await text("Report sent.");
-	await page.getByRole("link", { name: "Back to round" }).click();
+	await page.getByRole("link", { name: "Back to checkpoint list" }).click();
 	await text("1 of 9 checkpoints checked today");
 	ok(true, "report with photo sent, round progress updates");
 	ok(
@@ -502,7 +606,7 @@ try {
 		!(await page.getByText("flagged for your supervisor").isVisible()),
 		"a scan at the pinned spot isn't flagged",
 	);
-	await page.getByRole("link", { name: "Back to round" }).click();
+	await page.getByRole("link", { name: "Back to checkpoint list" }).click();
 
 	await context.setGeolocation({
 		latitude: -6.26,
@@ -515,7 +619,7 @@ try {
 	await page.getByRole("button", { name: "Log scan" }).click();
 	await text("flagged for your supervisor");
 	ok(true, "a scan 5 km from its checkpoint is flagged on the phone");
-	await page.getByRole("link", { name: "Back to round" }).click();
+	await page.getByRole("link", { name: "Back to checkpoint list" }).click();
 	await signOut();
 
 	section("supervisor sees it");
@@ -535,6 +639,25 @@ try {
 		"Today moves scanned checkpoints to Completed, with the count",
 		`${doneRows} completed, ${missedRows} not yet`,
 	);
+	const farRow = page
+		.locator("section.area-review tbody tr")
+		.filter({ hasText: "Scan is too far" });
+	await farRow.first().waitFor();
+	ok(
+		/[\d.,]+ km/.test(await farRow.first().textContent()),
+		"Needs review lists the far scan, with the distance",
+	);
+	ok(
+		(await page
+			.locator("section.area-duty tr", { hasText: "Siti Rahma" })
+			.getByText("Patrolling")
+			.count()) === 1,
+		"the guard who just scanned is patrolling",
+	);
+	await farRow.first().getByRole("link").click();
+	await page.waitForURL(/#\/supervisor\/scans\//);
+	ok(true, "a Needs review row opens its scan");
+	await page.goBack();
 	await page.getByRole("link", { name: "Log Database" }).click();
 	await text("At checkpoint");
 	await page
@@ -548,22 +671,24 @@ try {
 	const map = page.locator(".overview-map");
 	await map.locator(".map-pin").first().waitFor({ timeout: 20000 });
 	ok(
-		(await map.locator(".map-pin").count()) === 3,
-		"the 3 pinned checkpoints are on the map",
+		(await map.locator(".map-pin").count()) === 9,
+		"all 9 checkpoints are on the map",
 	);
 	ok(
-		(await map.locator(".map-pin.is-visited").count()) === 2,
-		"the 2 visited ones are green",
+		(await map.locator(".map-pin.is-visited").count()) === 3,
+		"the 3 visited ones are green",
 	);
 	await text("Scans on the map: 4");
 	ok(
-		(await map.locator("path.map-scan.is-ok").count()) === 2 &&
+		(await map.locator("path.map-scan.is-ok").count()) === 3 &&
 			(await map.locator("path.map-scan.is-far").count()) === 1 &&
-			(await map.locator("path.map-scan.is-unknown").count()) === 1,
-		"scans are drawn at-checkpoint, far and unpinned",
+			(await map.locator("path.map-scan.is-unknown").count()) === 0,
+		"scans are drawn at-checkpoint and far",
 	);
-	await text("Checkpoints without a location (not on the map): 6");
-	ok(true, "unpinned checkpoints are counted, not hidden");
+	ok(
+		(await page.getByText("Checkpoints without a location").count()) === 0,
+		"no checkpoint is left off the map for want of a location",
+	);
 	await map.locator('.map-pin[title="Pos belakang gudang"]').click();
 	await map
 		.locator(".leaflet-popup-content")
@@ -577,7 +702,11 @@ try {
 		.waitFor({ state: "attached", timeout: 15000 });
 	ok(true, "choosing one guard draws their route");
 	await page.getByRole("link", { name: "Log Database" }).click();
-	await page.getByRole("link", { name: "View report" }).first().click();
+	await page
+		.locator(".log-scans tbody tr", { hasText: "Has a report" })
+		.first()
+		.getByRole("link")
+		.click();
 	await text("Lampu koridor mati.");
 	const photo = page.locator("article ul img").first();
 	await photo.waitFor({ timeout: 15000 });
@@ -612,8 +741,8 @@ try {
 		.check();
 	await page.getByText(`2 of ${before} selected`).first().waitFor();
 	ok(
-		await page.getByRole("button", { name: "Print QR (2)" }).isEnabled(),
-		"the round table and the label sheet share one selection",
+		await page.getByRole("button", { name: "Print selected" }).isEnabled(),
+		"selected rows are ready to print",
 	);
 	page.once("dialog", (d) => void d.accept());
 	await round.getByRole("button", { name: "Remove selected (2)" }).click();

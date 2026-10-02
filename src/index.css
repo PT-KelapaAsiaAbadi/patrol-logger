@@ -35,6 +35,17 @@
 	--duty-bg: #e2e9f0;
 	--review: #8a6200;
 	--review-bg: #fcf1c7;
+	/* Today dashboard extras: blue for guards on duty, grey for "not visited yet" (not missed:
+	   the day isn't over), and quieter lines and headers inside the section cards. */
+	--info: #285d91;
+	--info-bg: #dde8f4;
+	/* Text on a solid --info fill (blue buttons, the Checkpoints page). */
+	--info-ink: #ffffff;
+	--pending: #56616d;
+	--pending-bg: #e3e8ed;
+	--pending-edge: #8a95a1;
+	--row-line: #dfe4e9;
+	--head-bg: #f3f5f8;
 	color-scheme: light;
 }
 
@@ -62,6 +73,14 @@
 		--duty-bg: #1f2c39;
 		--review: #f2cf5b;
 		--review-bg: #3a3012;
+		--info: #8db4e2;
+		--info-bg: #1e3147;
+		--info-ink: #0f1a26;
+		--pending: #a3aeb9;
+		--pending-bg: #262f39;
+		--pending-edge: #6f7c89;
+		--row-line: #2a3440;
+		--head-bg: #19222b;
 		color-scheme: dark;
 	}
 }
@@ -89,6 +108,14 @@
 	--duty-bg: #1f2c39;
 	--review: #f2cf5b;
 	--review-bg: #3a3012;
+	--info: #8db4e2;
+	--info-bg: #1e3147;
+	--info-ink: #0f1a26;
+	--pending: #a3aeb9;
+	--pending-bg: #262f39;
+	--pending-edge: #6f7c89;
+	--row-line: #2a3440;
+	--head-bg: #19222b;
 	color-scheme: dark;
 }
 
@@ -174,6 +201,14 @@ img {
 	.btn-quiet:not(:disabled):hover {
 		background: var(--sunken);
 	}
+	.btn-outline {
+		background: transparent;
+		color: var(--info);
+		border-color: var(--info);
+	}
+	.btn-outline:not(:disabled):hover {
+		background: var(--info-bg);
+	}
 	.btn-ghost {
 		background: transparent;
 		color: var(--muted);
@@ -201,7 +236,8 @@ img {
 	}
 	.btn svg,
 	.link-btn svg,
-	.tab svg {
+	.shell-tab svg,
+	.shell-signout svg {
 		flex: none;
 	}
 	.link-btn:disabled {
@@ -276,6 +312,7 @@ img {
 		font-weight: 600;
 	}
 	.picker {
+		margin: auto;
 		width: min(46rem, calc(100vw - 2rem));
 		max-height: calc(100dvh - 2rem);
 		overflow-y: auto;
@@ -289,6 +326,8 @@ img {
 		background: rgb(0 0 0 / 0.5);
 	}
 	.picker-map {
+		/* Leaflet layers carry high z-indexes; keep them under the sticky header and tab bar. */
+		isolation: isolate;
 		height: min(22rem, 45dvh);
 		border: 1px solid var(--line);
 		border-radius: 6px;
@@ -318,6 +357,7 @@ img {
 		background: var(--sunken);
 	}
 	.overview-map {
+		isolation: isolate;
 		height: max(24rem, calc(100dvh - 22rem));
 		border: 1px solid var(--line);
 		border-radius: 6px;
@@ -399,6 +439,28 @@ img {
 		border: 1.5px solid var(--line);
 		border-radius: 6px;
 	}
+	/* A character counter in a field's bottom-right corner, e.g. the Accounts page's full name. */
+	.field-count-wrap {
+		position: relative;
+		display: block;
+	}
+	.field-count-wrap .field {
+		padding-right: 4.25rem;
+	}
+	.char-count {
+		position: absolute;
+		right: 0.6rem;
+		bottom: 0.35rem;
+		font-size: 0.75rem;
+		line-height: 1;
+		color: var(--muted);
+		font-variant-numeric: tabular-nums;
+		pointer-events: none;
+	}
+	.char-count.is-full {
+		color: var(--warn);
+		font-weight: 700;
+	}
 	.field:focus {
 		border-color: var(--ink);
 		outline: none;
@@ -429,15 +491,34 @@ img {
 		color: var(--warn);
 	}
 
+	/* Top bar of the sign-in and guard pages: "Patroli" on the left, the switches on the right. */
 	.lang-bar {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.35rem 1rem;
-		padding: 0.4rem 1.25rem;
+		gap: 0.35rem 0.75rem;
+		min-height: 3.5rem;
+		padding: 0.4rem 0.75rem 0.4rem 1rem;
 		font-size: 0.8125rem;
-		background: var(--sunken);
+		background: var(--surface);
 		border-bottom: 1px solid var(--line);
+	}
+	.lang-bar-brand {
+		font-size: 1.1875rem;
+		font-weight: 800;
+		letter-spacing: -0.01em;
+	}
+	/* The theme and language switches (components/LanguageBar.tsx), in the bar or a header. */
+	.display-controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.35rem 0.75rem;
+		font-size: 0.8125rem;
+	}
+	.lang-bar .display-controls {
+		margin-left: auto;
+		column-gap: 0.5rem;
 	}
 	/* Segmented buttons for the theme and language switches. */
 	.lang-btn {
@@ -465,20 +546,120 @@ img {
 		border-color: var(--ink);
 	}
 
-	/* Guard round */
-	.progress {
-		height: 8px;
-		background: var(--sunken);
-		border-radius: 4px;
+	/* Guard home (pages/guard/Home.tsx): blue for actions like the supervisor pages; amber is
+	   kept for warnings (offline, unsent, refused scans). */
+	.guard-home,
+	.scan-screen,
+	.scan-done,
+	.report-page {
+		--accent: var(--info);
+		--accent-ink: var(--info-ink);
+	}
+	.guard-greet {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+	.guard-greet h1 {
+		font-size: 1.875rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		line-height: 1.15;
+		overflow-wrap: anywhere;
+	}
+	.guard-greet .icon-btn {
+		width: 2.75rem;
+		height: 2.75rem;
+	}
+
+	/* Today's progress: the count, a bar, and the next stop. */
+	.round-card {
+		display: grid;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.round-count {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		column-gap: 0.5rem;
+		font-weight: 600;
+		color: var(--muted);
+	}
+	.round-num {
+		font-size: 2.5rem;
+		font-weight: 800;
+		line-height: 1;
+		letter-spacing: -0.03em;
+		color: var(--ink);
+		font-variant-numeric: tabular-nums;
+	}
+	/* Scanned out of assigned, filling from the left. */
+	.round-bar {
+		height: 10px;
+		border-radius: 5px;
+		background: var(--line);
 		overflow: hidden;
 	}
-	.progress > span {
+	.round-bar > span {
 		display: block;
 		height: 100%;
+		border-radius: 5px;
 		background: var(--ok-fill);
 		transition: width 0.3s ease;
 	}
+	.round-next {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border-radius: 10px;
+		background: var(--info-bg);
+		color: var(--info);
+	}
+	.round-next > svg {
+		flex: none;
+	}
+	.round-next-label {
+		display: block;
+		font-size: 0.75rem;
+		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.round-next-name {
+		display: block;
+		font-size: 1.0625rem;
+		font-weight: 700;
+		color: var(--ink);
+	}
+	.round-next.is-complete {
+		background: var(--done-bg);
+		color: var(--done);
+		font-weight: 700;
+	}
 
+	/* The round: every stop in order, with a done / waiting / not yet mark and the time. */
+	.round-list {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+	.round-list-head {
+		padding: 0.75rem 1rem;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--muted);
+		background: var(--head-bg);
+	}
 	.route {
 		list-style: none;
 		padding: 0;
@@ -487,38 +668,39 @@ img {
 	.route li {
 		display: flex;
 		align-items: center;
-		gap: 0.9rem;
-		padding: 0.8rem 0;
-		border-bottom: 1px solid var(--line);
+		gap: 0.75rem;
+		min-height: 3.25rem;
+		padding: 0.5rem 1rem;
+		border-top: 1px solid var(--row-line);
 	}
 	.route .stop {
-		width: 2.1rem;
-		height: 2.1rem;
+		width: 1.875rem;
+		height: 1.875rem;
 		flex: none;
 		display: grid;
 		place-items: center;
-		border: 2px solid var(--line);
-		border-radius: 6px;
-		font-weight: 700;
+		border-radius: 8px;
+		background: var(--pending-bg);
+		color: var(--pending);
+	}
+	.route .name {
+		flex: 1;
+		min-width: 0;
+		font-size: 0.9375rem;
+		font-weight: 600;
 	}
 	.route .status {
 		color: var(--muted);
-		font-size: 0.9375rem;
+		font-size: 0.875rem;
 		text-align: right;
+		font-variant-numeric: tabular-nums;
 	}
 	.route li.is-done .stop {
-		background: var(--ok-fill);
-		border-color: var(--ok-fill);
-		color: #fff;
-	}
-	.route li.is-done .status {
-		color: var(--ok);
-		font-weight: 600;
+		background: var(--done-bg);
+		color: var(--done);
 	}
 	.route li.is-queued .stop {
 		background: var(--queued-bg);
-		border-style: dashed;
-		border-color: var(--queued);
 		color: var(--queued);
 	}
 	.route li.is-queued .status {
@@ -526,29 +708,59 @@ img {
 		font-weight: 600;
 	}
 
+	/* The Scan button, fixed to the bottom of the screen. */
 	.dock {
 		position: fixed;
 		left: 0;
 		right: 0;
 		bottom: 0;
-		padding: 0.75rem 1.25rem
-			calc(0.75rem + env(safe-area-inset-bottom, 0px));
-		background: var(--surface);
-		border-top: 1px solid var(--line);
+		padding: 0.5rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+		background: var(--bg);
 	}
 	.dock > * {
 		max-width: 36rem;
 		margin-inline: auto;
 		display: flex;
 	}
+	.dock .btn-xl {
+		min-height: 4rem;
+		gap: 0.75rem;
+		border-radius: 14px;
+		font-size: 1.125rem;
+		font-weight: 800;
+	}
 
-	/* Scanner */
-	.scan-screen {
+	/* Scanner (pages/guard/Scan.tsx): a top bar with Close, the camera in a framed square, what to
+	   do, where the phone is, and typing the code as a fallback. */
+	.scan-screen,
+	.scan-done {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		background: var(--surface);
 	}
+	.scan-top {
+		display: grid;
+		grid-template-columns: 2.75rem 1fr 2.75rem;
+		align-items: center;
+		gap: 0.75rem;
+		min-height: 3.5rem;
+		padding-inline: 0.75rem;
+		background: var(--surface);
+		border-bottom: 1px solid var(--line);
+	}
+	.scan-top h1 {
+		text-align: center;
+		font-size: 1.0625rem;
+		font-weight: 800;
+	}
+	/* The flashlight while it's on. */
+	.flash-btn.is-on {
+		background: var(--info);
+		border-color: var(--info);
+		color: var(--info-ink);
+	}
+	/* The camera picture, edge to edge and not dimmed. The frame is light blue in both themes,
+	   since it sits on the picture. */
 	.scan-view {
 		position: relative;
 		flex: 1;
@@ -568,11 +780,51 @@ img {
 		left: 50%;
 		top: 50%;
 		translate: -50% -50%;
-		width: min(64vmin, 280px);
+		width: min(64vmin, 18rem);
 		aspect-ratio: 1;
-		border: 3px solid var(--accent);
-		border-radius: 10px;
-		box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45); /* dims everything outside the frame */
+	}
+	.scan-frame .corner {
+		position: absolute;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: 5px solid #8db4e2;
+	}
+	.scan-frame .tl {
+		left: 0;
+		top: 0;
+		border-right: 0;
+		border-bottom: 0;
+		border-top-left-radius: 20px;
+	}
+	.scan-frame .tr {
+		right: 0;
+		top: 0;
+		border-left: 0;
+		border-bottom: 0;
+		border-top-right-radius: 20px;
+	}
+	.scan-frame .bl {
+		left: 0;
+		bottom: 0;
+		border-right: 0;
+		border-top: 0;
+		border-bottom-left-radius: 20px;
+	}
+	.scan-frame .br {
+		right: 0;
+		bottom: 0;
+		border-left: 0;
+		border-top: 0;
+		border-bottom-right-radius: 20px;
+	}
+	.scan-line {
+		position: absolute;
+		left: 1.75rem;
+		right: 1.75rem;
+		top: 50%;
+		height: 3px;
+		border-radius: 2px;
+		background: #8db4e2;
 	}
 	.scan-hint {
 		position: absolute;
@@ -580,40 +832,621 @@ img {
 		text-align: center;
 		color: #fff;
 	}
-	.scan-panel {
-		padding: 1rem 1.25rem 1.25rem;
-		max-width: 36rem;
+	/* Under the camera: what to do, where the phone is, and typing the code instead. */
+	.scan-body {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
 		width: 100%;
+		max-width: 36rem;
 		margin-inline: auto;
+		padding: 1.25rem 1rem 1.5rem;
 	}
-
-	.result-tag {
+	/* No camera: the message and the code form fill the screen instead. */
+	.scan-view.hidden + .scan-body {
+		flex: 1;
+		justify-content: center;
+	}
+	.scan-aim {
+		max-width: 18rem;
+		text-align: center;
 		font-size: 1.125rem;
-		font-weight: 700;
+		font-weight: 600;
+		line-height: 1.4;
 	}
-	.result-tag.is-done {
-		color: var(--ok);
+	/* Under the instruction: where to look if the camera doesn't open. */
+	.scan-help {
+		max-width: 20rem;
+		margin-top: -0.5rem;
+		text-align: center;
+		font-size: 0.8125rem;
+		color: var(--muted);
 	}
-	.result-tag.is-queued {
-		color: var(--queued);
-	}
-
-	/* Supervisor */
-	.tab {
+	/* Location: a pill when found or still looking; a box with Try again when there's a problem. */
+	.loc-pill {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.6rem 0.75rem;
-		border-bottom: 3px solid transparent;
-		color: var(--muted);
+		gap: 0.5rem;
+		min-height: 2.25rem;
+		padding: 0.35rem 0.9rem;
+		border-radius: 999px;
+		font-size: 0.875rem;
+		font-weight: 700;
+	}
+	.loc-pill > svg {
+		flex: none;
+	}
+	.loc-pill.is-ok {
+		background: var(--done-bg);
+		color: var(--done);
+	}
+	.loc-pill.is-pending {
+		background: var(--pending-bg);
+		color: var(--pending);
+	}
+	.loc-pill.is-warn {
+		align-self: stretch;
+		align-items: flex-start;
+		padding: 0.75rem 0.9rem;
+		border-radius: 12px;
+		background: var(--warn-bg);
+		color: var(--warn);
 		font-weight: 600;
+		line-height: 1.45;
 	}
-	.tab:hover {
+	.loc-pill.is-warn > svg {
+		margin-top: 0.15rem;
+	}
+
+	/* After a scan (and after a report): the result in the middle, the actions at the bottom. */
+	.scan-done {
+		width: 100%;
+		max-width: 36rem;
+		margin-inline: auto;
+		padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+	}
+	.scan-done-main {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding-block: 1.5rem;
+		text-align: center;
+	}
+	.scan-done-icon {
+		display: grid;
+		place-items: center;
+		width: 6.5rem;
+		height: 6.5rem;
+		border-radius: 50%;
+	}
+	.scan-done-icon.is-done {
+		background: var(--done-bg);
+		color: var(--done);
+	}
+	.scan-done-icon.is-queued {
+		background: var(--queued-bg);
+		color: var(--queued);
+	}
+	.scan-done-main h1 {
+		margin-top: 0.5rem;
+		font-size: 1.875rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+	}
+	.scan-done-name {
+		font-size: 1.375rem;
+		font-weight: 700;
+		line-height: 1.3;
+		overflow-wrap: anywhere;
+	}
+	.scan-done-actions {
+		display: grid;
+		gap: 0.75rem;
+	}
+	.scan-next {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	.scan-next-label {
+		flex: none;
+		font-size: 0.75rem;
+		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--info);
+	}
+	.scan-next-name {
+		font-weight: 700;
+		text-align: right;
+		overflow-wrap: anywhere;
+	}
+	.scan-next.is-complete {
+		justify-content: flex-start;
+		background: var(--done-bg);
+		border-color: transparent;
+		color: var(--done);
+		font-weight: 700;
+	}
+	.scan-done-actions .btn {
+		border-radius: 12px;
+	}
+	.scan-done-actions .btn-primary {
+		font-weight: 800;
+	}
+
+	/* Report (pages/guard/Report.tsx): Back, the title, then the note and photos in one card. */
+	.report-page {
+		display: grid;
+		align-content: start;
+		gap: 1rem;
+		width: 100%;
+		max-width: 36rem;
+		margin-inline: auto;
+		padding: 0.5rem 1rem 1.5rem;
+	}
+	.report-back {
+		justify-self: start;
+		min-height: 2.75rem;
+		color: var(--info);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.report-page h1 {
+		font-size: 1.75rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		line-height: 1.2;
+	}
+	.report-card {
+		display: grid;
+		gap: 1.25rem;
+		padding: 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	.report-label {
+		font-size: 0.9375rem;
+		font-weight: 700;
+	}
+	.report-note {
+		min-height: 8.75rem;
+		border-radius: 10px;
+		line-height: 1.45;
+		resize: vertical;
+	}
+	/* A character count under a box, on the right (the Accounts name field keeps it inside). */
+	.field-count {
+		justify-self: end;
+		font-size: 0.75rem;
+		line-height: 1;
+		color: var(--muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.field-count.is-full {
+		color: var(--warn);
+		font-weight: 700;
+	}
+	.report-photos-set {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+	.report-photos-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+		width: 100%;
+		padding: 0;
+	}
+	.report-photos-count {
+		font-size: 0.875rem;
+		color: var(--muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.report-photos {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.625rem;
+		margin: 0.5rem 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.report-photos li {
+		position: relative;
+		aspect-ratio: 1;
+	}
+	.report-photos img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+	}
+	.photo-add {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		width: 100%;
+		height: 100%;
+		padding: 0.25rem;
+		border: 2px dashed var(--line);
+		border-radius: 10px;
+		color: var(--info);
+		font-size: 0.8125rem;
+		font-weight: 700;
+		text-align: center;
+		cursor: pointer;
+	}
+	.photo-add:focus-within {
+		outline: 3px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.photo-add.is-busy {
+		opacity: 0.6;
+		pointer-events: none;
+	}
+	.report-photos .photo-remove {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		background: var(--surface);
+	}
+	.report-page > .btn-primary {
+		border-radius: 12px;
+		font-weight: 800;
+	}
+
+	/*
+	  Supervisor shell (components/SupervisorShell.tsx): one header, two layouts.
+	    - below 1024px: a slim top bar (name, theme and language) that scrolls away, and a tab bar
+	      fixed to the bottom of the screen (Today, Log, Schedule, Map, More)
+	    - 1024px and up: the header stays at the top with the tabs, the switches, the supervisor
+	      and Sign out; to fit, 1280-1439px drops the tab icons and 1024-1279px the supervisor too
+	  Every supervisor page uses blue for actions and selection: .shell points --accent at --info,
+	  so buttons, checkboxes, focus rings, the map's route and pins, and the location picker turn
+	  blue. The guard's home screen does the same (.guard-home); amber is kept for warnings.
+	*/
+	.shell,
+	.login-page {
+		--accent: var(--info);
+		--accent-ink: var(--info-ink);
+	}
+	.shell input[type="checkbox"] {
+		accent-color: var(--info);
+	}
+	.shell-header {
+		background: var(--surface);
+		border-bottom: 1px solid var(--line);
+	}
+	.shell-bar {
+		max-width: 90rem;
+		margin-inline: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem 1.25rem;
+		min-height: 3.5rem;
+		padding-inline: 1rem;
+	}
+	.shell-brand {
+		font-size: 1.125rem;
+		font-weight: 800;
+		letter-spacing: -0.01em;
+	}
+	.shell-tabs,
+	.shell-user,
+	.shell-signout {
+		display: none;
+	}
+	.shell-tools {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.shell-header .display-controls {
+		flex-wrap: nowrap;
+	}
+	.shell-header .lang-btn {
+		justify-content: center;
+		min-width: 2.5rem;
+		min-height: 2.5rem;
+	}
+	.shell-avatar {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 50%;
+		background: var(--info-bg);
+		color: var(--info);
+		font-size: 0.75rem;
+		font-weight: 800;
+	}
+	.shell-avatar.is-large {
+		width: 3rem;
+		height: 3rem;
+		font-size: 1rem;
+	}
+	.shell-main {
+		padding-top: 1.5rem;
+		/* Room for the bottom tab bar, so the last row isn't hidden behind it. */
+		padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+	}
+	.shell-bottom {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 30;
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+		background: var(--surface);
+		border-top: 1px solid var(--line);
+	}
+	.shell-bottom-tab {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.2rem;
+		min-height: 3.5rem;
+		padding: 0.35rem 0.25rem;
+		color: var(--muted);
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-decoration: none;
+		box-shadow: inset 0 3px 0 transparent;
+	}
+	.shell-bottom-tab span {
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.shell-bottom-tab:not(.is-active):hover {
 		color: var(--ink);
 	}
-	.tab.is-active {
+	.shell-bottom-tab.is-active {
+		color: var(--info);
+		font-weight: 700;
+		box-shadow: inset 0 3px 0 var(--info);
+	}
+	/* Scrolling to a section or a focused field stops above the bottom tab bar. */
+	html:has(.shell-bottom) {
+		scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+	}
+
+	@media (min-width: 1024px) {
+		.shell-header {
+			position: sticky;
+			top: env(safe-area-inset-top, 0px);
+			z-index: 30;
+		}
+		.shell-bar {
+			min-height: 4rem;
+			padding-inline: 1.25rem;
+			gap: 1.25rem;
+		}
+		.shell-tabs {
+			display: flex;
+			align-self: stretch;
+			gap: 0.125rem;
+			min-width: 0;
+		}
+		.shell-tab {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.45rem;
+			padding: 0 0.7rem;
+			border-block: 3px solid transparent;
+			color: var(--muted);
+			font-weight: 600;
+			white-space: nowrap;
+			text-decoration: none;
+		}
+		.shell-tab:hover {
+			color: var(--ink);
+		}
+		.shell-tab.is-active {
+			color: var(--ink);
+			font-weight: 700;
+			border-bottom-color: var(--info);
+		}
+		.shell-user {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+		}
+		.shell-user-text {
+			display: grid;
+			line-height: 1.25;
+			white-space: nowrap;
+		}
+		.shell-signout {
+			white-space: nowrap;
+		}
+		.shell-signout {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+			min-height: 2.5rem;
+			padding: 0 0.6rem;
+			border-radius: 8px;
+			background: none;
+			color: var(--ink);
+			font-weight: 600;
+			cursor: pointer;
+		}
+		.shell-signout:hover {
+			background: var(--sunken);
+		}
+		.shell-header .lang-btn {
+			min-width: 2.25rem;
+			min-height: 2.25rem;
+		}
+		.shell-main {
+			padding-bottom: 1.5rem;
+		}
+		.shell-bottom {
+			display: none;
+		}
+		/* Jumps to a section (Today's tiles) and focused fields stop below the header. */
+		html:has(.shell-header) {
+			scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 5rem);
+		}
+	}
+	/* 1280-1439px: the full header only fits without the tab icons. */
+	@media (min-width: 1280px) and (max-width: 1439.98px) {
+		.shell-tab svg {
+			display: none;
+		}
+	}
+	@media (min-width: 1024px) and (max-width: 1279.98px) {
+		.shell-bar {
+			gap: 0.75rem;
+		}
+		.shell-tab {
+			padding-inline: 0.5rem;
+		}
+		.shell-tab svg,
+		.shell-user {
+			display: none;
+		}
+		.shell-signout-label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+	}
+
+	/* Sign-in page (pages/Login.tsx): the form in a card, centred, blue like the supervisor pages
+	   (.login-page shares .shell's accent above). */
+	.login-page {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2.5rem 1.25rem 3rem;
+	}
+	.login-inner {
+		width: 100%;
+		max-width: 26rem;
+		display: grid;
+		gap: 1.5rem;
+	}
+	.login-head {
+		display: grid;
+		justify-items: start;
+		gap: 0.5rem;
+	}
+	.login-badge {
+		display: grid;
+		place-items: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 14px;
+		background: var(--info-bg);
+		color: var(--info);
+	}
+	.login-card {
+		display: grid;
+		gap: 1rem;
+		padding: 1.25rem 1.1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.login-card .field {
+		min-height: 3.25rem;
+		font-size: 1.0625rem;
+	}
+	/* Show/hide password: an eye button inside the field's right edge, the text kept clear of it. */
+	.password-wrap {
+		position: relative;
+	}
+	.password-input {
+		padding-right: 3.5rem;
+	}
+	.password-toggle.icon-btn {
+		position: absolute;
+		right: 0.25rem;
+		bottom: 0.25rem;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+	}
+	/* Hover only with a mouse: on touch screens it would stay grey after a tap. */
+	@media (hover: hover) {
+		.password-toggle.icon-btn:not(:disabled):hover {
+			background: var(--sunken);
+			color: var(--ink);
+		}
+	}
+	.login-foot {
+		text-align: center;
+		font-size: 0.875rem;
+		color: var(--muted);
+	}
+
+	/* The More page (pages/supervisor/More.tsx), phones and tablets. */
+	.more-card {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	.more-profile {
+		display: flex;
+		align-items: center;
+		gap: 0.9rem;
+		padding: 1rem;
+	}
+	.more-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+	}
+	.more-list li + li {
+		border-top: 1px solid var(--row-line);
+	}
+	.more-item {
+		display: flex;
+		align-items: center;
+		gap: 0.85rem;
+		min-height: 3.5rem;
+		padding: 0 1rem;
 		color: var(--ink);
-		border-color: var(--accent);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.more-item:hover {
+		background: var(--sunken);
+	}
+	.more-signout {
+		width: 100%;
 	}
 
 	.duty-list {
@@ -658,7 +1491,10 @@ img {
 		}
 	}
 
+	/* position: relative keeps screen-reader-only headings (position: absolute) inside the scroll
+	   box; without it they escape to the table's far edge and widen the whole page on a phone. */
 	.table-wrap {
+		position: relative;
 		overflow-x: auto;
 		border: 1px solid var(--line);
 		border-radius: 6px;
@@ -685,273 +1521,940 @@ img {
 		border-bottom: 0;
 	}
 
+	/*
+	  Log Database (pages/supervisor/Log.tsx): title and Download CSV, pill filters, then the scans
+	  in one card with the pager in its footer. Rows reuse Today's .dash-table, so on phones each
+	  scan is one line (time, checkpoint over guard, a flag or the location).
+	*/
+	.log-page {
+		display: grid;
+		gap: 1rem;
+	}
+	.log-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 0.75rem 1rem;
+	}
+	.log-export {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.log-filters {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	/* A filter as a pill; blue once it narrows the list. */
+	.filter-chip {
+		width: auto;
+		max-width: 100%;
+		min-height: 2.625rem;
+		padding: 0.4rem 0.85rem;
+		border-width: 1px;
+		border-radius: 999px;
+		font-size: 0.875rem;
+		font-weight: 600;
+	}
+	/* Android Chrome gives an empty date input almost no width (just the calendar icon), so the
+	   chip keeps room for "dd/mm/yyyy" and the icon. */
+	.filter-chip[type="date"] {
+		min-width: 10.5rem;
+	}
+	/* The format hint over an empty date chip (Log.tsx), on touch screens only: phone browsers
+	   (Android Chrome, iPhone Safari) leave an empty date field blank, while desktop browsers
+	   show their own "dd/mm/yyyy". */
+	.date-chip {
+		position: relative;
+		display: inline-flex;
+		max-width: 100%;
+	}
+	.date-chip-hint {
+		display: none;
+		position: absolute;
+		left: calc(0.85rem + 1px);
+		top: 50%;
+		translate: 0 -50%;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--muted);
+		pointer-events: none;
+	}
+	@media (pointer: coarse) {
+		.date-chip.is-empty .date-chip-hint {
+			display: block;
+		}
+	}
+	.filter-chip.is-set {
+		border-color: var(--info);
+		background: var(--info-bg);
+		color: var(--info);
+	}
+	.log-clear {
+		color: var(--info);
+		text-decoration: none;
+		font-weight: 600;
+		font-size: 0.875rem;
+	}
+	.log-card {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		overflow: hidden;
+		transition: opacity 0.2s;
+	}
+	.log-card.is-busy {
+		opacity: 0.6;
+	}
+	/* The page scrolls, not the card: headers stay in place. */
+	.log-card .dash-table th {
+		position: static;
+	}
+	.log-card .dash-table .c-end {
+		white-space: normal;
+	}
+	.log-chips {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
+	.log-card-foot {
+		padding: 0 1rem 0.75rem;
+		border-top: 1px solid var(--row-line);
+	}
+
+	/*
+	  Scan detail, the supervisor's "View report" page (pages/supervisor/ScanDetail.tsx): Back, the
+	  checkpoint and the location check as pills, then two cards, the scan and the report. Stacked
+	  on phones and tablets, side by side from 1024px. Photos reuse the guard Report's grid.
+	*/
+	.scan-page {
+		display: grid;
+		gap: 1rem;
+		max-width: 64rem;
+	}
+	.back-link {
+		justify-self: start;
+		min-height: 2.75rem;
+		color: var(--info);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.scan-page-head {
+		display: grid;
+		gap: 0.25rem;
+	}
+	.scan-page-pills {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+	}
+	/* In this row every state is a pill, including "far" (a box on the guard's Scan page). */
+	.scan-page-pills .loc-pill {
+		align-self: auto;
+		align-items: center;
+		padding: 0.35rem 0.9rem;
+		border-radius: 999px;
+		font-weight: 700;
+	}
+	.loc-pill.is-queued {
+		background: var(--queued-bg);
+		color: var(--queued);
+	}
+	.scan-page-grid {
+		display: grid;
+		gap: 1rem;
+		align-items: start;
+	}
+	.scan-card {
+		display: grid;
+		gap: 0.9rem;
+		min-width: 0;
+		padding: 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	/* A report is usually an incident: the card takes the review colour. */
+	.scan-card.has-report {
+		border-top-color: var(--review);
+	}
+	.scan-card h2 {
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
 	.detail-list {
 		display: grid;
-		grid-template-columns: max-content 1fr;
-		gap: 0.35rem 1.25rem;
+		grid-template-columns: max-content minmax(0, 1fr);
+		gap: 0.6rem 1.25rem;
+		align-items: baseline;
 	}
 	.detail-list dt {
 		color: var(--muted);
 	}
+	.scan-guard {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-weight: 600;
+	}
+	.scan-guard .guard-avatar {
+		float: none;
+		margin: 0;
+	}
+	.scan-map-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.scan-map-links .btn {
+		flex: 1 1 12rem;
+	}
+	.scan-note {
+		max-width: 65ch;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		line-height: 1.55;
+	}
+	.report-photos a {
+		display: block;
+		height: 100%;
+		border-radius: 10px;
+	}
+	@media (min-width: 1024px) {
+		.scan-page-grid {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		}
+	}
 
 	/*
-	  Today dashboard (pages/supervisor/Today.tsx). The cards come in phone order in the page
-	  (Needs review, Not yet visited, Completed, Guards on duty):
-	    - phones: one column, each card's table capped in height and scrolling inside it
-	    - tablets (640-1023px): Needs review across the top, then Completed (the widest table) at
-	      full width, then Not yet visited and Guards on duty side by side
-	    - wide screens: checkpoints stacked in a left column 2/3 wide, Needs review above Guards on
-	      duty on the right, each the same height as the left card beside it, filling the window
+	  Today dashboard (pages/supervisor/Today.tsx): count tiles, then four section cards. The
+	  cards come in phone order in the page (Needs review, Not yet visited, Completed, Guards on
+	  duty):
+	    - phones: one column; tables keep 2 or 3 columns, the rest folds into a line under the name
+	    - tablets (640-1023px): Needs review and Completed full width, then Not yet visited and
+	      Guards on duty side by side
+	    - wide screens: three columns, Needs review (2/3) beside Guards on duty, then Not yet
+	      visited beside Completed (2/3); long tables scroll inside their card
+	  Below desktop width a card shows 5 rows and a "Show all" button (ROWS_SHOWN in Today.tsx)
+	  instead of scrolling inside itself, so a swipe always moves the page.
 	*/
 	.today-header {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: flex-start;
+		align-items: flex-end;
 		justify-content: space-between;
 		gap: 0.75rem 1rem;
 		margin-bottom: 1rem;
 	}
-	.today-grid {
-		display: grid;
-		gap: 1rem;
-		grid-template-columns: minmax(0, 1fr);
+	.dash-title {
+		font-size: 1.75rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		line-height: 1.15;
 	}
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-top: 4px solid var(--tone);
-		border-radius: 6px;
+	.dash-refresh {
+		min-width: 44px;
+		padding-inline: 0.75rem;
 	}
-	.overview-card.tone-done {
-		--tone: var(--done);
-		--tone-bg: var(--done-bg);
-	}
-	.overview-card.tone-missed {
-		--tone: var(--missed);
-		--tone-bg: var(--missed-bg);
-	}
-	.overview-card.tone-duty {
-		--tone: var(--duty);
-		--tone-bg: var(--duty-bg);
-	}
-	.overview-card.tone-review {
+
+	/* Tone of a tile or card: text/icon colour, tint behind it, and the edge along its top. */
+	.tone-review {
 		--tone: var(--review);
 		--tone-bg: var(--review-bg);
+		--tone-edge: var(--review);
 	}
-	.overview-head {
+	.tone-pending {
+		--tone: var(--pending);
+		--tone-bg: var(--pending-bg);
+		--tone-edge: var(--pending-edge);
+	}
+	.tone-done {
+		--tone: var(--done);
+		--tone-bg: var(--done-bg);
+		--tone-edge: var(--done);
+	}
+	.tone-duty {
+		--tone: var(--info);
+		--tone-bg: var(--info-bg);
+		--tone-edge: var(--info);
+	}
+
+	.dash-stats {
+		list-style: none;
+		margin: 0 0 1rem;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+	}
+	.stat-tile {
 		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem 0.6rem;
-		padding: 0.8rem 1rem 0.2rem;
-		color: var(--tone);
+		gap: 0.75rem;
+		width: 100%;
+		height: 100%;
+		min-height: 44px;
+		padding: 0.7rem 0.8rem;
+		background: var(--surface);
+		color: var(--ink);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--tone-edge);
+		border-radius: 12px;
+		text-align: left;
+		cursor: pointer;
 	}
-	.overview-head h2 {
-		margin: 0;
-		font-size: 1.2rem;
-		font-weight: 700;
+	.stat-tile:hover {
+		background: var(--sunken);
 	}
-	.overview-count,
-	.overview-badge {
-		margin-left: auto;
-		font-size: 0.8rem;
-		font-weight: 700;
-		padding: 0.1rem 0.55rem;
-		border-radius: 999px;
-		font-variant-numeric: tabular-nums;
-	}
-	.overview-count {
+	.stat-icon {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 10px;
 		background: var(--tone-bg);
 		color: var(--tone);
 	}
-	.overview-badge {
-		background: var(--review-bg);
-		color: var(--review);
-		border: 1px solid var(--review);
+	.stat-value {
+		font-size: 1.5rem;
+		font-weight: 800;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
 	}
-	.overview-desc {
-		padding: 0 1rem 0.6rem;
+	.stat-label {
+		font-size: 0.8125rem;
+		font-weight: 600;
 		color: var(--muted);
-		font-size: 0.9rem;
+		line-height: 1.3;
 	}
-	.overview-body {
-		flex: 1;
-		min-height: 0;
-		max-height: 22rem;
-		overflow: auto;
+
+	.dash-grid {
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: minmax(0, 1fr);
+		align-items: start;
+	}
+	.dash-card {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--tone-edge);
+		border-radius: 12px;
+		overflow: hidden;
+		scroll-margin-top: 1rem;
+	}
+	.dash-card:focus {
+		outline: none;
+	}
+	.dash-card:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.dash-head {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.65rem;
+		padding: 0.9rem 1rem 0.8rem;
+	}
+	.dash-icon {
+		flex: none;
+		margin-top: 0.1rem;
+		color: var(--tone);
+	}
+	.dash-head h2 {
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 800;
+		line-height: 1.3;
+	}
+	.dash-desc {
+		margin-top: 0.1rem;
+		font-size: 0.8125rem;
+		line-height: 1.4;
+		color: var(--muted);
+	}
+	.dash-count {
+		display: inline-block;
+		font-size: 0.75rem;
+		font-weight: 700;
+		padding: 0.15rem 0.6rem;
+		border-radius: 999px;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	.dash-count {
+		flex: none;
+		background: var(--tone-bg);
+		color: var(--tone);
+	}
+	.dash-body {
 		border-top: 1px solid var(--line);
 	}
-	.overview-empty {
+	.dash-empty {
 		padding: 1rem;
 		color: var(--muted);
 	}
-	.overview-table {
+	.dash-more {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		width: 100%;
+		min-height: 44px;
+		border-top: 1px solid var(--row-line);
+		background: none;
+		color: var(--info);
+		font-size: 0.875rem;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.dash-more:hover {
+		background: var(--sunken);
+	}
+
+	.dash-table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: 0.9rem;
+		font-size: 0.9375rem;
 	}
-	.overview-table th {
+	.dash-table th {
 		position: sticky;
 		top: 0;
 		z-index: 1;
+		padding: 0.55rem 0.5rem;
 		text-align: left;
-		font-size: 0.8rem;
-		font-weight: 600;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 		color: var(--muted);
+		background: var(--head-bg);
+	}
+	.dash-table td {
+		padding: 0.65rem 0.5rem;
+		border-top: 1px solid var(--row-line);
+		vertical-align: middle;
+	}
+	.dash-table :is(th, td):first-child {
+		padding-left: 1rem;
+	}
+	.dash-table :is(th, td):last-child {
+		padding-right: 1rem;
+	}
+	.dash-table .c-stop {
+		width: 3rem;
+	}
+	.dash-table .c-end {
+		white-space: nowrap;
+	}
+	.dash-name {
+		display: block;
+		font-weight: 700;
+		line-height: 1.35;
+	}
+	.dash-sub {
+		display: block;
+		margin-top: 0.1rem;
+		font-size: 0.8125rem;
+		color: var(--muted);
+	}
+	.stop-badge {
+		display: inline-grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 8px;
+		background: var(--tone-bg);
+		color: var(--tone);
+		font-size: 0.8125rem;
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
+	}
+	.loc-line {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.875rem;
+		color: var(--muted);
+	}
+	/* A row that opens a scan: its link stretches over the whole row, so any tap on it works. */
+	.dash-table tr.has-link {
+		position: relative;
+	}
+	.dash-table tr.has-link:hover {
 		background: var(--sunken);
 	}
-	.overview-table th,
-	.overview-table td {
-		padding: 0.45rem 0.7rem;
-		border-bottom: 1px solid var(--line);
+	.row-link {
+		color: inherit;
+		text-decoration: none;
 	}
-	.overview-table tbody tr:last-child td {
-		border-bottom: 0;
+	.row-link::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+	}
+	.row-link:focus-visible {
+		outline: none;
+	}
+	.row-link:focus-visible::after {
+		outline: 3px solid var(--accent);
+		outline-offset: -3px;
+	}
+	.reason-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.2rem 0.55rem;
+		border-radius: 999px;
+		background: var(--review-bg);
+		color: var(--review);
+		font-size: 0.75rem;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+	/* A scan can need a look for several reasons: one chip each, with its detail beside it (or
+	   under it on phones, where the column is narrow). */
+	.reason-list {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.4rem;
+	}
+	.reason {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		column-gap: 0.5rem;
+	}
+	.reason .dash-sub {
+		margin-top: 0;
+	}
+	/* Avatar beside the name and summary; a float keeps the cell a normal table cell. */
+	.guard-cell .dash-name,
+	.guard-cell .dash-sub {
+		overflow: hidden;
+	}
+	.guard-avatar {
+		float: left;
+		margin: 0.1rem 0.75rem 0 0;
+		display: grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 50%;
+		background: var(--info-bg);
+		color: var(--info);
+		font-size: 0.75rem;
+		font-weight: 800;
 	}
 	.guard-status {
 		display: inline-block;
-		padding: 0.05rem 0.5rem;
+		padding: 0.2rem 0.6rem;
 		border-radius: 999px;
-		font-size: 0.8rem;
-		font-weight: 600;
+		font-size: 0.75rem;
+		font-weight: 700;
 		white-space: nowrap;
 	}
 	.guard-status.is-guardPatrolling {
-		background: var(--done-bg);
-		color: var(--done);
+		background: var(--info-bg);
+		color: var(--info);
 	}
 	.guard-status.is-guardQuiet {
-		background: var(--duty-bg);
-		color: var(--duty);
+		background: var(--pending-bg);
+		color: var(--pending);
 	}
 	.guard-status.is-guardNotStarted {
 		background: var(--missed-bg);
 		color: var(--missed);
 	}
-	/* A reason a scan needs review, in the Needs review card. */
-	.review-reason {
-		display: inline-block;
-		padding: 0.05rem 0.5rem;
-		border-radius: 999px;
-		background: var(--review-bg);
-		color: var(--review);
-		font-size: 0.8rem;
-		font-weight: 600;
-		white-space: nowrap;
-	}
 
-	/* Schedule (pages/supervisor/Schedule.tsx): shift chips, the legend, and today's column. */
-	.shift-chip {
-		display: inline-block;
-		min-width: 5.5rem;
-		padding: 0.15rem 0.5rem;
-		border-radius: 4px;
-		border: 1px solid transparent;
-		font-size: 0.85rem;
-		font-weight: 600;
-		text-align: center;
-		white-space: nowrap;
+	/* Phones: column headers are read out but not shown; each row is a line of text. */
+	@media (max-width: 639.98px) {
+		.dash-table thead {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		/* A long status wraps at 7.5rem, so the checkpoint name keeps most of the row; a short
+		   one ("Not set") stays as narrow as its text. */
+		.dash-table .c-end {
+			white-space: normal;
+			text-align: right;
+		}
+		.dash-table .c-end > :not(.dash-sub) {
+			max-width: 7.5rem;
+		}
+		/* LocationBadge's plain spans need a box for max-width; chips keep their inline-flex. */
+		.dash-table .c-end > :is(.loc-ok, .loc-far, .text-muted) {
+			display: inline-block;
+		}
+		.dash-table .c-end .reason-list {
+			align-items: flex-end;
+		}
+		.dash-table .c-end .reason {
+			justify-content: flex-end;
+		}
+		.dash-table .c-end .reason-chip {
+			white-space: normal;
+			border-radius: 10px;
+			text-align: left;
+		}
 	}
-	.shift-chip.is-shiftMorning {
-		background: var(--done-bg);
-		color: var(--done);
+	/* Below desktop width: the first rows, then "Show all" (see ROWS_SHOWN in Today.tsx). */
+	@media (max-width: 1023.98px) {
+		.dash-card:not(.is-expanded) .dash-table tbody tr:nth-child(n + 6) {
+			display: none;
+		}
 	}
-	.shift-chip.is-shiftAfternoon {
-		background: var(--duty-bg);
-		color: var(--duty);
-	}
-	.shift-chip.is-shiftNight {
-		background: var(--ink);
-		color: var(--bg);
-	}
-	.shift-chip.is-shiftOff {
-		border: 1px dashed var(--line);
-		color: var(--muted);
-	}
-	.shift-legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem 1.25rem;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		font-size: 0.9rem;
-	}
-	.shift-legend li {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.roster-table th[scope="row"] {
-		text-align: left;
-		white-space: nowrap;
-		background: var(--surface);
-		color: var(--ink);
-	}
-	/* Today's column: a neutral tint, so every shift colour stays readable on it. */
-	.roster-table .is-today {
-		background: color-mix(in srgb, var(--ink) 6%, transparent);
-	}
-	.roster-table th.is-today {
-		color: var(--ink);
-		box-shadow: inset 0 3px 0 var(--ink);
-	}
-
-	.notice-soon {
-		background: var(--review-bg);
-		border-color: var(--review);
-		color: var(--ink);
+	@media (min-width: 640px) {
+		.dash-title {
+			font-size: 2rem;
+		}
+		.dash-stats {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 1rem;
+		}
+		.stat-value {
+			font-size: 1.75rem;
+		}
 	}
 	@media (min-width: 640px) and (max-width: 1023.98px) {
-		.today-grid {
+		.dash-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 			grid-template-areas:
 				"review review"
 				"done done"
 				"missed duty";
 		}
-		.area-review {
+		.dash-grid .area-review {
 			grid-area: review;
 		}
-		.area-missed {
+		.dash-grid .area-missed {
 			grid-area: missed;
 		}
-		.area-done {
+		.dash-grid .area-done {
 			grid-area: done;
 		}
-		.area-duty {
+		.dash-grid .area-duty {
 			grid-area: duty;
 		}
 	}
 	@media (min-width: 1024px) {
-		.today-grid {
-			grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-			/* Two equal rows, so each right card lines up with the left card beside it. */
-			grid-template-rows: repeat(2, minmax(0, 1fr));
-			height: max(36rem, calc(100dvh - 13rem));
+		.dash-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-areas:
+				"review review duty"
+				"missed done done";
+			gap: 1.25rem;
 		}
-		.area-done {
-			grid-column: 1;
-			grid-row: 1;
+		.dash-grid .area-review {
+			grid-area: review;
 		}
-		.area-missed {
-			grid-column: 1;
-			grid-row: 2;
+		.dash-grid .area-missed {
+			grid-area: missed;
 		}
-		.area-review {
-			grid-column: 2;
-			grid-row: 1;
+		.dash-grid .area-done {
+			grid-area: done;
 		}
-		.area-duty {
-			grid-column: 2;
-			grid-row: 2;
+		.dash-grid .area-duty {
+			grid-area: duty;
 		}
-		.overview-body {
-			max-height: none;
+		.dash-body {
+			max-height: 26rem;
+			overflow: auto;
 		}
+		.dash-more {
+			display: none;
+		}
+	}
+
+	/*
+	  Schedule (pages/supervisor/Schedule.tsx): manual scheduling. Desktop: one card with a grid,
+	  a row per shift and a column per day, each cell a button listing its guards (or "Assign").
+	  Below 1024px: a strip of days, then a card per shift for the chosen day. "Check this week"
+	  lists warnings in the review colour. Assigning opens .sched-dialog.
+	*/
+	.sched-page {
+		display: grid;
+		gap: 1rem;
+	}
+	.sched-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 0.75rem 1rem;
+	}
+	.sched-tools {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+	}
+	.sched-weeknav {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.sched-checks {
+		display: grid;
+		gap: 0.4rem;
+		padding: 0.85rem 1rem;
+		background: var(--review-bg);
+		border: 1px solid var(--review);
+		border-radius: 12px;
+	}
+	.sched-checks h2 {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-weight: 700;
+		color: var(--review);
+	}
+	.sched-checks ul {
+		margin: 0;
+		padding-left: 1.25rem;
+		list-style: disc;
+	}
+	.sched-card {
+		overflow-x: auto;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	.sched-grid {
+		width: 100%;
+		border-collapse: collapse;
+		table-layout: fixed;
+	}
+	.sched-grid th,
+	.sched-grid td {
+		padding: 0.5rem;
+		vertical-align: top;
+		border-top: 1px solid var(--row-line);
+	}
+	.sched-grid td {
+		border-left: 1px solid var(--row-line);
+	}
+	.sched-grid thead th {
+		border-top: 0;
+		padding-block: 0.7rem;
+		background: var(--head-bg);
+		font-size: 0.8125rem;
+		font-weight: 700;
+		text-align: left;
+		color: var(--muted);
+		border-bottom: 3px solid transparent;
+	}
+	.sched-grid thead th:first-child {
+		width: 9.5rem;
+		padding-left: 1rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-size: 0.75rem;
+	}
+	.sched-grid thead th.is-today {
+		color: var(--ink);
+		border-bottom-color: var(--info);
+	}
+	.sched-grid tbody th {
+		padding: 1rem;
+		text-align: left;
+	}
+	.sched-shift-name {
+		display: block;
+		font-size: 1rem;
+		font-weight: 800;
+	}
+	.sched-grid tbody th .text-muted {
+		font-size: 0.8125rem;
+	}
+	.sched-grid td.is-today {
+		background: color-mix(in srgb, var(--info) 5%, transparent);
+	}
+	/* A cell: its guards in a blue box, or a dashed "Assign". The whole cell is the button. */
+	.sched-cell {
+		display: block;
+		width: 100%;
+		min-height: 4.5rem;
+		padding: 0.5rem 0.6rem;
+		text-align: left;
+		background: var(--info-bg);
+		border: 0;
+		border-top: 3px solid var(--info);
+		border-radius: 8px;
+		color: var(--ink);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.sched-cell ul {
+		display: grid;
+		gap: 0.2rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		overflow-wrap: anywhere;
+	}
+	.sched-cell.is-empty {
+		display: grid;
+		place-items: center;
+		background: transparent;
+		border: 1px dashed var(--line);
+		color: var(--info);
+		font-weight: 700;
+	}
+	.sched-cell:not(:disabled):hover {
+		filter: brightness(0.97);
+	}
+	.sched-cell.is-empty:not(:disabled):hover {
+		background: var(--info-bg);
+	}
+	/* Days before today: read-only. Guards stay readable; nothing invites a click. */
+	.sched-cell:disabled {
+		cursor: default;
+		background: var(--sunken);
+		border-top-color: var(--line);
+		color: var(--muted);
+	}
+	.sched-cell.is-empty:disabled {
+		background: transparent;
+		border-color: transparent;
+	}
+	.sched-grid thead th.is-past,
+	.sched-day.is-past:not([aria-pressed="true"]) {
+		color: var(--muted);
+	}
+	.sched-cell:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.sched-assign {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+	/* Phones and tablets: pick a day, then one card per shift. */
+	.sched-days {
+		display: grid;
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+		gap: 0.375rem;
+	}
+	.sched-day {
+		min-height: 3.5rem;
+		padding: 0.25rem;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+		color: var(--ink);
+		font-size: 0.8125rem;
+		font-weight: 700;
+		line-height: 1.25;
+		cursor: pointer;
+	}
+	.sched-day.is-today {
+		border-color: var(--info);
+	}
+	.sched-day[aria-pressed="true"] {
+		background: var(--info);
+		border-color: var(--info);
+		color: var(--info-ink);
+	}
+	.sched-slot-card {
+		display: grid;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.sched-slot-card.is-empty {
+		border-style: dashed;
+		border-top-width: 1px;
+	}
+	.sched-slot-card .btn {
+		justify-self: start;
+	}
+	.sched-slot-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+	.sched-slot-head h2 {
+		font-size: 1.125rem;
+		font-weight: 800;
+	}
+	.sched-guards,
+	.sched-pick {
+		display: grid;
+		gap: 0.6rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.sched-guards li,
+	.sched-pick label {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		font-weight: 600;
+	}
+	.sched-guards .guard-avatar,
+	.sched-pick .guard-avatar {
+		float: none;
+		margin: 0;
+		flex: none;
+	}
+	/* The assign dialog: narrower than the add-checkpoint one it borrows its frame from (the
+	   double class outranks .add-dialog's width, which comes later in this file). */
+	.add-dialog.sched-dialog {
+		width: min(30rem, calc(100vw - 2rem));
+	}
+	.sched-dialog-body {
+		display: grid;
+		gap: 1rem;
+		padding: 1.25rem;
+	}
+	.sched-dialog-body fieldset {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		min-width: 0;
+	}
+	.sched-pick label {
+		min-height: 2.75rem;
+		cursor: pointer;
+	}
+	.sched-pick input {
+		accent-color: var(--info);
+	}
+	.sched-note {
+		display: block;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--review);
+	}
+	.sched-dialog-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
 	}
 
 	/* Supervisor admin: add guards, add checkpoints */
@@ -991,71 +2494,402 @@ img {
 		font-size: 0.9rem;
 	}
 
-	.label-toolbar {
+	/*
+	  Checkpoints page (pages/supervisor/Checkpoints.tsx and RouteTable.tsx). Blue comes from .shell.
+	    - below 1024px: each table row is a card, one column on phones and two on tablets
+	    - 1024px and up: a table, and "Add checkpoint" beside the title opens the add dialog;
+	      from 1280px the QR panel is a column beside the table, as tall as it, always there
+	      (below the table on narrower screens, once something is selected)
+	*/
+	.cp-page {
+		display: grid;
+		gap: 1.25rem;
+	}
+	.cp-head-actions {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.75rem 1.25rem;
+		justify-content: flex-end;
+		gap: 0.6rem;
 	}
-	.label-toolbar input[type="checkbox"] {
-		accent-color: var(--accent);
+	.cp-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 0.75rem 1.5rem;
+	}
+	.cp-section-title {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 800;
+	}
+	.cp-card {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+		padding: 1rem 1.1rem;
+	}
+	.cp-add {
+		display: grid;
+		gap: 0.85rem;
+		max-width: 42rem;
+	}
+	/* Desktop add-checkpoint dialog: the form on the left, the map and its controls on the right. */
+	.add-dialog {
+		/* Centred: Tailwind's reset zeroes the browser's auto margins on dialogs. */
+		margin: auto;
+		width: min(72rem, calc(100vw - 3rem));
+		max-height: calc(100dvh - 3rem);
+		padding: 0;
+		overflow: auto;
+		background: var(--surface);
+		color: var(--ink);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.add-dialog::backdrop {
+		background: rgb(0 0 0 / 0.5);
+	}
+	.add-dialog-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--line);
+	}
+	.add-dialog-body {
+		display: grid;
+		grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+		align-items: start;
+		gap: 1.5rem;
+		padding: 1.25rem;
+	}
+	/* As tall as the window allows without the dialog scrolling (windows about 700px tall and up). */
+	.add-dialog-map .picker-map {
+		height: clamp(12rem, calc(100dvh - 31rem), 26rem);
+	}
+	.cp-table-row {
+		display: grid;
+		gap: 1.25rem;
+		align-items: start;
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.cp-route {
+		display: grid;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+	.cp-toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 1.25rem;
+	}
+	.cp-select-all {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
+		font-weight: 600;
+		cursor: pointer;
 	}
 
-	/* Printable QR stickers: always white, like the real thing */
-	.sticker-grid {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: grid;
-		gap: 1rem;
-		grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+	.cp-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.9375rem;
+		--tone: var(--info);
+		--tone-bg: var(--info-bg);
 	}
-	.sticker {
-		position: relative;
-		display: block;
-		cursor: pointer;
+	.cp-table .c-name {
+		font-weight: 700;
+	}
+	.cp-table td.c-code {
+		font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+		letter-spacing: 0.04em;
+		white-space: nowrap;
+	}
+	.cp-table tr.is-off :is(.c-name, .c-code) {
+		color: var(--muted);
+	}
+	.cp-status {
+		display: inline-block;
+		padding: 0.2rem 0.6rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+	.cp-status.is-on {
+		background: var(--done-bg);
+		color: var(--done);
+	}
+	.cp-status.is-off {
+		background: var(--pending-bg);
+		color: var(--pending);
+	}
+
+	/* The QR panel: the selected checkpoints' stickers, always white like the real thing. */
+	.qr-panel {
+		display: grid;
+		gap: 0.85rem;
+		padding: 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.qr-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.75rem;
+		grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+	}
+	.qr-sticker {
+		padding: 0.9rem 0.75rem 0.75rem;
 		background: #fff;
 		color: #111820;
 		text-align: center;
 		border: 1.5px dashed #8a949e;
-		border-radius: 4px;
-		padding: 1rem 0.75rem 0.85rem;
+		border-radius: 8px;
 	}
-	.sticker.is-selected {
-		border-style: solid;
-		border-color: var(--accent);
-		box-shadow: 0 0 0 2px var(--accent);
-	}
-	.sticker-check {
-		position: absolute;
-		top: 0.6rem;
-		left: 0.6rem;
-		width: 1.25rem;
-		height: 1.25rem;
-		accent-color: var(--accent);
-		cursor: pointer;
-	}
-	.sticker img {
-		width: 100%;
-		max-width: 11rem;
+	/* width, not max-width: the unlayered img { max-width: 100% } at the top would win over it. */
+	.qr-sticker img {
+		width: min(100%, 10rem);
 		margin-inline: auto;
 		image-rendering: pixelated;
 	}
-	.sticker-name {
+	.qr-sticker:only-child img {
+		width: min(100%, 13rem);
+	}
+	.qr-name {
+		margin-top: 0.4rem;
 		font-weight: 700;
-		margin-top: 0.5rem;
 		line-height: 1.3;
 	}
-	.sticker-code {
+	.qr-code {
+		margin-top: 0.15rem;
 		font-size: 1.35rem;
 		letter-spacing: 0.12em;
 		font-variant-numeric: tabular-nums;
-		margin-top: 0.15rem;
 	}
-	.sticker-order {
+	.qr-order {
+		margin-top: 0.15rem;
 		font-size: 0.8125rem;
 		color: #56616d;
-		margin-top: 0.15rem;
+	}
+	/* Phones and tablets: Download as PDF and Print under Remove selected, sharing the width. */
+	.cp-selection-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.6rem;
+	}
+	.cp-selection-actions .btn {
+		flex: 1 1 10rem;
+	}
+	.cp-selection-actions > span {
+		flex-basis: 100%;
+	}
+
+	/* Phones and tablets: every row is a card. Code and location are labelled in the card. */
+	@media (max-width: 1023.98px) {
+		.cp-table,
+		.cp-table tbody {
+			display: block;
+		}
+		.cp-table thead {
+			display: none;
+		}
+		.cp-table tbody {
+			display: grid;
+			gap: 0.75rem;
+		}
+		.cp-table tr {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			grid-template-areas:
+				"no name sel"
+				"code code status"
+				"loc loc loc"
+				"foot foot foot";
+			align-items: center;
+			gap: 0.6rem 0.75rem;
+			padding: 0.85rem 1rem;
+			background: var(--surface);
+			border: 1px solid var(--line);
+			border-radius: 12px;
+		}
+		.cp-table tr.is-selected {
+			border-color: var(--info);
+			box-shadow: inset 0 0 0 1px var(--info);
+			background: color-mix(in srgb, var(--info) 8%, var(--surface));
+		}
+		.cp-table td {
+			display: block;
+			min-width: 0;
+		}
+		.cp-table .c-no {
+			grid-area: no;
+		}
+		.cp-table .c-sel {
+			grid-area: sel;
+		}
+		.cp-table .c-name {
+			grid-area: name;
+		}
+		.cp-table .c-code {
+			grid-area: code;
+		}
+		.cp-table .c-status {
+			grid-area: status;
+			justify-self: end;
+		}
+		.cp-table .c-loc {
+			grid-area: loc;
+		}
+		/* The order arrows and the edit buttons share the last row: arrows left, edits right. */
+		.cp-table .c-move {
+			grid-area: foot;
+			justify-self: start;
+		}
+		.cp-table .c-act {
+			grid-area: foot;
+			justify-self: end;
+		}
+		.cp-table td[data-label]::before {
+			content: attr(data-label);
+			display: block;
+			margin-bottom: 0.1rem;
+			font-family: system-ui, sans-serif;
+			font-size: 0.6875rem;
+			font-weight: 700;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			color: var(--muted);
+		}
+		/* Bigger targets for fingers. */
+		.cp-table .icon-btn {
+			width: 2.75rem;
+			height: 2.75rem;
+		}
+	}
+	@media (min-width: 640px) and (max-width: 1023.98px) {
+		.cp-table tbody {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			align-items: start;
+		}
+	}
+	@media (min-width: 1024px) {
+		.cp-table-wrap {
+			position: relative;
+			overflow-x: auto;
+			background: var(--surface);
+			border: 1px solid var(--line);
+			border-radius: 12px;
+		}
+		.cp-table th {
+			padding: 0.6rem 0.5rem;
+			text-align: left;
+			font-size: 0.75rem;
+			font-weight: 700;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			white-space: nowrap;
+			color: var(--muted);
+			background: var(--head-bg);
+		}
+		.cp-table td {
+			padding: 0.55rem 0.5rem;
+			border-top: 1px solid var(--row-line);
+			vertical-align: middle;
+		}
+		.cp-table :is(th, td):first-child {
+			padding-left: 1rem;
+		}
+		.cp-table :is(th, td):last-child {
+			padding-right: 1rem;
+		}
+		.cp-table :is(.c-no, .c-sel) {
+			width: 1%;
+		}
+		.cp-table :is(.c-move, .c-status, .c-loc, .c-act) {
+			white-space: nowrap;
+		}
+		/* A selected row: a blue tint and a bar down its left edge, as in the design. */
+		.cp-table tr.is-selected td {
+			background: color-mix(in srgb, var(--info) 10%, transparent);
+		}
+		.cp-table tr.is-selected td:first-child {
+			box-shadow: inset 3px 0 0 var(--info);
+		}
+	}
+	/* The QR column beside the table, exactly as tall: it shares the table's row, and
+	   contain: size stops its QR codes from growing that row. They scroll inside it instead. */
+	@media (min-width: 1280px) {
+		.cp-table-row.has-aside {
+			grid-template-columns: minmax(0, 1fr) 20rem;
+			align-items: stretch;
+		}
+		.qr-panel {
+			contain: size;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+		}
+		/* Small enough that one sticker fits whole; more scroll. */
+		.qr-sticker img,
+		.qr-sticker:only-child img {
+			width: min(100%, 9.5rem);
+		}
+		.qr-list {
+			flex: 1 1 auto;
+			min-height: 0;
+			overflow-y: auto;
+			grid-template-columns: minmax(0, 1fr);
+			align-content: start;
+		}
+	}
+	/* Narrower, the panel sits under the table, so an empty one isn't shown. */
+	@media (max-width: 1279.98px) {
+		.qr-panel.is-empty {
+			display: none;
+		}
+	}
+	/* A checkbox with a 44px target around it (the Checkpoints table's row selection). */
+	.tap-target {
+		display: inline-grid;
+		place-items: center;
+		min-width: 2.75rem;
+		min-height: 2.75rem;
+		cursor: pointer;
+	}
+
+	/* Touch screens: at least 44px for every control a finger needs to hit. Mouse users keep the
+	   compact sizes. Last in the layer so it wins over the per-page sizes above. */
+	@media (pointer: coarse) {
+		.lang-btn,
+		.shell-header .lang-btn {
+			justify-content: center;
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+		}
+		.icon-btn {
+			width: 2.75rem;
+			height: 2.75rem;
+		}
+		.link-btn {
+			min-height: 2.75rem;
+		}
 	}
 }
 

@@ -72,6 +72,14 @@ export function weekKeys(key: string): string[] {
 	});
 }
 
+/** "Jum, 2 Okt" / "Fri, 2 Oct": a scan's date in the Log. */
+export const formatShortDate = (iso: string, lang: Lang) =>
+	new Date(iso).toLocaleDateString(locale(lang), {
+		weekday: "short",
+		day: "numeric",
+		month: "short",
+	});
+
 export const formatLongDate = (key: string, lang: Lang) =>
 	new Date(`${key}T12:00:00`).toLocaleDateString(locale(lang), {
 		weekday: "long",
