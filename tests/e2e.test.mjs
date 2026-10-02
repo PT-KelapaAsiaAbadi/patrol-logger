@@ -260,7 +260,7 @@ try {
 	]);
 	const pdfBytes = readFileSync(await pdf.path());
 	ok(
-		pdf.suggestedFilename() === "label-titik-patroli.pdf" &&
+		pdf.suggestedFilename() === "patroli-checkpoints.pdf" &&
 			pdfBytes.subarray(0, 5).toString() === "%PDF-",
 		"Download as PDF saves a PDF sticker sheet",
 		`${pdf.suggestedFilename()}, ${pdfBytes.length} bytes`,
