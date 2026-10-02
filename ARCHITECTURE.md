@@ -378,7 +378,7 @@ Changes that break one of these are architectural changes.
 | Log Database | `pages/supervisor/Log.tsx` | Not started (old table, "to be updated" notice) | One filter bar shared with Map (guard, checkpoint, date range, location status), server-side search, CSV export kept; cards instead of a sideways table on phones (`DeskLogs`, `Logs` boards) |
 | Map | `pages/supervisor/MapView.tsx` | Not started | Heading and filter bar like the other pages (shared with Log); legend as chips (`DeskMap`, `Map` boards) |
 | Accounts | `pages/supervisor/Guards.tsx`, `AccountsTable.tsx` | Not started (only the buttons turned blue) | Cards like Checkpoints; a phone layout for the table (`DeskAccounts`, `Accounts` boards) |
-| Scan detail | `pages/supervisor/ScanDetail.tsx` | Not started | Cards; the location as a pill like the Scan result; photos in a grid like Report; map links as buttons |
+| Scan detail (View report) | `pages/supervisor/ScanDetail.tsx` | Done: location pill, Scan and Report cards, photos open full size; Back returns to where it was opened from | With Mark as reviewed: the button lives here |
 | Not found | `app.tsx` | Not started (one line of text) | A small empty state with a link home |
 
 ### 7.3 Planned features: where to start

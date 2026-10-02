@@ -1,19 +1,27 @@
 /**
- * One scan in full, for supervisors: guard, checkpoint, scan and received times, the location
- * check with map links, and the guard's report note and photos.
+ * One scan in full, for supervisors (the "View report" page, opened from Today, the Log and the
+ * Map): the checkpoint and the location check up top, then two cards: the scan (guard, scan and
+ * received times, map links) and the guard's report note and photos. Side by side on desktop,
+ * stacked on phones (index.css, "Scan detail").
  */
-import { Link } from "wouter-preact";
+import { useLocation } from "wouter-preact";
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";
 import * as api from "../../data/api";
 import { formatDateTime, formatDistance } from "../../lib/format";
+import { initials } from "../../lib/personName";
 import { LoadError } from "./Log";
-import { LocationBadge, mapLink } from "../../components/LocationBadge";
+import { mapLink } from "../../components/LocationBadge";
 import { ICON } from "../../components/IconButton";
-import { ArrowLeft, MapPin } from "lucide-preact";
+import { ArrowLeft, Clock, MapPin, MapPinOff } from "lucide-preact";
+import type { ScanRow } from "../../types";
+
+/** Received this many minutes after scanning: worth a mention (probably sent from offline). */
+const DELAY_NOTE_MIN = 5;
 
 export function ScanDetail({ id }: { id: string }) {
 	const { t, lang } = useApp();
+	const [, navigate] = useLocation();
 	const scan = useAsync(() => api.getScan(id), [id]);
 	const s = scan.data;
 	const delayMin = s
@@ -22,49 +30,81 @@ export function ScanDetail({ id }: { id: string }) {
 			)
 		: 0;
 
+	// Back to wherever the scan was opened from (Today, the Log or the Map); Today when the page
+	// was opened directly.
+	function back() {
+		if (history.length > 1) history.back();
+		else navigate("/supervisor");
+	}
+
 	return (
-		<article class="max-w-2xl">
-			<Link
-				href="/supervisor"
-				class="link-btn">
+		<article class="scan-page">
+			<button
+				type="button"
+				class="link-btn back-link"
+				onClick={back}>
 				<ArrowLeft
 					size={ICON}
 					aria-hidden="true"
 				/>
 				{t("back")}
-			</Link>
-			{scan.error && (
-				<div class="mt-4">
-					<LoadError onRetry={scan.reload} />
-				</div>
-			)}
-			{scan.loading && <p class="mt-4 text-muted">{t("loading")}</p>}
-			{!scan.loading && !scan.error && !s && (
-				<p class="mt-4">{t("notFound")}</p>
-			)}
+			</button>
+			{scan.error && <LoadError onRetry={scan.reload} />}
+			{scan.loading && <p class="text-muted">{t("loading")}</p>}
+			{!scan.loading && !scan.error && !s && <p>{t("notFound")}</p>}
 			{s && (
 				<>
-					<h1 class="text-2xl font-bold mt-3">{s.checkpointName}</h1>
-					<dl class="detail-list mt-4">
-						<dt>{t("guard")}</dt>
-						<dd>{s.guardName}</dd>
-						<dt>{t("time")}</dt>
-						<dd class="tabular-nums">
-							{formatDateTime(s.scannedAt, lang)}
-						</dd>
-						<dt>{t("receivedAt")}</dt>
-						<dd class="tabular-nums">
-							{formatDateTime(s.receivedAt, lang)}
-						</dd>
-						<dt>{t("colLocation")}</dt>
-						<dd>
-							<LocationBadge scan={s} />
-							{s.location && (
-								<>
-									{s.distanceM !== null && (
-										<span class="text-muted">
-											{" "}
-											{t("locDetail", {
+					<header class="scan-page-head">
+						<h1 class="dash-title">{s.checkpointName}</h1>
+						<p class="text-muted tabular-nums">
+							{s.guardName} · {formatDateTime(s.scannedAt, lang)}
+						</p>
+						<div class="scan-page-pills">
+							<LocationPill scan={s} />
+							{delayMin >= DELAY_NOTE_MIN && (
+								<span class="loc-pill is-queued">
+									<Clock
+										size={16}
+										aria-hidden="true"
+									/>
+									{t("sentLater", { min: delayMin })}
+								</span>
+							)}
+						</div>
+					</header>
+
+					<div class="scan-page-grid">
+						<section
+							class="scan-card"
+							aria-labelledby="scan-card-h">
+							<h2 id="scan-card-h">{t("colScan")}</h2>
+							<dl class="detail-list">
+								<dt>{t("guard")}</dt>
+								<dd class="scan-guard">
+									<span
+										class="guard-avatar"
+										aria-hidden="true">
+										{initials(s.guardName)}
+									</span>
+									{s.guardName}
+								</dd>
+								<dt>{t("time")}</dt>
+								<dd class="tabular-nums">
+									{formatDateTime(s.scannedAt, lang)}
+								</dd>
+								<dt>{t("receivedAt")}</dt>
+								<dd class="tabular-nums">
+									{formatDateTime(s.receivedAt, lang)}
+									{delayMin >= DELAY_NOTE_MIN && (
+										<span class="dash-sub">
+											{t("delayNote", { min: delayMin })}
+										</span>
+									)}
+								</dd>
+								<dt>{t("colLocation")}</dt>
+								<dd>
+									{s.location && s.distanceM !== null
+										? t("locDetail", {
 												d: formatDistance(
 													s.distanceM,
 													lang,
@@ -72,79 +112,118 @@ export function ScanDetail({ id }: { id: string }) {
 												a: Math.round(
 													s.location.accuracyM,
 												),
-											})}
-										</span>
-									)}{" "}
-									<a
-										class="link"
-										href={mapLink(
-											s.location.lat,
-											s.location.lng,
-										)}
-										target="_blank"
-										rel="noopener noreferrer">
-										<MapPin
-											size={ICON}
-											aria-hidden="true"
-										/>
-										{t("openScanInMap")}
-									</a>
-								</>
-							)}
-							{s.checkpointLocation && (
-								<>
-									{" · "}
-									<a
-										class="link"
-										href={mapLink(
-											s.checkpointLocation.lat,
-											s.checkpointLocation.lng,
-										)}
-										target="_blank"
-										rel="noopener noreferrer">
-										<MapPin
-											size={ICON}
-											aria-hidden="true"
-										/>
-										{t("openCheckpointInMap")}
-									</a>
-								</>
-							)}
-						</dd>
-					</dl>
-					{delayMin >= 5 && (
-						<p class="text-muted mt-2">
-							{t("delayNote", { min: delayMin })}
-						</p>
-					)}
-
-					<h2 class="text-lg font-semibold mt-8 mb-2">
-						{t("report")}
-					</h2>
-					{s.report ? (
-						<>
-							<p class="whitespace-pre-wrap max-w-prose">
-								{s.report.note}
-							</p>
-							{s.report.photos.length > 0 && (
-								<ul class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
-									{s.report.photos.map((src, i) => (
-										<li key={i}>
-											<img
-												src={src}
-												alt=""
-												class="w-full border border-line"
+											})
+										: t(`locStatus_${s.locationStatus}`)}
+								</dd>
+							</dl>
+							{(s.location || s.checkpointLocation) && (
+								<div class="scan-map-links">
+									{s.location && (
+										<a
+											class="btn btn-outline"
+											href={mapLink(
+												s.location.lat,
+												s.location.lng,
+											)}
+											target="_blank"
+											rel="noopener noreferrer">
+											<MapPin
+												size={ICON}
+												aria-hidden="true"
 											/>
-										</li>
-									))}
-								</ul>
+											{t("openScanInMap")}
+										</a>
+									)}
+									{s.checkpointLocation && (
+										<a
+											class="btn btn-outline"
+											href={mapLink(
+												s.checkpointLocation.lat,
+												s.checkpointLocation.lng,
+											)}
+											target="_blank"
+											rel="noopener noreferrer">
+											<MapPin
+												size={ICON}
+												aria-hidden="true"
+											/>
+											{t("openCheckpointInMap")}
+										</a>
+									)}
+								</div>
 							)}
-						</>
-					) : (
-						<p class="text-muted">{t("noReport")}</p>
-					)}
+						</section>
+
+						<section
+							class={`scan-card ${s.report ? "has-report" : ""}`}
+							aria-labelledby="report-card-h">
+							<h2 id="report-card-h">{t("report")}</h2>
+							{s.report ? (
+								<>
+									{s.report.note && (
+										<p class="scan-note">{s.report.note}</p>
+									)}
+									{s.report.photos.length > 0 && (
+										<ul class="report-photos">
+											{s.report.photos.map((src, i) => (
+												<li key={i}>
+													{/* Opens the full photo in a new tab. */}
+													<a
+														href={src}
+														target="_blank"
+														rel="noopener noreferrer"
+														aria-label={t(
+															"openPhoto",
+															{ n: i + 1 },
+														)}>
+														<img
+															src={src}
+															alt=""
+														/>
+													</a>
+												</li>
+											))}
+										</ul>
+									)}
+								</>
+							) : (
+								<p class="text-muted">{t("noReport")}</p>
+							)}
+						</section>
+					</div>
 				</>
 			)}
 		</article>
+	);
+}
+
+/** The location check as a pill: green at the checkpoint, amber when far, grey otherwise. */
+function LocationPill({ scan: s }: { scan: ScanRow }) {
+	const { t, lang } = useApp();
+	const tone =
+		s.locationStatus === "ok"
+			? "is-ok"
+			: s.locationStatus === "far"
+				? "is-warn"
+				: "is-pending";
+	return (
+		<span class={`loc-pill ${tone}`}>
+			{s.locationStatus === "ok" || s.locationStatus === "far" ? (
+				<MapPin
+					size={16}
+					aria-hidden="true"
+				/>
+			) : (
+				<MapPinOff
+					size={16}
+					aria-hidden="true"
+				/>
+			)}
+			{s.locationStatus === "far"
+				? t("locStatus_far", {
+						d: formatDistance(s.distanceM ?? 0, lang),
+					})
+				: t(`locStatus_${s.locationStatus}`)}
+		</span>
 	);
 }

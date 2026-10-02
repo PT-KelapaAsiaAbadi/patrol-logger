@@ -185,6 +185,8 @@ const id = {
 	scanDetail: "Detail scan",
 	receivedAt: "Diterima server",
 	delayNote: "Terkirim {min} menit setelah scan (kemungkinan offline).",
+	sentLater: "Terkirim {min} mnt setelah scan",
+	openPhoto: "Buka foto {n}",
 	noReport: "Tidak ada laporan untuk scan ini.",
 	back: "Kembali",
 
@@ -566,6 +568,8 @@ const en: Record<Key, string> = {
 	scanDetail: "Scan detail",
 	receivedAt: "Received by server",
 	delayNote: "Sent {min} minutes after scanning (probably offline).",
+	sentLater: "Sent {min} min after scanning",
+	openPhoto: "Open photo {n}",
 	noReport: "No report for this scan.",
 	back: "Back",
 

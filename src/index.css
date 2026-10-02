@@ -1521,13 +1521,113 @@ img {
 		border-bottom: 0;
 	}
 
+	/*
+	  Scan detail, the supervisor's "View report" page (pages/supervisor/ScanDetail.tsx): Back, the
+	  checkpoint and the location check as pills, then two cards, the scan and the report. Stacked
+	  on phones and tablets, side by side from 1024px. Photos reuse the guard Report's grid.
+	*/
+	.scan-page {
+		display: grid;
+		gap: 1rem;
+		max-width: 64rem;
+	}
+	.back-link {
+		justify-self: start;
+		min-height: 2.75rem;
+		color: var(--info);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.scan-page-head {
+		display: grid;
+		gap: 0.25rem;
+	}
+	.scan-page-pills {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+	}
+	/* In this row every state is a pill, including "far" (a box on the guard's Scan page). */
+	.scan-page-pills .loc-pill {
+		align-self: auto;
+		align-items: center;
+		padding: 0.35rem 0.9rem;
+		border-radius: 999px;
+		font-weight: 700;
+	}
+	.loc-pill.is-queued {
+		background: var(--queued-bg);
+		color: var(--queued);
+	}
+	.scan-page-grid {
+		display: grid;
+		gap: 1rem;
+		align-items: start;
+	}
+	.scan-card {
+		display: grid;
+		gap: 0.9rem;
+		min-width: 0;
+		padding: 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	/* A report is usually an incident: the card takes the review colour. */
+	.scan-card.has-report {
+		border-top-color: var(--review);
+	}
+	.scan-card h2 {
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
 	.detail-list {
 		display: grid;
-		grid-template-columns: max-content 1fr;
-		gap: 0.35rem 1.25rem;
+		grid-template-columns: max-content minmax(0, 1fr);
+		gap: 0.6rem 1.25rem;
+		align-items: baseline;
 	}
 	.detail-list dt {
 		color: var(--muted);
+	}
+	.scan-guard {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-weight: 600;
+	}
+	.scan-guard .guard-avatar {
+		float: none;
+		margin: 0;
+	}
+	.scan-map-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.scan-map-links .btn {
+		flex: 1 1 12rem;
+	}
+	.scan-note {
+		max-width: 65ch;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		line-height: 1.55;
+	}
+	.report-photos a {
+		display: block;
+		height: 100%;
+		border-radius: 10px;
+	}
+	@media (min-width: 1024px) {
+		.scan-page-grid {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		}
 	}
 
 	/*
@@ -2457,12 +2557,6 @@ img {
 		min-height: 2.75rem;
 		cursor: pointer;
 	}
-	/* Scan detail's "on map" links: icon and text stay together. */
-	.detail-list .link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-	}
 
 	/* Touch screens: at least 44px for every control a finger needs to hit. Mouse users keep the
 	   compact sizes. Last in the layer so it wins over the per-page sizes above. */
@@ -2477,8 +2571,7 @@ img {
 			width: 2.75rem;
 			height: 2.75rem;
 		}
-		.link-btn,
-		.detail-list .link {
+		.link-btn {
 			min-height: 2.75rem;
 		}
 	}
