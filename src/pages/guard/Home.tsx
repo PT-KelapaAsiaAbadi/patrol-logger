@@ -1,26 +1,29 @@
 /**
- * The guard's home screen: today's round with each checkpoint ticked once scanned, the Scan button,
- * and anything still waiting to send, with Try again and Discard for scans the server refused.
+ * The guard's home screen (phones only): a greeting, today's progress with the next checkpoint,
+ * the round with each checkpoint ticked once scanned, the Scan button, and anything still waiting
+ * to send, with Try again and Discard for scans the server refused. Blue like the supervisor
+ * pages (index.css, .guard-home); amber is kept for warnings.
  */
 import { Link, useLocation } from "wouter-preact";
 import { useEffect } from "preact/hooks";
 import { useApp } from "../../state";
 import { useAsync, useOnline, useOutbox } from "../../hooks";
 import * as api from "../../data/api";
-import { formatTime } from "../../lib/format";
+import { formatLongDate, formatTime, localDateKey } from "../../lib/format";
 import { ICON, IconButton } from "../../components/IconButton";
 import {
+	Check,
 	CircleCheck,
+	Clock,
+	CloudUpload,
 	LogOut,
+	MapPin,
 	RotateCcw,
 	ScanLine,
 	Trash2,
 	X,
 } from "lucide-preact";
 
-/**
- * Guard-facing dashboard/home page.
- */
 export function GuardHome() {
 	const { t, lang, user, setUser } = useApp();
 	const [, navigate] = useLocation();
@@ -39,44 +42,44 @@ export function GuardHome() {
 	const route = progress.data?.route ?? [];
 	const visits = progress.data?.visits ?? {};
 	const done = route.filter((c) => visits[c.id]).length;
+	// The first stop in round order that hasn't been scanned (or saved to send) yet.
+	const next = route.find((c) => !visits[c.id]);
 	const pendingScans = outbox.items.filter(
 		(i) => i.kind === "scan" && i.scan.guardId === user!.id && !i.error,
 	).length;
 	const failed = api.failedItems(user!.id);
+	const firstName = user!.name.trim().split(/\s+/)[0];
+
+	function signOut() {
+		// Unsent items stay on this phone and only go out when this guard signs in again.
+		const unsent = api.unsentCount(user!.id);
+		if (unsent > 0 && !confirm(t("signOutUnsent", { n: unsent }))) return;
+		api.signOut();
+		setUser(null);
+		navigate("/login");
+	}
 
 	return (
-		<div class="min-h-full flex flex-col">
-			<header class="flex items-center justify-between gap-3 px-5 py-3 border-b border-line bg-surface">
-				<p class="font-semibold">{user!.name}</p>
-				<button
-					type="button"
-					class="link-btn"
-					onClick={() => {
-						// Unsent items stay on this phone and only go out when this guard signs in again.
-						const unsent = api.unsentCount(user!.id);
-						if (
-							unsent > 0 &&
-							!confirm(t("signOutUnsent", { n: unsent }))
-						)
-							return;
-						api.signOut();
-						setUser(null);
-						navigate("/login");
-					}}>
-					<LogOut
-						size={ICON}
-						aria-hidden="true"
+		<div class="guard-home min-h-full flex flex-col">
+			<main class="flex-1 px-4 pt-5 pb-32 max-w-xl w-full mx-auto grid gap-4 content-start">
+				<div class="guard-greet">
+					<div class="min-w-0">
+						<h1>{t("hello", { name: firstName })}</h1>
+						<p class="text-muted">
+							{formatLongDate(localDateKey(), lang)}
+						</p>
+					</div>
+					<IconButton
+						icon={LogOut}
+						label={t("signOut")}
+						class="shrink-0"
+						onClick={signOut}
 					/>
-					{t("signOut")}
-				</button>
-			</header>
+				</div>
 
-			<main class="flex-1 px-5 pt-5 pb-32 max-w-xl w-full mx-auto">
-				{!online && (
-					<p class="notice notice-warn mb-4">{t("offline")}</p>
-				)}
+				{!online && <p class="notice notice-warn">{t("offline")}</p>}
 				{outbox.rejected > 0 && (
-					<div class="notice notice-warn mb-4 flex items-start justify-between gap-3">
+					<div class="notice notice-warn flex items-start justify-between gap-3">
 						<p>{t("rejectedScans", { n: outbox.rejected })}</p>
 						<IconButton
 							icon={X}
@@ -89,7 +92,7 @@ export function GuardHome() {
 
 				{failed.length > 0 && (
 					<div
-						class="notice notice-warn mb-4"
+						class="notice notice-warn"
 						role="alert">
 						<p>{t("sendFailed", { n: failed.length })}</p>
 						<p class="text-sm mt-1">
@@ -132,77 +135,128 @@ export function GuardHome() {
 					</div>
 				)}
 
-				<h1 class="text-xl font-bold leading-snug">
-					{progress.data
-						? t("roundToday", { done, total: route.length })
-						: t("loading")}
-				</h1>
-				<div
-					class="progress mt-3"
-					role="progressbar"
-					aria-valuemin={0}
-					aria-valuemax={route.length}
-					aria-valuenow={done}>
-					<span
-						style={{
-							width: route.length
-								? `${(done / route.length) * 100}%`
-								: "0%",
-						}}
-					/>
-				</div>
-
-				<ol class="route mt-5">
-					{route.map((cp) => {
-						const v = visits[cp.id];
-						return (
-							<li
-								key={cp.id}
-								class={
-									v
-										? v.queued
-											? "is-queued"
-											: "is-done"
-										: ""
-								}>
-								<span class="stop tabular-nums">
-									{cp.routeOrder}
+				<section class="round-card">
+					<p
+						id="round-count"
+						class="round-count">
+						{progress.data ? (
+							<>
+								<span class="round-num">{done}</span>{" "}
+								{t("roundOf", { total: route.length })}
+							</>
+						) : (
+							t("loading")
+						)}
+					</p>
+					{route.length > 0 && (
+						<div
+							class="round-bar"
+							role="progressbar"
+							aria-labelledby="round-count"
+							aria-valuemin={0}
+							aria-valuemax={route.length}
+							aria-valuenow={done}>
+							<span
+								style={{
+									width: `${(done / route.length) * 100}%`,
+								}}
+							/>
+						</div>
+					)}
+					{next ? (
+						<p class="round-next">
+							<MapPin
+								size={22}
+								aria-hidden="true"
+							/>
+							<span class="min-w-0">
+								<span class="round-next-label">
+									{t("nextCheckpoint")}
 								</span>
-								<span class="flex-1">{cp.name}</span>
-								<span class="status tabular-nums inline-flex items-center justify-end gap-1">
-									{v && !v.queued && (
-										<CircleCheck
-											size={ICON}
+								<span class="round-next-name">{next.name}</span>
+							</span>
+						</p>
+					) : (
+						route.length > 0 && (
+							<p class="round-next is-complete">
+								<CircleCheck
+									size={22}
+									aria-hidden="true"
+								/>
+								{t("roundComplete")}
+							</p>
+						)
+					)}
+				</section>
+
+				<section
+					class="round-list"
+					aria-labelledby="round-list-h">
+					<h2
+						id="round-list-h"
+						class="round-list-head">
+						{t("roundList")}
+					</h2>
+					<ol class="route">
+						{route.map((cp) => {
+							const v = visits[cp.id];
+							const Icon = !v
+								? Clock
+								: v.queued
+									? CloudUpload
+									: Check;
+							return (
+								<li
+									key={cp.id}
+									class={
+										v
+											? v.queued
+												? "is-queued"
+												: "is-done"
+											: ""
+									}>
+									<span class="stop">
+										<Icon
+											size={16}
+											strokeWidth={2.6}
 											aria-hidden="true"
 										/>
-									)}
-									{!v
-										? t("notYet")
-										: v.queued
-											? t("waitingSignal")
-											: t("checkedAt", {
-													time: formatTime(
-														v.at,
-														lang,
-													),
-												})}
-								</span>
-							</li>
-						);
-					})}
-				</ol>
-
-				{pendingScans > 0 && (
-					<p class="text-muted mt-4">
-						{t("pendingSync", { n: pendingScans })}
-					</p>
-				)}
-				{(progress.data?.unmatchedPending ?? 0) > 0 && (
-					<p class="text-muted mt-1">
-						{t("pendingUnmatched", {
-							n: progress.data!.unmatchedPending,
+									</span>
+									<span class="name">{cp.name}</span>
+									<span class="status">
+										{!v ? (
+											t("notYet")
+										) : v.queued ? (
+											t("waitingSignal")
+										) : (
+											<>
+												<span class="sr-only">
+													{t("checked")}{" "}
+												</span>
+												{formatTime(v.at, lang)}
+											</>
+										)}
+									</span>
+								</li>
+							);
 						})}
-					</p>
+					</ol>
+				</section>
+
+				{(pendingScans > 0 ||
+					(progress.data?.unmatchedPending ?? 0) > 0) && (
+					<div class="text-muted">
+						{pendingScans > 0 && (
+							<p>{t("pendingSync", { n: pendingScans })}</p>
+						)}
+						{(progress.data?.unmatchedPending ?? 0) > 0 && (
+							<p class="mt-1">
+								{t("pendingUnmatched", {
+									n: progress.data!.unmatchedPending,
+								})}
+							</p>
+						)}
+					</div>
 				)}
 			</main>
 
@@ -211,7 +265,7 @@ export function GuardHome() {
 					href="/scan"
 					class="btn btn-primary btn-xl w-full">
 					<ScanLine
-						size={ICON}
+						size={24}
 						aria-hidden="true"
 					/>
 					{t("scanCheckpoint")}

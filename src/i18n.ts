@@ -21,9 +21,13 @@ const id = {
 	signOutUnsent:
 		"{n} scan atau laporan belum terkirim. Kalau keluar sekarang, semuanya baru dikirim saat Anda masuk lagi di HP ini. Tetap keluar?",
 
-	roundToday: "{done} dari {total} titik sudah dicek hari ini",
+	hello: "Halo, {name}",
+	roundOf: "dari {total} titik sudah dicek hari ini",
+	nextCheckpoint: "Berikutnya",
+	roundComplete: "Semua titik sudah dicek hari ini.",
+	roundList: "Titik patroli",
 	notYet: "Belum",
-	checkedAt: "Dicek {time}",
+	checked: "Dicek",
 	waitingSignal: "Menunggu sinyal",
 	scanCheckpoint: "Scan titik",
 	pendingSync:
@@ -392,9 +396,13 @@ const en: Record<Key, string> = {
 	signOutUnsent:
 		"{n} scans or reports haven't been sent yet. If you sign out now, they'll only be sent when you sign in again on this phone. Sign out anyway?",
 
-	roundToday: "{done} of {total} checkpoints checked today",
+	hello: "Hi, {name}",
+	roundOf: "of {total} checkpoints checked today",
+	nextCheckpoint: "Next",
+	roundComplete: "Every checkpoint is checked for today.",
+	roundList: "Checkpoints",
 	notYet: "Not yet",
-	checkedAt: "Checked {time}",
+	checked: "Checked",
 	waitingSignal: "Waiting for signal",
 	scanCheckpoint: "Scan checkpoint",
 	pendingSync:

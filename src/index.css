@@ -539,20 +539,117 @@ img {
 		border-color: var(--ink);
 	}
 
-	/* Guard round */
-	.progress {
-		height: 8px;
-		background: var(--sunken);
-		border-radius: 4px;
+	/* Guard home (pages/guard/Home.tsx): blue for actions like the supervisor pages; amber is
+	   kept for warnings (offline, unsent, refused scans). */
+	.guard-home {
+		--accent: var(--info);
+		--accent-ink: var(--info-ink);
+	}
+	.guard-greet {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+	.guard-greet h1 {
+		font-size: 1.875rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		line-height: 1.15;
+		overflow-wrap: anywhere;
+	}
+	.guard-greet .icon-btn {
+		width: 2.75rem;
+		height: 2.75rem;
+	}
+
+	/* Today's progress: the count, a bar, and the next stop. */
+	.round-card {
+		display: grid;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--info);
+		border-radius: 12px;
+	}
+	.round-count {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		column-gap: 0.5rem;
+		font-weight: 600;
+		color: var(--muted);
+	}
+	.round-num {
+		font-size: 2.5rem;
+		font-weight: 800;
+		line-height: 1;
+		letter-spacing: -0.03em;
+		color: var(--ink);
+		font-variant-numeric: tabular-nums;
+	}
+	/* Scanned out of assigned, filling from the left. */
+	.round-bar {
+		height: 10px;
+		border-radius: 5px;
+		background: var(--line);
 		overflow: hidden;
 	}
-	.progress > span {
+	.round-bar > span {
 		display: block;
 		height: 100%;
+		border-radius: 5px;
 		background: var(--ok-fill);
 		transition: width 0.3s ease;
 	}
+	.round-next {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border-radius: 10px;
+		background: var(--info-bg);
+		color: var(--info);
+	}
+	.round-next > svg {
+		flex: none;
+	}
+	.round-next-label {
+		display: block;
+		font-size: 0.75rem;
+		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.round-next-name {
+		display: block;
+		font-size: 1.0625rem;
+		font-weight: 700;
+		color: var(--ink);
+	}
+	.round-next.is-complete {
+		background: var(--done-bg);
+		color: var(--done);
+		font-weight: 700;
+	}
 
+	/* The round: every stop in order, with a done / waiting / not yet mark and the time. */
+	.round-list {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+	.round-list-head {
+		padding: 0.75rem 1rem;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--muted);
+		background: var(--head-bg);
+	}
 	.route {
 		list-style: none;
 		padding: 0;
@@ -561,38 +658,39 @@ img {
 	.route li {
 		display: flex;
 		align-items: center;
-		gap: 0.9rem;
-		padding: 0.8rem 0;
-		border-bottom: 1px solid var(--line);
+		gap: 0.75rem;
+		min-height: 3.25rem;
+		padding: 0.5rem 1rem;
+		border-top: 1px solid var(--row-line);
 	}
 	.route .stop {
-		width: 2.1rem;
-		height: 2.1rem;
+		width: 1.875rem;
+		height: 1.875rem;
 		flex: none;
 		display: grid;
 		place-items: center;
-		border: 2px solid var(--line);
-		border-radius: 6px;
-		font-weight: 700;
+		border-radius: 8px;
+		background: var(--pending-bg);
+		color: var(--pending);
+	}
+	.route .name {
+		flex: 1;
+		min-width: 0;
+		font-size: 0.9375rem;
+		font-weight: 600;
 	}
 	.route .status {
 		color: var(--muted);
-		font-size: 0.9375rem;
+		font-size: 0.875rem;
 		text-align: right;
+		font-variant-numeric: tabular-nums;
 	}
 	.route li.is-done .stop {
-		background: var(--ok-fill);
-		border-color: var(--ok-fill);
-		color: #fff;
-	}
-	.route li.is-done .status {
-		color: var(--ok);
-		font-weight: 600;
+		background: var(--done-bg);
+		color: var(--done);
 	}
 	.route li.is-queued .stop {
 		background: var(--queued-bg);
-		border-style: dashed;
-		border-color: var(--queued);
 		color: var(--queued);
 	}
 	.route li.is-queued .status {
@@ -600,20 +698,26 @@ img {
 		font-weight: 600;
 	}
 
+	/* The Scan button, fixed to the bottom of the screen. */
 	.dock {
 		position: fixed;
 		left: 0;
 		right: 0;
 		bottom: 0;
-		padding: 0.75rem 1.25rem
-			calc(0.75rem + env(safe-area-inset-bottom, 0px));
-		background: var(--surface);
-		border-top: 1px solid var(--line);
+		padding: 0.5rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+		background: var(--bg);
 	}
 	.dock > * {
 		max-width: 36rem;
 		margin-inline: auto;
 		display: flex;
+	}
+	.dock .btn-xl {
+		min-height: 4rem;
+		gap: 0.75rem;
+		border-radius: 14px;
+		font-size: 1.125rem;
+		font-weight: 800;
 	}
 
 	/* Scanner */
@@ -680,7 +784,7 @@ img {
 	      and Sign out; to fit, 1280-1439px drops the tab icons and 1024-1279px the supervisor too
 	  Every supervisor page uses blue for actions and selection: .shell points --accent at --info,
 	  so buttons, checkboxes, focus rings, the map's route and pins, and the location picker turn
-	  blue. Amber stays for the guard's Scan button and for warnings.
+	  blue. The guard's home screen does the same (.guard-home); amber is kept for warnings.
 	*/
 	.shell,
 	.login-page {
