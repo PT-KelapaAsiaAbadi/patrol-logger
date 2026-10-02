@@ -145,26 +145,48 @@ function AddGuard({ onAdded }: { onAdded: () => void }) {
 					e.preventDefault();
 					void submit();
 				}}>
-				<label class="grid gap-1">
-					<span class="font-medium">{t("fullName")}</span>
-					<input
-						class="field"
-						required
-						minLength={1}
-						maxLength={PERSON_NAME_MAX}
-						autoComplete="off"
-						placeholder={t("fullNamePlaceholder")}
-						aria-invalid={!!nameProblem}
-						value={name}
-						onInput={(e) => {
-							// Write the filtered text back, so a dropped digit disappears from the box.
-							const kept = keepNameChars(e.currentTarget.value);
-							e.currentTarget.value = kept;
-							setName(kept);
-							setNameProblem(null);
-						}}
-					/>
-				</label>
+				{/* The label covers only "Full name": the counter in the field's bottom-right corner sits
+				    outside it, and screen readers get the count as the field's description instead. */}
+				<div class="grid gap-1">
+					<label
+						for="full-name"
+						class="font-medium">
+						{t("fullName")}
+					</label>
+					<span class="field-count-wrap">
+						<input
+							id="full-name"
+							class="field"
+							required
+							minLength={1}
+							maxLength={PERSON_NAME_MAX}
+							autoComplete="off"
+							placeholder={t("fullNamePlaceholder")}
+							aria-invalid={!!nameProblem}
+							aria-describedby="full-name-count"
+							value={name}
+							onInput={(e) => {
+								// Write the filtered text back, so a dropped digit disappears from the box.
+								const kept = keepNameChars(
+									e.currentTarget.value,
+								);
+								e.currentTarget.value = kept;
+								setName(kept);
+								setNameProblem(null);
+							}}
+						/>
+						<span
+							class={`char-count ${name.length >= PERSON_NAME_MAX ? "is-full" : ""}`}
+							aria-hidden="true">
+							{name.length}/{PERSON_NAME_MAX}
+						</span>
+					</span>
+				</div>
+				<span
+					id="full-name-count"
+					class="sr-only">
+					{t("charCount", { n: name.length, max: PERSON_NAME_MAX })}
+				</span>
 				{nameProblem && (
 					<p
 						class="notice notice-warn"

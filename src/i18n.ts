@@ -6,6 +6,7 @@ const id = {
 	signInTitle: "Masuk ke Patroli",
 	signInHint: "Gunakan akun yang diberikan supervisor Anda.",
 	showPassword: "Tampilkan kata sandi",
+	charCount: "{n} dari {max} karakter",
 	hidePassword: "Sembunyikan kata sandi",
 	forgotPassword:
 		"Lupa kata sandi? Minta supervisor Anda membuatkan yang baru.",
@@ -374,6 +375,7 @@ const en: Record<Key, string> = {
 	signInTitle: "Sign in to Patrol",
 	signInHint: "Use the account your supervisor gave you.",
 	showPassword: "Show password",
+	charCount: "{n} of {max} characters",
 	hidePassword: "Hide password",
 	forgotPassword: "Forgot your password? Ask your supervisor for a new one.",
 	password: "Password",

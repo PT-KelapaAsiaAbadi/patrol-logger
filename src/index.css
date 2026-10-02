@@ -439,6 +439,28 @@ img {
 		border: 1.5px solid var(--line);
 		border-radius: 6px;
 	}
+	/* A character counter in a field's bottom-right corner, e.g. the Accounts page's full name. */
+	.field-count-wrap {
+		position: relative;
+		display: block;
+	}
+	.field-count-wrap .field {
+		padding-right: 4.25rem;
+	}
+	.char-count {
+		position: absolute;
+		right: 0.6rem;
+		bottom: 0.35rem;
+		font-size: 0.75rem;
+		line-height: 1;
+		color: var(--muted);
+		font-variant-numeric: tabular-nums;
+		pointer-events: none;
+	}
+	.char-count.is-full {
+		color: var(--warn);
+		font-weight: 700;
+	}
 	.field:focus {
 		border-color: var(--ink);
 		outline: none;
