@@ -12,7 +12,7 @@ Patroli is a QR checkpoint patrol logger. Guards scan QR stickers on their round
 | --- | --- | --- | --- |
 | `device` | Device access | `src/lib/scanner.ts`, `src/lib/geo.ts`, `src/lib/image.ts` | Camera and QR decode (qr-scanner). Picks the back camera that has the flash and switches the flashlight (torch). GPS fix kept fresh while the scan screen is open. Shrinks photos (from the camera or the gallery) before upload |
 | `guard_ui` | Guard screens (phone only) | `src/pages/guard/Home.tsx`, `Scan.tsx`, `Report.tsx` | Home: greeting, progress bar, next checkpoint, the round. Scan: full camera view, flashlight, typed-code fallback, result with the next checkpoint. Report: note (up to 1,500 characters, about 200 words) and up to 5 photos |
-| `sup_ui` | Supervisor screens (phone to wide desktop) | `src/pages/supervisor/*.tsx`, `src/components/SupervisorShell.tsx`, `src/components/ReasonChip.tsx`, `src/lib/today.ts` | Today (four live sections, rules in `today.ts`), Log Database (paged, with the same flags as Today's Needs review via `ReasonChip`), Schedule (sample data), ScanDetail ("View report"), Map (can open on one checkpoint), Accounts (`Guards.tsx`), Checkpoints and QR (`Checkpoints.tsx`, `RouteTable.tsx`; PDF sheet via `src/lib/labelsPdf.ts`), More |
+| `sup_ui` | Supervisor screens (phone to wide desktop) | `src/pages/supervisor/*.tsx`, `src/components/SupervisorShell.tsx`, `src/components/ReasonChip.tsx`, `src/lib/today.ts`, `src/lib/schedule.ts` | Today (four live sections, rules in `today.ts`), Log Database (paged, with the same flags as Today's Needs review via `ReasonChip`), Schedule (manual scheduling, rules in `schedule.ts`), ScanDetail ("View report"), Map (can open on one checkpoint), Accounts (`Guards.tsx`), Checkpoints and QR (`Checkpoints.tsx`, `RouteTable.tsx`; PDF sheet via `src/lib/labelsPdf.ts`), More |
 | `router` | Routing and role gates | `src/app.tsx`, `src/state.tsx` | Hash routes (`#/scan`); `RequireRole` sends each role to its own home; app context holds `user` and language |
 | `network` | Online state | `src/data/network.ts` | `navigator.onLine` plus `online`/`offline` events |
 | `api` | Data facade | `src/data/api.ts` | The only data module screens import. Decides: send now, or park in the outbox. Caches session, route and today's scans. Runs background sync |
@@ -27,13 +27,13 @@ Patroli is a QR checkpoint patrol logger. Guards scan QR stickers on their round
 | Id | Component | Where defined | Responsibility |
 | --- | --- | --- | --- |
 | `auth` | Supabase Auth | dashboard + `supabase/config.toml` | Sessions, sign-in with phone number and password. Public sign-up is off: accounts are created only by supervisors |
-| `rpc` | RPC functions (`security definer`) | `supabase/migrations/*.sql` | Every write. Each function checks the caller's role. Examples: `submit_scan`, `submit_report`, `create_checkpoint` (a location is required), `update_checkpoint`, `move_checkpoint`, `reissue_checkpoint`, `remove_checkpoints`, `set_checkpoint_location` (moves a pin, can't clear it), `set_account_active`, `qr_payload`, `route_checkpoints`, `guard_summaries`, `missed_checkpoints`. Helper `private.renumber_round()` keeps stop numbers 1, 2, 3… |
-| `tables` | Tables + Row Level Security | `supabase/migrations/20260923120000_patrol_schema.sql` and later | `profiles`, `checkpoints`, `scans`, `reports`; view `scan_rows` (`security_invoker`). RLS: guards read only their own rows, supervisors read everything. No table accepts direct writes from the app. Diagram: 3.3 |
+| `rpc` | RPC functions (`security definer`) | `supabase/migrations/*.sql` | Every write. Each function checks the caller's role. Examples: `submit_scan`, `submit_report`, `create_checkpoint` (a location is required), `update_checkpoint`, `move_checkpoint`, `reissue_checkpoint`, `remove_checkpoints`, `set_checkpoint_location` (moves a pin, can't clear it), `set_account_active`, `qr_payload`, `route_checkpoints`, `guard_summaries`, `missed_checkpoints`, `assign_shift`, `remove_shift`, `copy_shifts`. Helper `private.renumber_round()` keeps stop numbers 1, 2, 3… |
+| `tables` | Tables + Row Level Security | `supabase/migrations/20260923120000_patrol_schema.sql` and later | `profiles`, `checkpoints`, `scans`, `reports`, `shifts`; views `scan_rows` and `shift_rows` (`security_invoker`). RLS: guards read only their own rows, supervisors read everything. No table accepts direct writes from the app. Diagram: 3.3 |
 | `vault` | Vault secret `qr_signing_key` | schema migration | HMAC key for QR stickers. Never leaves the database |
 | `storage` | Storage bucket `report-photos` | schema migration | Private. Guards upload to `<user id>/<report id>/`; supervisors and owners read via signed URLs |
 | `edge` | Edge Functions | `supabase/functions/create-guards`, `reset-password`, `staff-phone`, `_shared/supervisor.ts`, `_shared/phone.ts`, `_shared/names.ts` | Hold the service-role key. Each calls `requireSupervisor` first, then uses the Auth admin API |
 
-The two newest migrations (`20260930120000_checkpoint_location_required.sql`, `20260930130000_contiguous_stop_numbers.sql`) run locally but not yet on the hosted project (README > Status and TODO > Launch).
+The three newest migrations (`20260930120000_checkpoint_location_required.sql`, `20260930130000_contiguous_stop_numbers.sql`, `20261002120000_shifts.sql`) run locally but not yet on the hosted project (README > Status and TODO > Launch).
 
 ### External
 
@@ -53,7 +53,7 @@ device      -> local_cache : the chosen back camera (patrol-scan-camera), so the
 sw          -> guard_ui    : serves the cached app shell (works offline)
 sw          -> sup_ui      : serves the cached app shell
 guard_ui    -> api         : scan(), addReport(), todayProgress() (home, and the Scan result's next checkpoint), loadRoute()
-sup_ui      -> api         : listScans(), exportScans(), getScan(), allCheckpoints(), guardSummaries(), createGuards(), ... (wrapped in needsNetwork: throw "offline" if no signal)
+sup_ui      -> api         : listScans(), exportScans(), getScan(), allCheckpoints(), guardSummaries(), listShifts(), assignShift(), removeShift(), copyShifts(), createGuards(), ... (wrapped in needsNetwork: throw "offline" if no signal)
 network     -> api         : isOnline(), onNetworkChange()
 api         -> local_cache : read/write session, route, today's scans
 api         -> backend     : online -> send now
@@ -95,7 +95,7 @@ flowchart LR
     auth["Auth"]
     subgraph Postgres
       rpc["RPC functions<br/>security definer"]
-      tables[("Tables + RLS<br/>profiles · checkpoints<br/>scans · reports · scan_rows")]
+      tables[("Tables + RLS<br/>profiles · checkpoints · scans<br/>reports · shifts<br/>scan_rows · shift_rows")]
       vault[("Vault<br/>qr_signing_key")]
     end
     storage[("Storage<br/>report-photos, private")]
@@ -148,7 +148,7 @@ flowchart LR
 
 ### 3.3 Database schema (current)
 
-All four tables have Row Level Security on and accept no direct writes (invariant 3). Limits in brackets are the database's; the app is stricter where noted.
+All five tables have Row Level Security on and accept no direct writes (invariant 3). Limits in brackets are the database's; the app is stricter where noted.
 
 ```mermaid
 erDiagram
@@ -156,6 +156,7 @@ erDiagram
   profiles ||--o{ scans : "guard_id"
   checkpoints ||--o{ scans : "checkpoint_id"
   scans ||--o{ reports : "scan_id (the app sends one)"
+  profiles ||--o{ shifts : "guard_id"
 
   profiles {
     uuid id PK "= auth.users.id"
@@ -199,15 +200,24 @@ erDiagram
     text_array photos "object paths in report-photos"
     timestamptz created_at
   }
+  shifts {
+    uuid id PK
+    uuid guard_id FK "an active guard; no two overlapping shifts"
+    timestamptz starts_at "the day it starts is the shift's day"
+    timestamptz ends_at "after starts_at, at most 16 h; night ends next morning"
+    uuid created_by FK "the supervisor; null if deleted"
+    timestamptz created_at
+  }
 ```
 
+- View `shift_rows` (`security_invoker`): each shift with `guard_name`, for the Schedule page. Guards read only their own shifts; supervisors read all.
 - View `scan_rows` (`security_invoker`): each scan with `guard_name`, `checkpoint_name`, its first report as JSON, and the checkpoint's current position and radius. Every supervisor list, the CSV export and Today read it.
-- Constraints worth knowing: `checkpoints_location_complete` (latitude and longitude together), `checkpoints_location_required` (a location unless removed), `profiles_phone_or_email`.
+- Constraints worth knowing: `checkpoints_location_complete` (latitude and longitude together), `checkpoints_location_required` (a location unless removed), `profiles_phone_or_email`, `shifts_no_overlap` (an exclusion constraint over `tstzrange(starts_at, ends_at)` per guard; needs the `btree_gist` extension; back-to-back shifts are fine).
 - Storage: bucket `report-photos`, private, `<guard id>/<report id>/<file>`.
 
 ### 3.4 Planned schema (not built)
 
-Proposal for per-guard checkpoints and shifts at one site. Nothing here exists yet; it waits on the owner's answers listed in README > Status and TODO > Not decided yet. New and changed parts only.
+Proposal for per-guard checkpoints at one site, on top of the `shifts` table that now exists (3.3). It waits on the owner's answers listed in README > Status and TODO > Not decided yet. New and changed parts only.
 
 ```mermaid
 erDiagram
@@ -230,12 +240,7 @@ erDiagram
     int stop_order "each route keeps its own order"
   }
   shifts {
-    uuid id PK
-    uuid guard_id FK
-    timestamptz starts_at
-    timestamptz ends_at "after starts_at; a night shift crosses midnight"
-    uuid route_id FK "null: the guard's default route"
-    uuid created_by FK "the supervisor"
+    uuid route_id FK "NEW: null means the guard's default route"
   }
   profiles {
     uuid default_route_id FK "NEW: the guard's usual route"
@@ -319,6 +324,18 @@ Asked for "the back camera", Chrome on Android often opens a secondary lens (wid
 
 The flashlight button (`setFlash`) uses the camera track's `torch` setting: Chromium browsers on Android with a flash. iPhone browsers (all WebKit), Firefox and desktop webcams report no torch; the button is then shown disabled.
 
+### 4.8 Manual scheduling (`pages/supervisor/Schedule.tsx`, rules in `src/lib/schedule.ts`)
+
+Supervisors decide; the app saves and warns, it never assigns anyone by itself.
+
+1. The page loads the week's shifts (`listShifts` on the `shift_rows` view) plus the day either side, and the active guards (`listAccounts`). "The week" is Monday to Sunday in the device's time zone; a shift belongs to the day it starts.
+2. `shiftsBySlot` groups shifts into slots: a day and one of `SHIFT_KINDS` (Morning 07-15, Afternoon 15-23, Night 23-07), recognised from the start time and length. Shifts at other times show in a line under the grid.
+3. Assigning: the dialog ticks guards for one slot. Saving calls `remove_shift` for unticked guards and `assign_shift(guard, start, end)` for new ones; `shiftTimes(day, kind)` turns the slot into timestamps. The database refuses a non-guard (`not_a_guard`), an overlap (`shift_overlap`, from the `shifts_no_overlap` constraint) and anything over 16 hours.
+4. Warnings (`scheduleWarnings`, `emptySlots`, thresholds in `SCHEDULE_RULES`): slots nobody works, more than 40 hours in the week, under 8 hours between one shift's end and the next one's start (checked into the neighbouring weeks). The dialog shows the same warnings beside each ticked guard before saving.
+5. "Copy last week": `copy_shifts(from, to, 7, time zone)` repeats the previous week's shifts at the same local times (so a daylight-saving change doesn't shift them), skipping inactive guards and clashes; running it twice adds nothing.
+
+Not yet: nothing outside this page reads shifts (Today, the guard's home, missed checkpoints per shift); see 7.3.
+
 ## 5. Invariants
 
 Changes that break one of these are architectural changes.
@@ -334,6 +351,7 @@ Changes that break one of these are architectural changes.
 9. `localStorage` caches are for display only; nothing on the server trusts them.
 10. A new app version reloads only on a screen with nothing to type, and only after `outboxSaved()` resolves.
 11. Every checkpoint in use has a location (`checkpoints_location_required`). A pin can be moved, never cleared: to drop a location, remove the checkpoint.
+12. A guard is never on two overlapping shifts (`shifts_no_overlap`), and only active guard accounts can be given shifts.
 
 ## 6. Routes (`src/app.tsx`, hash routing)
 
@@ -345,7 +363,7 @@ Changes that break one of these are architectural changes.
 | `#/report/:scanId` | guard | `pages/guard/Report.tsx` |
 | `#/supervisor` | supervisor | `pages/supervisor/Today.tsx` (Today tab: the start page) |
 | `#/supervisor/log` | supervisor | `pages/supervisor/Log.tsx` (Log Database tab) |
-| `#/supervisor/schedule` | supervisor | `pages/supervisor/Schedule.tsx` (Schedule tab, sample data for now) |
+| `#/supervisor/schedule` | supervisor | `pages/supervisor/Schedule.tsx` (Schedule tab: manual scheduling) |
 | `#/supervisor/map` | supervisor | `pages/supervisor/MapView.tsx` |
 | `#/supervisor/map/checkpoint/:id` | supervisor | `pages/supervisor/MapView.tsx`, opened on one checkpoint with its popup showing (the map-pin links in Today's Not yet visited; Back returns to Today) |
 | `#/supervisor/guards` | supervisor | `pages/supervisor/Guards.tsx` (Accounts tab) |
@@ -377,7 +395,7 @@ Changes that break one of these are architectural changes.
 | Today | `pages/supervisor/Today.tsx` | Done | Per shift once shifts exist; "Late start" status; "Mark as reviewed"; Supabase Realtime instead of polling |
 | Checkpoints and QR | `pages/supervisor/Checkpoints.tsx`, `RouteTable.tsx` | Done | With per-guard routes: a way to build routes and see which routes include a checkpoint |
 | More | `pages/supervisor/More.tsx` | Done | - |
-| Schedule | `pages/supervisor/Schedule.tsx` | Partly: the grid follows `DeskSchedule`, with sample data | Heading like Today (`.dash-title`); shift chips in the blue palette (Night is black); week navigation; an Add shift dialog; a route per shift. Needs the 3.4 tables first |
+| Schedule | `pages/supervisor/Schedule.tsx` | Done: grid by shift and day on desktop (`DeskSchedule`), day strip and shift cards on phones (`Schedule`), assign dialog, week navigation, copy last week, warnings | The design's "In charge" label (needs a field for it); a route per shift once routes exist |
 | Log Database | `pages/supervisor/Log.tsx` | Done: pill filters (the date chip shows "dd/mm/yyyy" on phones), flags as on Today, rows open the scan, one line per scan on phones | The design's search box and "Any flag" filter (server-side, so paging and CSV work); one filter bar shared with Map (date range, location status) |
 | Map | `pages/supervisor/MapView.tsx` | Not started | Heading and filter bar like the other pages (shared with Log; its date starts on today, and as a pill it should reuse `.date-chip`); legend as chips (`DeskMap`, `Map` boards) |
 | Accounts | `pages/supervisor/Guards.tsx`, `AccountsTable.tsx` | Not started (only the buttons turned blue) | Cards like Checkpoints; a phone layout for the table (`DeskAccounts`, `Accounts` boards) |
@@ -386,7 +404,7 @@ Changes that break one of these are architectural changes.
 
 ### 7.3 Planned features: where to start
 
-- **Shifts and the Schedule page.** Migration with `shifts` (3.4) and RLS (a guard reads their own); supervisor-checked RPCs to add, edit, copy a week and remove shifts; `backend.ts` and `api.ts` functions; the Schedule page; then Today per shift, the guard home's shift line, and an offline cache of the guard's shifts.
+- **Shifts outside the Schedule page.** The table and page exist (4.8). Next: Today's Guards on duty from shifts (who is on now, "Late start"), the guard home's shift line, missed checkpoints per shift, and an offline cache of the guard's own shifts (they can already read them under RLS).
 - **Per-guard checkpoints.** `routes` and `route_stops` (3.4); `route_checkpoints()` returns the current shift's route; the guard home counts only assigned checkpoints; Today's Not yet visited per guard; an "Off route" reason in Needs review.
 - **Mark as reviewed.** `scans.reviewed_at` / `reviewed_by` and an RPC; the button on View report (`ScanDetail.tsx`); Today hides reviewed scans (or shows them greyed).
 - **Log search and flag filter.** The design's search box (guard or checkpoint name, report text) and "Any flag" filter. Both must filter on the server (`scanRowsQuery` in `backend.ts`: `ilike` on `scan_rows`, or a full-text index; flags as columns or a view) so paging and the CSV export agree. Then one filter bar shared with the Map.

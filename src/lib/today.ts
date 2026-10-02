@@ -162,7 +162,8 @@ const STATUS_ORDER: GuardStatus[] = [
  * Every active guard with a status from their last scan today: patrolling (within
  * REVIEW.patrollingMs of `now`), quiet (earlier today) or not started (no scans). Patrolling
  * first, then quiet, then not started; by name within each.
- * There are no shifts yet, so "on duty" can't mean "scheduled" (see README > TODO).
+ * Shifts exist (Schedule page, lib/schedule.ts) but this doesn't read them yet, so "on duty"
+ * doesn't mean "scheduled". See README > Status and TODO > Screens ("Use shifts elsewhere").
  */
 export function guardsOnDuty(
 	guards: GuardSummary[],
