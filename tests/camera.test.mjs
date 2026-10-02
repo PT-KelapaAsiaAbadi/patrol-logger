@@ -94,7 +94,7 @@ try {
 	const before = await scansHere();
 	await page.goto(BASE + "#/login");
 	await page.getByLabel("Phone number").fill(SEED.guardTyped);
-	await page.getByLabel("Password").fill(SEED.password);
+	await page.getByLabel("Password", { exact: true }).fill(SEED.password);
 	await page.getByRole("button", { name: "Sign in" }).click();
 	await page.waitForURL(/#\/$/, { timeout: 15000 });
 	await page.getByRole("link", { name: "Scan checkpoint" }).click();
