@@ -33,7 +33,7 @@ const NOTE_MAX = 1500;
 /**
  * Guard-facing report submission page (after a scan).
  *
- * @param param0 scanId object -TODO
+ * @param scanId the scan this report belongs to (from the route, #/report/:scanId)
  */
 export function ReportPage({ scanId }: { scanId: string }) {
 	const { t } = useApp();
@@ -72,8 +72,8 @@ export function ReportPage({ scanId }: { scanId: string }) {
 			try {
 				out.push(await compressImage(f));
 			} catch {
-				/* skip unreadable file */
-				// TODO: implement Error handling / catch handling
+				// TODO: tell the guard a photo couldn't be read; it's skipped silently for now.
+				// See README > Status and TODO > Screens.
 			}
 		}
 		setPhotos((p) => [...p, ...out].slice(0, MAX_PHOTOS));

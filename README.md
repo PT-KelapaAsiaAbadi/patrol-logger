@@ -201,25 +201,26 @@ What the prototype does today, what's still to build, and what's waiting on a de
 **Guard app** (phone only)
 
 - [x] Sign in with phone number and password (show/hide password).
-- [x] Today's round: every checkpoint in round order, ticked once scanned, with progress.
-- [x] Scan a QR sticker with the camera, or type the code printed under it. A flashlight button where the browser can switch the torch (Chromium browsers on Android).
+- [x] Today's round: a greeting, a progress bar, the next checkpoint, and every checkpoint in round order, ticked once scanned.
+- [x] Scan a QR sticker with the camera, or type the code printed under it. The scanner opens the back camera that has the flash; a flashlight button where the browser can switch the torch (Chromium browsers on Android). After a scan: the result, the location check and the next checkpoint.
 - [x] GPS position sent with each scan; a scan far from its checkpoint is logged but flagged, and the guard is told.
-- [x] Report on a scan: a note and photos (shrunk before upload).
+- [x] Report on a scan: a note (up to 1,500 characters, about 200 words) and up to 5 photos, taken with the camera or picked from the gallery, shrunk before upload.
 - [x] Works offline: scans and reports wait on the phone (IndexedDB) and send when there's signal; Try again and Discard for ones the server refused; signing out warns about anything unsent.
 - [x] Installable app (PWA); a new version switches in only on a screen where a reload loses nothing.
 
 **Supervisor screens** (phone, tablet and desktop layouts)
 
-- [x] Today: Needs review (far, no GPS, has a report, sent late, too fast), Not yet visited, Completed checkpoints, Guards on duty (Patrolling, Quiet, Not started). Refreshes every minute and when the tab comes back.
-- [x] Log Database: every scan, filtered by date, guard and checkpoint, paged, with CSV export.
-- [x] Scan detail: time, guard, location check, report and photos, map links.
-- [x] Map: one day's checkpoints and scans; one guard's route in time order.
+- [x] Today: Needs review (far, no GPS, has a report, sent late, too fast), Not yet visited (each with a link that opens the Map on it), Completed checkpoints, Guards on duty (Patrolling, Quiet, Not started). Refreshes every minute and when the tab comes back.
+- [x] Log Database: every scan, filtered by guard, checkpoint and date (the date chip shows "dd/mm/yyyy" on phones, which leave an empty date field blank), with the same flags as Needs review, paged, with CSV export. Each row opens the scan; one line per scan on phones.
+- [x] View report (scan detail): the location check, the scan's times and map links, the report note and photos (full size on a tap). Back returns to where it was opened from.
+- [x] Map: one day's checkpoints and scans; one guard's route in time order; can open zoomed in on one checkpoint.
 - [x] Accounts: add one or import a CSV, a new password, change a number, deactivate.
 - [x] Checkpoints and QR: add (a location is required: map, address search, own position or coordinates), rename, reorder, take out of use, move a pin, replace a sticker, remove; select some to print a QR sheet or download it as a PDF; a QR panel beside the table on desktop.
 
 **Both**
 
 - [x] Bahasa Indonesia and English; system, light and dark themes; 44 px tap targets on touch screens.
+- [x] The new design (blue for actions, amber only for warnings) on Sign in, every guard screen, Today, Log Database, View report, Checkpoints and QR, and More. Still on the old design: see "Screens" below.
 
 **Backend and checks**
 
@@ -246,7 +247,8 @@ What the prototype does today, what's still to build, and what's waiting on a de
 - [ ] **Today: Guards on duty** shows every active guard from their last scan. Once shifts exist, show who is scheduled now, and a "Late start" for a shift that began with no scans.
 - [ ] **Today: Needs review** lists every flagged scan until the day ends. Add a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans) so handled ones drop off. Rules and thresholds: [src/lib/today.ts](src/lib/today.ts).
 - [ ] **Log Database: search and flag filter.** The page has the new design (pill filters, flags, one line per scan on phones). Still to build, as in the design: a search box (guard or checkpoint name, report text) and an "Any flag" filter, and one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status). Search and the flag filter must run on the server so they work with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
-- [ ] Phone layouts for the Accounts and Schedule tables (they scroll sideways on a phone for now).
+- [ ] **Still on the old design:** Accounts (form cards and table; the table scrolls sideways on a phone), Map (filters and legend; as pills, its date filter should reuse the Log's `.date-chip`, which shows "dd/mm/yyyy" on phones), and the "Page not found" screen. Schedule follows the design but shows sample data, and its table scrolls sideways on a phone. Per screen, with the next step: [ARCHITECTURE.md](ARCHITECTURE.md) section 7.2.
+- [ ] **Report photos that can't be read** are skipped without a word ([src/pages/guard/Report.tsx](src/pages/guard/Report.tsx)). Tell the guard, e.g. a short notice under the photos.
 
 **Database tidy-ups**
 

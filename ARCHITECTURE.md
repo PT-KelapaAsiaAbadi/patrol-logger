@@ -12,7 +12,7 @@ Patroli is a QR checkpoint patrol logger. Guards scan QR stickers on their round
 | --- | --- | --- | --- |
 | `device` | Device access | `src/lib/scanner.ts`, `src/lib/geo.ts`, `src/lib/image.ts` | Camera and QR decode (qr-scanner). Picks the back camera that has the flash and switches the flashlight (torch). GPS fix kept fresh while the scan screen is open. Shrinks photos (from the camera or the gallery) before upload |
 | `guard_ui` | Guard screens (phone only) | `src/pages/guard/Home.tsx`, `Scan.tsx`, `Report.tsx` | Home: greeting, progress bar, next checkpoint, the round. Scan: full camera view, flashlight, typed-code fallback, result with the next checkpoint. Report: note (up to 1,500 characters, about 200 words) and up to 5 photos |
-| `sup_ui` | Supervisor screens (phone to wide desktop) | `src/pages/supervisor/*.tsx`, `src/components/SupervisorShell.tsx`, `src/lib/today.ts` | Today (four live sections, rules in `today.ts`), Log Database (paged), Schedule (sample data), ScanDetail, Map, Accounts (`Guards.tsx`), Checkpoints and QR (`Checkpoints.tsx`, `RouteTable.tsx`; PDF sheet via `src/lib/labelsPdf.ts`), More |
+| `sup_ui` | Supervisor screens (phone to wide desktop) | `src/pages/supervisor/*.tsx`, `src/components/SupervisorShell.tsx`, `src/components/ReasonChip.tsx`, `src/lib/today.ts` | Today (four live sections, rules in `today.ts`), Log Database (paged, with the same flags as Today's Needs review via `ReasonChip`), Schedule (sample data), ScanDetail ("View report"), Map (can open on one checkpoint), Accounts (`Guards.tsx`), Checkpoints and QR (`Checkpoints.tsx`, `RouteTable.tsx`; PDF sheet via `src/lib/labelsPdf.ts`), More |
 | `router` | Routing and role gates | `src/app.tsx`, `src/state.tsx` | Hash routes (`#/scan`); `RequireRole` sends each role to its own home; app context holds `user` and language |
 | `network` | Online state | `src/data/network.ts` | `navigator.onLine` plus `online`/`offline` events |
 | `api` | Data facade | `src/data/api.ts` | The only data module screens import. Decides: send now, or park in the outbox. Caches session, route and today's scans. Runs background sync |
@@ -307,9 +307,11 @@ A supervisor calls `create-guards`, `reset-password` or `staff-phone` through `s
 
 One fetch feeds all four sections: `allCheckpoints()`, `exportScans({ date: today })` and `guardSummaries(today)`, where "today" is the supervisor's device's calendar day (`localDateKey`). The page fetches again every 60 s while it's on screen, as soon as it's back on screen if a refresh was missed, and on the Refresh button. The rules are pure functions with unit tests (`tests/today.test.mjs`); thresholds live in one `REVIEW` constant.
 
-- **Completed** / **Not yet visited** (`todayCheckpoints`): checkpoints in use, split by whether anyone scanned them today; a far scan still completes a checkpoint.
+- **Completed** / **Not yet visited** (`todayCheckpoints`): checkpoints in use, split by whether anyone scanned them today; a far scan still completes a checkpoint. Each not-yet-visited checkpoint has a map-pin link to `#/supervisor/map/checkpoint/:id`; the browser's Back returns to Today.
 - **Needs review** (`needsReview`): today's scans, newest first, each with every reason that applies: far, no GPS, has a report (note or photos), sent late (received more than 60 min after scanning), too fast (the same guard's previous scan was another checkpoint less than 1 min earlier; the later scan is flagged). Not flagged on purpose: no report, checkpoint not pinned.
 - **Guards on duty** (`guardsOnDuty`): every active guard, Patrolling (scanned within 60 min), Quiet (earlier today) or Not started; sorted in that order, then by name.
+
+The Log Database applies `needsReview` to each page of scans for its Flags column, without "too fast" (that compares a scan with the guard's previous one, which may be on another page).
 
 ### 4.7 Scanner camera and flashlight (`src/lib/scanner.ts`)
 
@@ -358,6 +360,7 @@ Changes that break one of these are architectural changes.
 - **One stylesheet, mobile first:** `src/index.css`, component classes in `@layer components`. Phone below 640 px, tablet 640-1023 px, desktop from 1024 px, wide desktop from 1280 and 1440 px. Layout changes happen in CSS; `useMediaQuery` (`src/hooks.ts`) only where behaviour differs (Checkpoints: the add form is a dialog on desktop).
 - **Colour:** tokens on `:root` with dark versions (`prefers-color-scheme` and `data-theme`). Blue (`--info`) for actions and selection: `.shell`, `.login-page`, `.guard-home`, `.scan-screen`, `.scan-done` and `.report-page` point `--accent` at `--info`. Amber and yellow only for warnings (`--warn`, `--queued`, `--review`); green (`--done`) for done.
 - **Touch:** `@media (pointer: coarse)` gives every control a 44 px target; mouse users keep compact sizes.
+- **Date fields on phones:** Android Chrome and iPhone Safari show an empty `<input type="date">` blank, and Android gives it almost no width. A date filter that can be empty uses the Log's `.date-chip`: a minimum width, and a "dd/mm/yyyy" hint (`datePlaceholder`) on touch screens only, since desktop browsers show their own.
 - **Images:** the unlayered `img { max-width: 100% }` beats layered rules, so image sizes use `width: min(...)`.
 - **Who uses what:** guard screens are phone-only (one column, at most 36rem wide); supervisor screens run from phone to wide desktop (bottom tab bar below 1024 px, top tabs above).
 - **Design reference:** the Patroli design canvas (phone and desktop boards: `GuardHome`, `Scan`, `ScanDone`, `Report`, `TopBar`, `DeskToday`, `DeskSchedule`, `DeskLogs`, `DeskMap`, `DeskAccounts` and the multi-site `MS*` boards). It lives outside the repo; ask the project owner for access.
@@ -375,8 +378,8 @@ Changes that break one of these are architectural changes.
 | Checkpoints and QR | `pages/supervisor/Checkpoints.tsx`, `RouteTable.tsx` | Done | With per-guard routes: a way to build routes and see which routes include a checkpoint |
 | More | `pages/supervisor/More.tsx` | Done | - |
 | Schedule | `pages/supervisor/Schedule.tsx` | Partly: the grid follows `DeskSchedule`, with sample data | Heading like Today (`.dash-title`); shift chips in the blue palette (Night is black); week navigation; an Add shift dialog; a route per shift. Needs the 3.4 tables first |
-| Log Database | `pages/supervisor/Log.tsx` | Done: pill filters, flags as on Today, rows open the scan, one line per scan on phones | The design's search box and "Any flag" filter (server-side, so paging and CSV work); one filter bar shared with Map (date range, location status) |
-| Map | `pages/supervisor/MapView.tsx` | Not started | Heading and filter bar like the other pages (shared with Log); legend as chips (`DeskMap`, `Map` boards) |
+| Log Database | `pages/supervisor/Log.tsx` | Done: pill filters (the date chip shows "dd/mm/yyyy" on phones), flags as on Today, rows open the scan, one line per scan on phones | The design's search box and "Any flag" filter (server-side, so paging and CSV work); one filter bar shared with Map (date range, location status) |
+| Map | `pages/supervisor/MapView.tsx` | Not started | Heading and filter bar like the other pages (shared with Log; its date starts on today, and as a pill it should reuse `.date-chip`); legend as chips (`DeskMap`, `Map` boards) |
 | Accounts | `pages/supervisor/Guards.tsx`, `AccountsTable.tsx` | Not started (only the buttons turned blue) | Cards like Checkpoints; a phone layout for the table (`DeskAccounts`, `Accounts` boards) |
 | Scan detail (View report) | `pages/supervisor/ScanDetail.tsx` | Done: location pill, Scan and Report cards, photos open full size; Back returns to where it was opened from | With Mark as reviewed: the button lives here |
 | Not found | `app.tsx` | Not started (one line of text) | A small empty state with a link home |
@@ -385,7 +388,9 @@ Changes that break one of these are architectural changes.
 
 - **Shifts and the Schedule page.** Migration with `shifts` (3.4) and RLS (a guard reads their own); supervisor-checked RPCs to add, edit, copy a week and remove shifts; `backend.ts` and `api.ts` functions; the Schedule page; then Today per shift, the guard home's shift line, and an offline cache of the guard's shifts.
 - **Per-guard checkpoints.** `routes` and `route_stops` (3.4); `route_checkpoints()` returns the current shift's route; the guard home counts only assigned checkpoints; Today's Not yet visited per guard; an "Off route" reason in Needs review.
-- **Mark as reviewed.** `scans.reviewed_at` / `reviewed_by` and an RPC; Today hides reviewed scans (or shows them greyed).
+- **Mark as reviewed.** `scans.reviewed_at` / `reviewed_by` and an RPC; the button on View report (`ScanDetail.tsx`); Today hides reviewed scans (or shows them greyed).
+- **Log search and flag filter.** The design's search box (guard or checkpoint name, report text) and "Any flag" filter. Both must filter on the server (`scanRowsQuery` in `backend.ts`: `ilike` on `scan_rows`, or a full-text index; flags as columns or a view) so paging and the CSV export agree. Then one filter bar shared with the Map.
+- **Report photos that can't be read.** `addFiles` in `Report.tsx` skips them silently; show a short notice.
 - **Live Today.** Supabase Realtime on `scans`, subscribed in `backend.ts` (invariant 2), keeping the 60 s refresh as a fallback.
 - **Several sites.** Later: see 3.4's last note and README > Status and TODO > Not decided yet.
 - **One-time codes.** README > Status and TODO > Launch.
