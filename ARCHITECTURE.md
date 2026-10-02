@@ -368,7 +368,7 @@ Changes that break one of these are architectural changes.
 | --- | --- | --- | --- |
 | Sign in | `pages/Login.tsx` | Done | - |
 | Guard home | `pages/guard/Home.tsx` | Done | With shifts: show the current shift under the date (the design's "Morning shift") and only the guard's assigned checkpoints |
-| Guard top bar | `components/LanguageBar.tsx` (`.lang-bar`, shown by `PageLanguageBar` in `app.tsx`) | Partly: the old grey bar with only the theme and language switches | The design's `TopBar`: "Patroli" on the left, switches on the right, surface background, 56 px tall. Also shown on Sign in, so check that page |
+| Guard top bar | `components/LanguageBar.tsx` (`.lang-bar`, shown by `PageLanguageBar` in `app.tsx`) | Done: "Patroli" on the left, the switches on the right; also on Sign in | - |
 | Scan | `pages/guard/Scan.tsx` | Done | Check the flashlight on a real iPhone; an animated scan line is optional |
 | Report | `pages/guard/Report.tsx` | Done | - |
 | Today | `pages/supervisor/Today.tsx` | Done | Per shift once shifts exist; "Late start" status; "Mark as reviewed"; Supabase Realtime instead of polling |

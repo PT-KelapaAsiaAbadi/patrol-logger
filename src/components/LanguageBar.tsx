@@ -1,7 +1,7 @@
 /**
  * The theme switch (system, light, dark) and the language switch. Both choices are remembered on
- * this device (lib/theme.ts, state.tsx). LanguageBar puts them in a bar above the guard and
- * sign-in pages; supervisor pages show DisplayControls in their own header (SupervisorShell).
+ * this device (lib/theme.ts, state.tsx). LanguageBar puts them in a top bar, with the app's name,
+ * above the guard and sign-in pages; supervisor pages show DisplayControls in their own header (SupervisorShell).
  */
 import { useState } from "preact/hooks";
 import { Monitor, Moon, Sun } from "lucide-preact";
@@ -65,10 +65,12 @@ export function DisplayControls() {
 	);
 }
 
+/** The top bar of the sign-in and guard pages: the app's name, then the switches. */
 export function LanguageBar() {
 	return (
-		<div class="lang-bar">
+		<header class="lang-bar">
+			<span class="lang-bar-brand">Patroli</span>
 			<DisplayControls />
-		</div>
+		</header>
 	);
 }
