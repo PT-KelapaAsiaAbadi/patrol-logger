@@ -93,7 +93,8 @@ page.on("response", (r) => {
 async function signIn(phone, password) {
 	await page.goto(BASE + "#/login");
 	await page.getByLabel("Phone number").fill(phone);
-	await page.getByLabel("Password").fill(password);
+	// exact: the show/hide button is labelled "Show password".
+	await page.getByLabel("Password", { exact: true }).fill(password);
 	await page.getByRole("button", { name: "Sign in" }).click();
 }
 async function signOut() {

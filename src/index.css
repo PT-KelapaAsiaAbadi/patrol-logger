@@ -920,6 +920,30 @@ img {
 		min-height: 3.25rem;
 		font-size: 1.0625rem;
 	}
+	/* Show/hide password: an eye button inside the field's right edge, the text kept clear of it. */
+	.password-wrap {
+		position: relative;
+	}
+	.password-input {
+		padding-right: 3.5rem;
+	}
+	.password-toggle.icon-btn {
+		position: absolute;
+		right: 0.25rem;
+		bottom: 0.25rem;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+	}
+	/* Hover only with a mouse: on touch screens it would stay grey after a tap. */
+	@media (hover: hover) {
+		.password-toggle.icon-btn:not(:disabled):hover {
+			background: var(--sunken);
+			color: var(--ink);
+		}
+	}
 	.login-foot {
 		text-align: center;
 		font-size: 0.875rem;
