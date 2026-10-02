@@ -218,16 +218,8 @@ Open work before real use. `TODO:` comments in the code are highlighted by the T
 
 Dashboard refactor (branch `refactor/dashboard-rework`), done step by step:
 
-- [ ] **Today: Guards on duty** shows sample data (marked "Sample data, not live yet"). Use `guardSummaries(today)` for every active guard with a status from the last scan: Patrolling (scanned in the last 60 min), Quiet (scanned today, not in the last 60 min), Not started (no scans today). "On duty" can't mean "scheduled" until shifts exist (see Decisions) ([src/pages/supervisor/Today.tsx](src/pages/supervisor/Today.tsx)).
-- [ ] **Today: Needs review** shows sample rows. List today's scans that need a look, newest first, with the reasons as labels and a link to the scan:
-  - far from the checkpoint (`location_status = 'far'`)
-  - no GPS (`location_status = 'no_fix'`)
-  - has a report (a note or photos: likely an incident)
-  - sent late: `received_at` more than 60 min after `scanned_at` (long offline, or a wrong phone clock)
-  - too fast: the same guard scanned two different checkpoints less than 1 min apart
-
-  Not included on purpose: "no report" (reports are optional, so almost every scan would be flagged) and "checkpoint not pinned" (a setup issue, not the guard's). Thresholds in one constants block; rules in [src/lib/today.ts](src/lib/today.ts) with tests. Later: a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans).
-- [ ] **Needs review** shows sample rows (one per planned reason, tagged "Sample data, not live yet") until the rules below are built.
+- [ ] **Today: Guards on duty** shows every active guard as Patrolling, Quiet or Not started from their last scan. Once shifts exist, show who is scheduled now (see Schedule below).
+- [ ] **Today: Needs review** lists every flagged scan until the day ends. Add a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans) so handled ones drop off. Rules and thresholds: [src/lib/today.ts](src/lib/today.ts).
 - [ ] **Schedule** tab shows a sample weekly roster (tagged as sample data; "Add shift" disabled). To build: a `shifts` table (guard, start, end; night shifts cross midnight) written through supervisor-checked functions; add, edit, copy last week and remove shifts; move between weeks. Then Today's Guards on duty can show who is scheduled now, and missed checkpoints can be counted per shift. Shift names and times to agree with the owner (the sample uses 07-15, 15-23, 23-07) ([src/pages/supervisor/Schedule.tsx](src/pages/supervisor/Schedule.tsx)).
 - [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
 - [ ] **Every checkpoint needs a location: run the migration on PatrolLogger.** The app requires a location when adding a checkpoint and can only move a pin, not remove it (to take a location away, remove the checkpoint). [supabase/migrations/20260930120000_checkpoint_location_required.sql](supabase/migrations/20260930120000_checkpoint_location_required.sql) makes the database agree: it deletes checkpoints without a location that were never scanned, removes those that were (their scans keep them), then refuses a checkpoint in use without a location and makes `p_lat` / `p_lng` required in `create_checkpoint`. Before running it: deploy the app version that always sends a location (older ones add checkpoints by name alone), and pin any unpinned checkpoint you want to keep.

@@ -1193,13 +1193,6 @@ img {
 		color: var(--muted);
 		line-height: 1.3;
 	}
-	.stat-sample {
-		font-size: 0.6875rem;
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--review);
-	}
 
 	.dash-grid {
 		display: grid;
@@ -1248,8 +1241,7 @@ img {
 		line-height: 1.4;
 		color: var(--muted);
 	}
-	.dash-count,
-	.dash-badge {
+	.dash-count {
 		display: inline-block;
 		font-size: 0.75rem;
 		font-weight: 700;
@@ -1262,12 +1254,6 @@ img {
 		flex: none;
 		background: var(--tone-bg);
 		color: var(--tone);
-	}
-	.dash-badge {
-		margin-top: 0.4rem;
-		background: var(--review-bg);
-		color: var(--review);
-		border: 1px solid var(--review);
 	}
 	.dash-body {
 		border-top: 1px solid var(--line);
@@ -1394,6 +1380,23 @@ img {
 		font-weight: 700;
 		white-space: nowrap;
 	}
+	/* A scan can need a look for several reasons: one chip each, with its detail beside it (or
+	   under it on phones, where the column is narrow). */
+	.reason-list {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.4rem;
+	}
+	.reason {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		column-gap: 0.5rem;
+	}
+	.reason .dash-sub {
+		margin-top: 0;
+	}
 	/* Avatar beside the name and summary; a float keeps the cell a normal table cell. */
 	.guard-cell .dash-name,
 	.guard-cell .dash-sub {
@@ -1455,6 +1458,12 @@ img {
 		/* LocationBadge's plain spans need a box for max-width; chips keep their inline-flex. */
 		.dash-table .c-end > :is(.loc-ok, .loc-far, .text-muted) {
 			display: inline-block;
+		}
+		.dash-table .c-end .reason-list {
+			align-items: flex-end;
+		}
+		.dash-table .c-end .reason {
+			justify-content: flex-end;
 		}
 		.dash-table .c-end .reason-chip {
 			white-space: normal;

@@ -1,9 +1,9 @@
 /**
- * The Today tab, the supervisor's start page: how today's patrol is going, in four sections.
- *   - Completed checkpoints and Not yet visited: live, from today's scans (lib/today.ts).
- *   - Guards on duty: layout only, with sample data for now (TODO below).
- *   - Needs review: not built yet (TODO below).
- * Refreshes itself every minute, and on the refresh button.
+ * The Today tab, the supervisor's start page: how today's patrol is going, in four sections, all
+ * worked out from today's scans (rules in lib/today.ts): Needs review, Not yet visited, Completed
+ * checkpoints and Guards on duty.
+ * Refreshes itself every minute while it's on screen, as soon as it's back on screen after that,
+ * and on the refresh button.
  *
  * Layout (index.css, "Today dashboard"): a row of count tiles that jump to their section, then the
  * four section cards. Phones get one column, most urgent first; tablets two; wide screens three,
@@ -31,8 +31,22 @@ import {
 import { useApp } from "../../state";
 import { useAsync } from "../../hooks";
 import * as api from "../../data/api";
-import { formatLongDate, formatTime, localDateKey } from "../../lib/format";
-import { todayCheckpoints } from "../../lib/today";
+import {
+	formatDistance,
+	formatLongDate,
+	formatTime,
+	localDateKey,
+} from "../../lib/format";
+import {
+	guardsOnDuty,
+	needsReview,
+	todayCheckpoints,
+	type GuardOnDuty,
+	type ReviewFlag,
+	type ReviewItem,
+	type ReviewReason,
+} from "../../lib/today";
+import type { Lang } from "../../i18n";
 import { initials } from "../../lib/personName";
 import { LocationBadge } from "../../components/LocationBadge";
 import { ICON } from "../../components/IconButton";
@@ -61,6 +75,7 @@ export function Today() {
 			Promise.all([
 				api.allCheckpoints(),
 				api.exportScans({ date: today }),
+				api.guardSummaries(today),
 			]),
 		[today],
 	);
@@ -71,17 +86,39 @@ export function Today() {
 		if (data.data) setUpdatedAt(new Date().toISOString());
 	}, [data.data]);
 
-	// Keep the page current while it's open; skip the fetch when the tab is in the background.
+	// Keep the page current while it's open; skip the fetch when the tab is in the background, and
+	// catch up as soon as it's back if a refresh was missed. Statuses that depend on the time
+	// (Patrolling) are worked out again with each fetch.
 	useEffect(() => {
+		let last = Date.now();
+		const refresh = () => {
+			last = Date.now();
+			reload();
+		};
 		const id = setInterval(() => {
-			if (document.visibilityState === "visible") reload();
+			if (document.visibilityState === "visible") refresh();
 		}, REFRESH_MS);
-		return () => clearInterval(id);
+		const onShow = () => {
+			if (
+				document.visibilityState === "visible" &&
+				Date.now() - last >= REFRESH_MS
+			)
+				refresh();
+		};
+		document.addEventListener("visibilitychange", onShow);
+		return () => {
+			clearInterval(id);
+			document.removeEventListener("visibilitychange", onShow);
+		};
 	}, [reload]);
 
 	const sections = data.data
 		? todayCheckpoints(data.data[0], data.data[1])
 		: null;
+	const review = data.data ? needsReview(data.data[1]) : null;
+	const guards = data.data ? guardsOnDuty(data.data[2]) : null;
+	const patrolling =
+		guards?.filter((g) => g.status === "guardPatrolling").length ?? 0;
 	const scansLabel = (n: number) =>
 		t(n === 1 ? "scanOne" : "scanMany", { n });
 
@@ -129,9 +166,8 @@ export function Today() {
 					area="review"
 					tone="review"
 					icon={TriangleAlert}
-					value={String(SAMPLE_REVIEW.length)}
+					value={review ? String(review.length) : "-"}
 					label={t("tileReview")}
-					sample
 				/>
 				<StatTile
 					area="missed"
@@ -155,9 +191,8 @@ export function Today() {
 					area="duty"
 					tone="duty"
 					icon={ShieldUser}
-					value={String(SAMPLE_GUARDS.length)}
+					value={guards ? `${patrolling}/${guards.length}` : "-"}
 					label={t("tileGuards")}
-					sample
 				/>
 			</ul>
 
@@ -169,25 +204,13 @@ export function Today() {
 					icon={TriangleAlert}
 					title={t("reviewTitle")}
 					description={t("reviewDesc")}
-					badge={t("sampleData")}
-					rows={SAMPLE_REVIEW.length}>
-					{/*
-						TODO: implement Needs review (it shows sample data, tagged as such, until then).
-						List today's scans that need a supervisor's look,
-						newest first, each with its reasons as labels and a link to the scan:
-						  - far from the checkpoint (location_status = 'far')
-						  - no GPS (location_status = 'no_fix')
-						  - has a report (the guard wrote a note or added photos: likely an incident)
-						  - sent late: received_at more than 60 min after scanned_at (long offline, or a
-						    wrong phone clock)
-						  - too fast: the same guard scanned two different checkpoints less than 1 min apart
-						Not included on purpose: "no report" (reports are optional, so it would flag almost
-						every scan) and "checkpoint not pinned" (a setup issue, not the guard's).
-						Put the thresholds in one constants block, and the rules in lib/today.ts with tests.
-						Later: a "Mark as reviewed" action (needs reviewed_at / reviewed_by on scans).
-						See README > TODO.
-					*/}
-					<NeedsReview />
+					rows={review?.length ?? 0}>
+					{review &&
+						(review.length === 0 ? (
+							<p class="dash-empty">{t("nothingToReview")}</p>
+						) : (
+							<NeedsReview items={review} />
+						))}
 				</OverviewCard>
 
 				<OverviewCard
@@ -368,9 +391,24 @@ export function Today() {
 					icon={ShieldUser}
 					title={t("guardsTitle")}
 					description={t("guardsDesc")}
-					badge={t("sampleData")}
-					rows={SAMPLE_GUARDS.length}>
-					<GuardsOnDuty scansLabel={scansLabel} />
+					rows={guards?.length ?? 0}
+					count={
+						guards &&
+						guards.length > 0 &&
+						t("patrollingCount", {
+							n: patrolling,
+							total: guards.length,
+						})
+					}>
+					{guards &&
+						(guards.length === 0 ? (
+							<p class="dash-empty">{t("noGuards")}</p>
+						) : (
+							<GuardsOnDuty
+								guards={guards}
+								scansLabel={scansLabel}
+							/>
+						))}
 				</OverviewCard>
 			</div>
 			{data.loading && !data.data && (
@@ -387,17 +425,13 @@ function StatTile({
 	icon: Icon,
 	value,
 	label,
-	sample,
 }: {
 	area: Area;
 	tone: Tone;
 	icon: LucideIcon;
 	value: string;
 	label: string;
-	/** The number comes from sample data, so the tile says so. */
-	sample?: boolean;
 }) {
-	const { t } = useApp();
 	return (
 		<li>
 			<button
@@ -413,9 +447,6 @@ function StatTile({
 				<span class="grid min-w-0">
 					<span class="stat-value">{value}</span>
 					<span class="stat-label">{label}</span>
-					{sample && (
-						<span class="stat-sample">{t("sampleShort")}</span>
-					)}
 				</span>
 			</button>
 		</li>
@@ -433,7 +464,6 @@ function OverviewCard({
 	title,
 	description,
 	count,
-	badge,
 	rows,
 	children,
 }: {
@@ -444,9 +474,7 @@ function OverviewCard({
 	title: string;
 	description: string;
 	/** e.g. "3 of 9", shown beside the title. */
-	count?: string | null;
-	/** A warning tag, e.g. "Sample data". */
-	badge?: string;
+	count?: string | false | null;
 	/** How many rows the table has, to offer "Show all" when some are folded away. */
 	rows: number;
 	children: ComponentChildren;
@@ -469,7 +497,6 @@ function OverviewCard({
 				<div class="min-w-0 flex-1">
 					<h2 id={headingId}>{title}</h2>
 					<p class="dash-desc">{description}</p>
-					{badge && <span class="dash-badge">{badge}</span>}
 				</div>
 				{count && <span class="dash-count">{count}</span>}
 			</div>
@@ -498,13 +525,6 @@ function OverviewCard({
 	);
 }
 
-type ReviewReason =
-	| "reasonFar"
-	| "reasonNoGps"
-	| "reasonReport"
-	| "reasonLate"
-	| "reasonTooFast";
-
 const REASON_ICON: Record<ReviewReason, LucideIcon> = {
 	reasonFar: MapPin,
 	reasonNoGps: MapPinOff,
@@ -513,54 +533,28 @@ const REASON_ICON: Record<ReviewReason, LucideIcon> = {
 	reasonTooFast: Timer,
 };
 
-/*
-	Sample data for Needs review, one row per planned reason (see the TODO in the card above).
-	The detail is what the real rule would show: distance, delay, or gap since the last scan.
-*/
-const SAMPLE_REVIEW: {
-	time: string;
-	guard: string;
-	checkpoint: string;
-	reason: ReviewReason;
-	detail?: string;
-}[] = [
-	{
-		time: "17:05",
-		guard: "Budi Santoso",
-		checkpoint: "Pintu samping timur",
-		reason: "reasonFar",
-		detail: "5.6 km",
-	},
-	{
-		time: "16:42",
-		guard: "Siti Rahma",
-		checkpoint: "Parkir basement B1",
-		reason: "reasonNoGps",
-	},
-	{
-		time: "15:20",
-		guard: "Agus Pratama",
-		checkpoint: "Gudang belakang",
-		reason: "reasonReport",
-	},
-	{
-		time: "14:58",
-		guard: "Budi Santoso",
-		checkpoint: "Tangga darurat lantai 2",
-		reason: "reasonLate",
-		detail: "+2 h 10 min",
-	},
-	{
-		time: "14:31",
-		guard: "Siti Rahma",
-		checkpoint: "Ruang panel listrik",
-		reason: "reasonTooFast",
-		detail: "40 s",
-	},
-];
+type Translate = ReturnType<typeof useApp>["t"];
 
-function NeedsReview() {
-	const { t } = useApp();
+/** A length of time, roughly: "40 s", "25 min", "2 h 10 min". */
+function formatSpan(ms: number, t: Translate) {
+	// Rounded up, so a gap of a split second reads "1 s", not "0 s".
+	const s = Math.max(0, Math.ceil(ms / 1000));
+	if (s < 60) return t("spanSeconds", { s });
+	const m = Math.floor(s / 60);
+	if (m < 60) return t("spanMinutes", { m });
+	return t("spanHours", { h: Math.floor(m / 60), m: m % 60 });
+}
+
+/** The detail under a reason: how far, how late, or how soon after the guard's previous scan. */
+function flagDetail(f: ReviewFlag, t: Translate, lang: Lang): string | null {
+	if (f.amount === undefined) return null;
+	if (f.reason === "reasonFar") return formatDistance(f.amount, lang);
+	if (f.reason === "reasonLate") return `+${formatSpan(f.amount, t)}`;
+	return formatSpan(f.amount, t);
+}
+
+function NeedsReview({ items }: { items: ReviewItem[] }) {
+	const { t, lang } = useApp();
 	return (
 		<table class="dash-table">
 			<thead>
@@ -571,67 +565,64 @@ function NeedsReview() {
 				</tr>
 			</thead>
 			<tbody>
-				{SAMPLE_REVIEW.map((r) => {
-					const Icon = REASON_ICON[r.reason];
-					return (
-						<tr key={`${r.time}-${r.reason}`}>
-							<td class="tabular-nums font-bold">{r.time}</td>
-							{/* Checkpoint and guard share a cell, so the table fits a phone. */}
-							<td>
-								<span class="dash-name">{r.checkpoint}</span>
-								<span class="dash-sub">{r.guard}</span>
-							</td>
-							<td class="c-end">
-								<span class="reason-chip">
-									<Icon
-										size={13}
-										aria-hidden="true"
-									/>
-									{t(r.reason)}
-								</span>
-								{r.detail && (
-									<span class="dash-sub tabular-nums">
-										{r.detail}
-									</span>
-								)}
-							</td>
-						</tr>
-					);
-				})}
+				{items.map(({ scan: s, flags }) => (
+					<tr
+						key={s.id}
+						class="has-link">
+						<td class="tabular-nums font-bold">
+							{formatTime(s.scannedAt, lang)}
+						</td>
+						{/* Checkpoint and guard share a cell, so the table fits a phone. */}
+						<td>
+							{/* The link covers the whole row (index.css, .row-link). */}
+							<Link
+								href={`/supervisor/scans/${s.id}`}
+								class="row-link dash-name">
+								{s.checkpointName}
+							</Link>
+							<span class="dash-sub">{s.guardName}</span>
+						</td>
+						<td class="c-end">
+							<span class="reason-list">
+								{flags.map((f) => {
+									const Icon = REASON_ICON[f.reason];
+									const detail = flagDetail(f, t, lang);
+									return (
+										<span
+											key={f.reason}
+											class="reason">
+											<span class="reason-chip">
+												<Icon
+													size={13}
+													aria-hidden="true"
+												/>
+												{t(f.reason)}
+											</span>
+											{detail && (
+												<span class="dash-sub tabular-nums">
+													{detail}
+												</span>
+											)}
+										</span>
+									);
+								})}
+							</span>
+						</td>
+					</tr>
+				))}
 			</tbody>
 		</table>
 	);
 }
 
-type GuardStatus = "guardPatrolling" | "guardQuiet" | "guardNotStarted";
-
-/*
-	TODO: implement Guards on duty with real data (this is sample data, and the card says so).
-	List every active guard (guardSummaries(today) already returns name, scans today, last scan),
-	with a status worked out from the last scan:
-	  - Patrolling: scanned in the last 60 minutes
-	  - Quiet: scanned today, but not in the last 60 minutes
-	  - Not started: no scans today
-	The app has no shift schedule yet, so "on duty" can't mean "scheduled"; see README > TODO.
-*/
-const SAMPLE_GUARDS: {
-	name: string;
-	status: GuardStatus;
-	scans: number;
-	lastScan: string | null;
-}[] = [
-	{
-		name: "Budi Santoso",
-		status: "guardPatrolling",
-		scans: 6,
-		lastScan: "17:32",
-	},
-	{ name: "Agus Pratama", status: "guardQuiet", scans: 3, lastScan: "14:05" },
-	{ name: "Siti Rahma", status: "guardNotStarted", scans: 0, lastScan: null },
-];
-
-function GuardsOnDuty({ scansLabel }: { scansLabel: (n: number) => string }) {
-	const { t } = useApp();
+function GuardsOnDuty({
+	guards,
+	scansLabel,
+}: {
+	guards: GuardOnDuty[];
+	scansLabel: (n: number) => string;
+}) {
+	const { t, lang } = useApp();
 	return (
 		<table class="dash-table">
 			<thead>
@@ -641,20 +632,23 @@ function GuardsOnDuty({ scansLabel }: { scansLabel: (n: number) => string }) {
 				</tr>
 			</thead>
 			<tbody>
-				{SAMPLE_GUARDS.map((g) => (
-					<tr key={g.name}>
+				{guards.map((g) => (
+					<tr key={g.guardId}>
 						<td class="guard-cell">
 							<span
 								class="guard-avatar"
 								aria-hidden="true">
-								{initials(g.name)}
+								{initials(g.guardName)}
 							</span>
-							<span class="dash-name">{g.name}</span>
+							<span class="dash-name">{g.guardName}</span>
 							<span class="dash-sub tabular-nums">
-								{g.lastScan
+								{g.lastScanAt
 									? t("guardSummary", {
-											scans: scansLabel(g.scans),
-											time: g.lastScan,
+											scans: scansLabel(g.scansToday),
+											time: formatTime(
+												g.lastScanAt,
+												lang,
+											),
 										})
 									: t("guardNoScans")}
 							</span>

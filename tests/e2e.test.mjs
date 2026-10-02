@@ -142,19 +142,20 @@ try {
 		(await notVisitedCard.locator("tbody tr").count()) === 8,
 		"before any scan, all 8 checkpoints are not yet visited",
 	);
-	await page
-		.locator("section.area-duty")
-		.getByText("Sample data, not live yet")
-		.waitFor();
-	ok(true, "Guards on duty is marked as sample data");
-	await page
-		.locator("section.area-review")
-		.getByText("Sample data, not live yet")
+	const dutyCard = page.locator("section.area-duty");
+	await dutyCard
+		.locator("tr", { hasText: "Budi Santoso" })
+		.getByText("Not started")
 		.waitFor();
 	ok(
-		(await page.locator("section.area-review tbody tr").count()) === 5,
-		"Needs review shows its sample rows, marked as sample data",
+		(await dutyCard.getByText("0 of 1 patrolling").count()) === 1,
+		"before any scan, the guard is listed as not started",
 	);
+	await page
+		.locator("section.area-review")
+		.getByText("No scans need a look today.")
+		.waitFor();
+	ok(true, "before any scan, Needs review is empty");
 	await page.getByRole("link", { name: "Schedule" }).click();
 	await text("Sample data: scheduling isn't built yet.");
 	ok(
@@ -604,6 +605,25 @@ try {
 		"Today moves scanned checkpoints to Completed, with the count",
 		`${doneRows} completed, ${missedRows} not yet`,
 	);
+	const farRow = page
+		.locator("section.area-review tbody tr")
+		.filter({ hasText: "Scan is too far" });
+	await farRow.first().waitFor();
+	ok(
+		/[\d.,]+ km/.test(await farRow.first().textContent()),
+		"Needs review lists the far scan, with the distance",
+	);
+	ok(
+		(await page
+			.locator("section.area-duty tr", { hasText: "Siti Rahma" })
+			.getByText("Patrolling")
+			.count()) === 1,
+		"the guard who just scanned is patrolling",
+	);
+	await farRow.first().getByRole("link").click();
+	await page.waitForURL(/#\/supervisor\/scans\//);
+	ok(true, "a Needs review row opens its scan");
+	await page.goBack();
 	await page.getByRole("link", { name: "Log Database" }).click();
 	await text("At checkpoint");
 	await page
