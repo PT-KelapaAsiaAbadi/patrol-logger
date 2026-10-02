@@ -1052,7 +1052,10 @@ img {
 		}
 	}
 
+	/* position: relative keeps screen-reader-only headings (position: absolute) inside the scroll
+	   box; without it they escape to the table's far edge and widen the whole page on a phone. */
 	.table-wrap {
+		position: relative;
 		overflow-x: auto;
 		border: 1px solid var(--line);
 		border-radius: 6px;
@@ -1924,6 +1927,7 @@ img {
 	}
 	@media (min-width: 1024px) {
 		.cp-table-wrap {
+			position: relative;
 			overflow-x: auto;
 			background: var(--surface);
 			border: 1px solid var(--line);
