@@ -17,15 +17,12 @@ import type { LucideIcon } from "lucide-preact";
 import {
 	ChevronDown,
 	ChevronUp,
-	Clock,
 	MapPin,
 	MapPinCheck,
 	MapPinOff,
 	MapPinX,
-	MessageSquareText,
 	RefreshCw,
 	ShieldUser,
-	Timer,
 	TriangleAlert,
 } from "lucide-preact";
 import { useApp } from "../../state";
@@ -44,11 +41,11 @@ import {
 	type GuardOnDuty,
 	type ReviewFlag,
 	type ReviewItem,
-	type ReviewReason,
 } from "../../lib/today";
 import type { Lang } from "../../i18n";
 import { initials } from "../../lib/personName";
 import { LocationBadge } from "../../components/LocationBadge";
+import { ReasonChip } from "../../components/ReasonChip";
 import { ICON, IconLink } from "../../components/IconButton";
 import { LoadError } from "./Log";
 
@@ -525,14 +522,6 @@ function OverviewCard({
 	);
 }
 
-const REASON_ICON: Record<ReviewReason, LucideIcon> = {
-	reasonFar: MapPin,
-	reasonNoGps: MapPinOff,
-	reasonReport: MessageSquareText,
-	reasonLate: Clock,
-	reasonTooFast: Timer,
-};
-
 type Translate = ReturnType<typeof useApp>["t"];
 
 /** A length of time, roughly: "40 s", "25 min", "2 h 10 min". */
@@ -585,19 +574,12 @@ function NeedsReview({ items }: { items: ReviewItem[] }) {
 						<td class="c-end">
 							<span class="reason-list">
 								{flags.map((f) => {
-									const Icon = REASON_ICON[f.reason];
 									const detail = flagDetail(f, t, lang);
 									return (
 										<span
 											key={f.reason}
 											class="reason">
-											<span class="reason-chip">
-												<Icon
-													size={13}
-													aria-hidden="true"
-												/>
-												{t(f.reason)}
-											</span>
+											<ReasonChip reason={f.reason} />
 											{detail && (
 												<span class="dash-sub tabular-nums">
 													{detail}

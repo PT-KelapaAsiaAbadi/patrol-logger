@@ -375,7 +375,7 @@ Changes that break one of these are architectural changes.
 | Checkpoints and QR | `pages/supervisor/Checkpoints.tsx`, `RouteTable.tsx` | Done | With per-guard routes: a way to build routes and see which routes include a checkpoint |
 | More | `pages/supervisor/More.tsx` | Done | - |
 | Schedule | `pages/supervisor/Schedule.tsx` | Partly: the grid follows `DeskSchedule`, with sample data | Heading like Today (`.dash-title`); shift chips in the blue palette (Night is black); week navigation; an Add shift dialog; a route per shift. Needs the 3.4 tables first |
-| Log Database | `pages/supervisor/Log.tsx` | Not started (old table, "to be updated" notice) | One filter bar shared with Map (guard, checkpoint, date range, location status), server-side search, CSV export kept; cards instead of a sideways table on phones (`DeskLogs`, `Logs` boards) |
+| Log Database | `pages/supervisor/Log.tsx` | Done: pill filters, flags as on Today, rows open the scan, one line per scan on phones | The design's search box and "Any flag" filter (server-side, so paging and CSV work); one filter bar shared with Map (date range, location status) |
 | Map | `pages/supervisor/MapView.tsx` | Not started | Heading and filter bar like the other pages (shared with Log); legend as chips (`DeskMap`, `Map` boards) |
 | Accounts | `pages/supervisor/Guards.tsx`, `AccountsTable.tsx` | Not started (only the buttons turned blue) | Cards like Checkpoints; a phone layout for the table (`DeskAccounts`, `Accounts` boards) |
 | Scan detail (View report) | `pages/supervisor/ScanDetail.tsx` | Done: location pill, Scan and Report cards, photos open full size; Back returns to where it was opened from | With Mark as reviewed: the button lives here |

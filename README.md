@@ -245,8 +245,8 @@ What the prototype does today, what's still to build, and what's waiting on a de
 - [ ] **Schedule** shows a sample weekly roster (tagged as sample data; "Add shift" disabled). To build: a `shifts` table (guard, start, end; night shifts cross midnight) written through supervisor-checked functions; add, edit, copy last week and remove shifts; move between weeks ([src/pages/supervisor/Schedule.tsx](src/pages/supervisor/Schedule.tsx)). Depends on the shift decisions below.
 - [ ] **Today: Guards on duty** shows every active guard from their last scan. Once shifts exist, show who is scheduled now, and a "Late start" for a shift that began with no scans.
 - [ ] **Today: Needs review** lists every flagged scan until the day ends. Add a "Mark as reviewed" action (`reviewed_at` / `reviewed_by` on scans) so handled ones drop off. Rules and thresholds: [src/lib/today.ts](src/lib/today.ts).
-- [ ] **Log Database** shows the old scan log with a "to be updated" notice. Redesign it: one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status) and a search box (guard or checkpoint name, report text). Search must run on the server so it works with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
-- [ ] Phone layouts for the Log, Accounts and Schedule tables (they scroll sideways on a phone for now).
+- [ ] **Log Database: search and flag filter.** The page has the new design (pill filters, flags, one line per scan on phones). Still to build, as in the design: a search box (guard or checkpoint name, report text) and an "Any flag" filter, and one filter bar shared with the Map tab (guard, checkpoint, date or date range, location status). Search and the flag filter must run on the server so they work with paging and the CSV export ([src/pages/supervisor/Log.tsx](src/pages/supervisor/Log.tsx)).
+- [ ] Phone layouts for the Accounts and Schedule tables (they scroll sideways on a phone for now).
 
 **Database tidy-ups**
 

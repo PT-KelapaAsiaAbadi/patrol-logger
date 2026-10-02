@@ -1522,6 +1522,82 @@ img {
 	}
 
 	/*
+	  Log Database (pages/supervisor/Log.tsx): title and Download CSV, pill filters, then the scans
+	  in one card with the pager in its footer. Rows reuse Today's .dash-table, so on phones each
+	  scan is one line (time, checkpoint over guard, a flag or the location).
+	*/
+	.log-page {
+		display: grid;
+		gap: 1rem;
+	}
+	.log-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 0.75rem 1rem;
+	}
+	.log-export {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.log-filters {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	/* A filter as a pill; blue once it narrows the list. */
+	.filter-chip {
+		width: auto;
+		max-width: 100%;
+		min-height: 2.625rem;
+		padding: 0.4rem 0.85rem;
+		border-width: 1px;
+		border-radius: 999px;
+		font-size: 0.875rem;
+		font-weight: 600;
+	}
+	.filter-chip.is-set {
+		border-color: var(--info);
+		background: var(--info-bg);
+		color: var(--info);
+	}
+	.log-clear {
+		color: var(--info);
+		text-decoration: none;
+		font-weight: 600;
+		font-size: 0.875rem;
+	}
+	.log-card {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		overflow: hidden;
+		transition: opacity 0.2s;
+	}
+	.log-card.is-busy {
+		opacity: 0.6;
+	}
+	/* The page scrolls, not the card: headers stay in place. */
+	.log-card .dash-table th {
+		position: static;
+	}
+	.log-card .dash-table .c-end {
+		white-space: normal;
+	}
+	.log-chips {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
+	.log-card-foot {
+		padding: 0 1rem 0.75rem;
+		border-top: 1px solid var(--row-line);
+	}
+
+	/*
 	  Scan detail, the supervisor's "View report" page (pages/supervisor/ScanDetail.tsx): Back, the
 	  checkpoint and the location check as pills, then two cards, the scan and the report. Stacked
 	  on phones and tablets, side by side from 1024px. Photos reuse the guard Report's grid.

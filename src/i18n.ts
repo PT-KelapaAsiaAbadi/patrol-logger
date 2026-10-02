@@ -122,8 +122,11 @@ const id = {
 	spanHours: "{h} jam {m} mnt",
 	patrollingCount: "{n} dari {total} patroli",
 	navLogDatabase: "Riwayat Scan",
-	logDatabaseSoon:
-		"Halaman ini akan diperbarui. Log di bawah masih berfungsi seperti biasa; filter dan pencariannya akan berubah.",
+	logIntro: "Setiap scan, yang terbaru di atas.",
+	allGuards: "Semua petugas",
+	allCheckpoints: "Semua titik",
+	clearFilters: "Hapus filter",
+	colFlags: "Penanda",
 	todayUpdated: "diperbarui {time}",
 	refreshTodayTip: "Muat ulang data hari ini (otomatis tiap menit)",
 	countOf: "{n} dari {total}",
@@ -169,7 +172,6 @@ const id = {
 	report: "Laporan",
 	all: "Semua",
 	anyDate: "Semua tanggal",
-	viewReport: "Lihat laporan",
 	noResults:
 		"Tidak ada scan untuk filter ini. Ubah petugas, titik, atau tanggal.",
 	pageOf: "Halaman {page} dari {pages}",
@@ -504,8 +506,11 @@ const en: Record<Key, string> = {
 	spanHours: "{h} h {m} min",
 	patrollingCount: "{n} of {total} patrolling",
 	navLogDatabase: "Log Database",
-	logDatabaseSoon:
-		"This page will be updated. The log below works as before; its filters and search will change.",
+	logIntro: "Every scan, newest first.",
+	allGuards: "All guards",
+	allCheckpoints: "All checkpoints",
+	clearFilters: "Clear filters",
+	colFlags: "Flags",
 	todayUpdated: "updated {time}",
 	refreshTodayTip: "Reload today's data (it also refreshes every minute)",
 	countOf: "{n} of {total}",
@@ -552,7 +557,6 @@ const en: Record<Key, string> = {
 	report: "Report",
 	all: "All",
 	anyDate: "Any date",
-	viewReport: "View report",
 	noResults:
 		"No scans match these filters. Change the guard, checkpoint, or date.",
 	pageOf: "Page {page} of {pages}",

@@ -166,8 +166,8 @@ try {
 		"Schedule shows a sample week and a disabled Add shift",
 	);
 	await page.getByRole("link", { name: "Log Database" }).click();
-	await text("This page will be updated.");
-	ok(true, "Log Database shows the scan log with a to-be-updated notice");
+	await text("Every scan, newest first.");
+	ok(true, "Log Database opens");
 
 	section("checkpoints");
 	await page.getByRole("link", { name: "Checkpoints and QR" }).click();
@@ -668,7 +668,11 @@ try {
 		.waitFor({ state: "attached", timeout: 15000 });
 	ok(true, "choosing one guard draws their route");
 	await page.getByRole("link", { name: "Log Database" }).click();
-	await page.getByRole("link", { name: "View report" }).first().click();
+	await page
+		.locator(".log-scans tbody tr", { hasText: "Has a report" })
+		.first()
+		.getByRole("link")
+		.click();
 	await text("Lampu koridor mati.");
 	const photo = page.locator("article ul img").first();
 	await photo.waitFor({ timeout: 15000 });
