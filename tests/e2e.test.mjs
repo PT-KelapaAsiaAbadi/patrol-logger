@@ -496,7 +496,7 @@ try {
 
 	await page.getByRole("link", { name: "Add report" }).click();
 	await page.getByLabel("What happened?").fill("Lampu koridor mati.");
-	await page.locator('input[type="file"]').setInputFiles({
+	await page.getByLabel("From gallery").setInputFiles({
 		name: "photo.png",
 		mimeType: "image/png",
 		buffer: Buffer.from(

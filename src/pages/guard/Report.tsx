@@ -13,6 +13,7 @@ import {
 	ArrowLeft,
 	Camera,
 	Check,
+	Images,
 	CloudUpload,
 	Send,
 	Trash2,
@@ -23,8 +24,11 @@ import {
  */
 const MAX_PHOTOS = 5;
 
-/** The longest note the database accepts (reports.note). */
-const NOTE_MAX = 4000;
+/**
+ * The longest note: about 200 words (Indonesian words run about 6 to 7 letters plus a space).
+ * The database accepts up to 4000 (reports.note).
+ */
+const NOTE_MAX = 1500;
 
 /**
  * Guard-facing report submission page (after a scan).
@@ -192,7 +196,9 @@ export function ReportPage({ scanId }: { scanId: string }) {
 						</span>
 					</legend>
 					<ul class="report-photos">
-						{/* Up to MAX_PHOTOS photos. */}
+						{/* Up to MAX_PHOTOS photos, from the camera or the gallery. Newer Android
+						    opens a gallery-only picker for a plain file input, so the camera gets
+						    its own tile (capture); iPhones offer both either way. */}
 						{photos.length < MAX_PHOTOS && (
 							<li>
 								<label
@@ -203,7 +209,33 @@ export function ReportPage({ scanId }: { scanId: string }) {
 									/>
 									{processing
 										? t("processingPhotos")
-										: t("addPhotos")}
+										: t("takePhoto")}
+									<input
+										type="file"
+										accept="image/*"
+										capture="environment"
+										class="sr-only"
+										onChange={(e) => {
+											void addFiles(
+												e.currentTarget.files,
+											);
+											e.currentTarget.value = "";
+										}}
+									/>
+								</label>
+							</li>
+						)}
+						{photos.length < MAX_PHOTOS && (
+							<li>
+								<label
+									class={`photo-add ${processing ? "is-busy" : ""}`}>
+									<Images
+										size={24}
+										aria-hidden="true"
+									/>
+									{processing
+										? t("processingPhotos")
+										: t("fromGallery")}
 									<input
 										type="file"
 										accept="image/*"
