@@ -1559,6 +1559,35 @@ img {
 		font-size: 0.875rem;
 		font-weight: 600;
 	}
+	/* Android Chrome gives an empty date input almost no width (just the calendar icon), so the
+	   chip keeps room for "dd/mm/yyyy" and the icon. */
+	.filter-chip[type="date"] {
+		min-width: 10.5rem;
+	}
+	/* The format hint over an empty date chip (Log.tsx), on touch screens only: phone browsers
+	   (Android Chrome, iPhone Safari) leave an empty date field blank, while desktop browsers
+	   show their own "dd/mm/yyyy". */
+	.date-chip {
+		position: relative;
+		display: inline-flex;
+		max-width: 100%;
+	}
+	.date-chip-hint {
+		display: none;
+		position: absolute;
+		left: calc(0.85rem + 1px);
+		top: 50%;
+		translate: 0 -50%;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--muted);
+		pointer-events: none;
+	}
+	@media (pointer: coarse) {
+		.date-chip.is-empty .date-chip-hint {
+			display: block;
+		}
+	}
 	.filter-chip.is-set {
 		border-color: var(--info);
 		background: var(--info-bg);

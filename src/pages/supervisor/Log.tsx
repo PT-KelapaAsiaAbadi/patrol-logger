@@ -145,14 +145,25 @@ export function LogDatabase() {
 						</option>
 					))}
 				</select>
-				<input
-					type="date"
-					class={`field filter-chip ${filters.date ? "is-set" : ""}`}
-					aria-label={t("date")}
-					value={filters.date}
-					max={today}
-					onInput={(e) => update({ date: e.currentTarget.value })}
-				/>
+				{/* Phone browsers show nothing in an empty date field, so touch screens get the
+				    format here (index.css, .date-chip-hint). */}
+				<span class={`date-chip ${filters.date ? "" : "is-empty"}`}>
+					<input
+						type="date"
+						class={`field filter-chip ${filters.date ? "is-set" : ""}`}
+						aria-label={t("date")}
+						value={filters.date}
+						max={today}
+						onInput={(e) => update({ date: e.currentTarget.value })}
+					/>
+					{!filters.date && (
+						<span
+							class="date-chip-hint"
+							aria-hidden="true">
+							{t("datePlaceholder")}
+						</span>
+					)}
+				</span>
 				{filtered && (
 					<button
 						type="button"
