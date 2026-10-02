@@ -507,7 +507,7 @@ try {
 	await page.locator("ul img").first().waitFor({ timeout: 15000 });
 	await page.getByRole("button", { name: "Send report" }).click();
 	await text("Report sent.");
-	await page.getByRole("link", { name: "Back to round" }).click();
+	await page.getByRole("link", { name: "Back to checkpoint list" }).click();
 	await text("1 of 9 checkpoints checked today");
 	ok(true, "report with photo sent, round progress updates");
 	ok(
@@ -572,7 +572,7 @@ try {
 		!(await page.getByText("flagged for your supervisor").isVisible()),
 		"a scan at the pinned spot isn't flagged",
 	);
-	await page.getByRole("link", { name: "Back to round" }).click();
+	await page.getByRole("link", { name: "Back to checkpoint list" }).click();
 
 	await context.setGeolocation({
 		latitude: -6.26,
@@ -585,7 +585,7 @@ try {
 	await page.getByRole("button", { name: "Log scan" }).click();
 	await text("flagged for your supervisor");
 	ok(true, "a scan 5 km from its checkpoint is flagged on the phone");
-	await page.getByRole("link", { name: "Back to round" }).click();
+	await page.getByRole("link", { name: "Back to checkpoint list" }).click();
 	await signOut();
 
 	section("supervisor sees it");

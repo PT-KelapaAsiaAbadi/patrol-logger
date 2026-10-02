@@ -541,7 +541,9 @@ img {
 
 	/* Guard home (pages/guard/Home.tsx): blue for actions like the supervisor pages; amber is
 	   kept for warnings (offline, unsent, refused scans). */
-	.guard-home {
+	.guard-home,
+	.scan-screen,
+	.scan-done {
 		--accent: var(--info);
 		--accent-ink: var(--info-ink);
 	}
@@ -720,13 +722,37 @@ img {
 		font-weight: 800;
 	}
 
-	/* Scanner */
-	.scan-screen {
+	/* Scanner (pages/guard/Scan.tsx): a top bar with Close, the camera in a framed square, what to
+	   do, where the phone is, and typing the code as a fallback. */
+	.scan-screen,
+	.scan-done {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		background: var(--surface);
 	}
+	.scan-top {
+		display: grid;
+		grid-template-columns: 2.75rem 1fr 2.75rem;
+		align-items: center;
+		gap: 0.75rem;
+		min-height: 3.5rem;
+		padding-inline: 0.75rem;
+		background: var(--surface);
+		border-bottom: 1px solid var(--line);
+	}
+	.scan-top h1 {
+		text-align: center;
+		font-size: 1.0625rem;
+		font-weight: 800;
+	}
+	/* The flashlight while it's on. */
+	.flash-btn.is-on {
+		background: var(--info);
+		border-color: var(--info);
+		color: var(--info-ink);
+	}
+	/* The camera picture, edge to edge and not dimmed. The frame is light blue in both themes,
+	   since it sits on the picture. */
 	.scan-view {
 		position: relative;
 		flex: 1;
@@ -746,11 +772,51 @@ img {
 		left: 50%;
 		top: 50%;
 		translate: -50% -50%;
-		width: min(64vmin, 280px);
+		width: min(64vmin, 18rem);
 		aspect-ratio: 1;
-		border: 3px solid var(--accent);
-		border-radius: 10px;
-		box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45); /* dims everything outside the frame */
+	}
+	.scan-frame .corner {
+		position: absolute;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: 5px solid #8db4e2;
+	}
+	.scan-frame .tl {
+		left: 0;
+		top: 0;
+		border-right: 0;
+		border-bottom: 0;
+		border-top-left-radius: 20px;
+	}
+	.scan-frame .tr {
+		right: 0;
+		top: 0;
+		border-left: 0;
+		border-bottom: 0;
+		border-top-right-radius: 20px;
+	}
+	.scan-frame .bl {
+		left: 0;
+		bottom: 0;
+		border-right: 0;
+		border-top: 0;
+		border-bottom-left-radius: 20px;
+	}
+	.scan-frame .br {
+		right: 0;
+		bottom: 0;
+		border-left: 0;
+		border-top: 0;
+		border-bottom-right-radius: 20px;
+	}
+	.scan-line {
+		position: absolute;
+		left: 1.75rem;
+		right: 1.75rem;
+		top: 50%;
+		height: 3px;
+		border-radius: 2px;
+		background: #8db4e2;
 	}
 	.scan-hint {
 		position: absolute;
@@ -758,22 +824,148 @@ img {
 		text-align: center;
 		color: #fff;
 	}
-	.scan-panel {
-		padding: 1rem 1.25rem 1.25rem;
-		max-width: 36rem;
+	/* Under the camera: what to do, where the phone is, and typing the code instead. */
+	.scan-body {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
 		width: 100%;
+		max-width: 36rem;
 		margin-inline: auto;
+		padding: 1.25rem 1rem 1.5rem;
 	}
-
-	.result-tag {
+	/* No camera: the message and the code form fill the screen instead. */
+	.scan-view.hidden + .scan-body {
+		flex: 1;
+		justify-content: center;
+	}
+	.scan-aim {
+		max-width: 18rem;
+		text-align: center;
 		font-size: 1.125rem;
+		font-weight: 600;
+		line-height: 1.4;
+	}
+	/* Location: a pill when found or still looking; a box with Try again when there's a problem. */
+	.loc-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 2.25rem;
+		padding: 0.35rem 0.9rem;
+		border-radius: 999px;
+		font-size: 0.875rem;
 		font-weight: 700;
 	}
-	.result-tag.is-done {
-		color: var(--ok);
+	.loc-pill > svg {
+		flex: none;
 	}
-	.result-tag.is-queued {
+	.loc-pill.is-ok {
+		background: var(--done-bg);
+		color: var(--done);
+	}
+	.loc-pill.is-pending {
+		background: var(--pending-bg);
+		color: var(--pending);
+	}
+	.loc-pill.is-warn {
+		align-self: stretch;
+		align-items: flex-start;
+		padding: 0.75rem 0.9rem;
+		border-radius: 12px;
+		background: var(--warn-bg);
+		color: var(--warn);
+		font-weight: 600;
+		line-height: 1.45;
+	}
+	.loc-pill.is-warn > svg {
+		margin-top: 0.15rem;
+	}
+
+	/* After a scan: the result in the middle, the next stop and the two actions at the bottom. */
+	.scan-done {
+		width: 100%;
+		max-width: 36rem;
+		margin-inline: auto;
+		padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+	}
+	.scan-done-main {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding-block: 1.5rem;
+		text-align: center;
+	}
+	.scan-done-icon {
+		display: grid;
+		place-items: center;
+		width: 6.5rem;
+		height: 6.5rem;
+		border-radius: 50%;
+	}
+	.scan-done-icon.is-done {
+		background: var(--done-bg);
+		color: var(--done);
+	}
+	.scan-done-icon.is-queued {
+		background: var(--queued-bg);
 		color: var(--queued);
+	}
+	.scan-done-main h1 {
+		margin-top: 0.5rem;
+		font-size: 1.875rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+	}
+	.scan-done-name {
+		font-size: 1.375rem;
+		font-weight: 700;
+		line-height: 1.3;
+		overflow-wrap: anywhere;
+	}
+	.scan-done-actions {
+		display: grid;
+		gap: 0.75rem;
+	}
+	.scan-next {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	.scan-next-label {
+		flex: none;
+		font-size: 0.75rem;
+		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--info);
+	}
+	.scan-next-name {
+		font-weight: 700;
+		text-align: right;
+		overflow-wrap: anywhere;
+	}
+	.scan-next.is-complete {
+		justify-content: flex-start;
+		background: var(--done-bg);
+		border-color: transparent;
+		color: var(--done);
+		font-weight: 700;
+	}
+	.scan-done-actions .btn {
+		border-radius: 12px;
+	}
+	.scan-done-actions .btn-primary {
+		font-weight: 800;
 	}
 
 	/*

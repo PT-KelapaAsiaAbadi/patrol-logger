@@ -1,6 +1,8 @@
 /**
  * The scan screen: opens the back camera, reads a checkpoint's QR sticker (or takes a typed manual
  * code), attaches the phone's GPS position and records exactly one scan. Works with no signal.
+ * Then a result screen: logged (or saved on the phone), where, and the next checkpoint.
+ * Blue like the guard's home screen (index.css, "Scanner").
  */
 
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -12,19 +14,30 @@ import {
 	type ScannerError,
 	type ScannerHandle,
 } from "../../lib/scanner";
-import { formatDistance, formatTime } from "../../lib/format";
+import {
+	formatDistance,
+	formatLongDate,
+	formatTime,
+	localDateKey,
+} from "../../lib/format";
 import {
 	watchLocation,
 	type LocationState,
 	type LocationWatch,
 } from "../../lib/geo";
 import type { ScanOutcome } from "../../types";
-import { ICON } from "../../components/IconButton";
+import { ICON, IconButton } from "../../components/IconButton";
 import {
 	ArrowLeft,
 	Check,
+	CircleCheck,
+	CloudUpload,
 	FilePlus,
+	Flashlight,
+	FlashlightOff,
 	Keyboard,
+	MapPin,
+	MapPinOff,
 	RotateCcw,
 	X,
 } from "lucide-preact";
@@ -64,6 +77,22 @@ export function ScanPage() {
 	const busyRef = useRef(false);
 
 	const [camera, setCamera] = useState<CameraState>("starting");
+	// The flashlight: null until the camera runs; "unsupported" where the browser can't switch it.
+	const [flash, setFlash] = useState<"unsupported" | "off" | "on" | null>(
+		null,
+	);
+
+	async function toggleFlash() {
+		const h = handleRef.current;
+		if (!h || flash === "unsupported" || flash === null) return;
+		const on = flash === "off";
+		try {
+			await h.setFlash(on);
+			setFlash(on ? "on" : "off");
+		} catch {
+			setFlash("unsupported");
+		}
+	}
 
 	const [showManual, setShowManual] = useState(false);
 	const [manual, setManual] = useState("");
@@ -77,6 +106,23 @@ export function ScanPage() {
 		ScanOutcome,
 		{ ok: true }
 	> | null>(null);
+
+	// After a scan: the next checkpoint in the round (null when the round is done; undefined
+	// until known). Comes from today's progress, which works offline from the phone's copy.
+	const [next, setNext] = useState<string | null | undefined>(undefined);
+	useEffect(() => {
+		if (!outcome) return;
+		let cancelled = false;
+		api.todayProgress(user!.id)
+			.then((p) => {
+				if (!cancelled)
+					setNext(p.route.find((c) => !p.visits[c.id])?.name ?? null);
+			})
+			.catch(() => {}); // no next checkpoint shown: the rest of the screen still works
+		return () => {
+			cancelled = true;
+		};
+	}, [outcome]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	/**
 	 * Submit a scan of the QR-code sticker.
@@ -119,6 +165,9 @@ export function ScanPage() {
 				else {
 					handleRef.current = h;
 					setCamera("running");
+					void h.hasFlash().then((ok) => {
+						if (!cancelled) setFlash(ok ? "off" : "unsupported");
+					});
 				}
 			})
 			.catch((e: ScannerError) => {
@@ -136,38 +185,91 @@ export function ScanPage() {
 
 	if (outcome) {
 		const name = outcome.checkpoint?.name ?? t("unknownCheckpoint");
+		// Only a scan the server has seen has a location result.
+		const status = outcome.queued ? null : outcome.scan.locationStatus;
 		return (
 			<main
-				class="min-h-full flex flex-col px-5 pt-10 pb-8 max-w-xl mx-auto w-full"
+				class="scan-done"
 				aria-live="polite">
-				<p
-					class={`result-tag ${outcome.queued ? "is-queued" : "is-done"}`}>
-					{outcome.queued ? t("scanSaved") : t("scanLogged")}
-				</p>
-				<h1 class="text-3xl font-bold leading-tight mt-3">{name}</h1>
-				<p class="text-lg tabular-nums mt-2">
-					{formatTime(outcome.scan.scannedAt, lang)}
-				</p>
-				{outcome.queued && (
-					<p class="text-muted mt-2">{t("scanSavedHint")}</p>
-				)}
-				{!outcome.queued && outcome.scan.locationStatus === "far" && (
-					<p
-						class="notice notice-warn mt-4"
-						role="alert">
-						{t("scanFar", {
-							d: formatDistance(
-								outcome.scan.distanceM ?? 0,
-								lang,
-							),
-						})}
+				<div class="scan-done-main">
+					<span
+						class={`scan-done-icon ${outcome.queued ? "is-queued" : "is-done"}`}>
+						{outcome.queued ? (
+							<CloudUpload
+								size={48}
+								aria-hidden="true"
+							/>
+						) : (
+							<Check
+								size={52}
+								strokeWidth={2.6}
+								aria-hidden="true"
+							/>
+						)}
+					</span>
+					<h1>{outcome.queued ? t("scanSaved") : t("scanLogged")}</h1>
+					<p class="scan-done-name">{name}</p>
+					<p class="text-muted tabular-nums">
+						{formatTime(outcome.scan.scannedAt, lang)}
+						{" · "}
+						{formatLongDate(
+							localDateKey(outcome.scan.scannedAt),
+							lang,
+						)}
 					</p>
-				)}
+					{outcome.queued ? (
+						<p class="text-muted">{t("scanSavedHint")}</p>
+					) : status === "far" ? (
+						<p
+							class="notice notice-warn text-left"
+							role="alert">
+							{t("scanFar", {
+								d: formatDistance(
+									outcome.scan.distanceM ?? 0,
+									lang,
+								),
+							})}
+						</p>
+					) : status === "ok" || status === "no_fix" ? (
+						<p
+							class={`loc-pill ${status === "ok" ? "is-ok" : "is-pending"}`}>
+							{status === "ok" ? (
+								<MapPin
+									size={16}
+									aria-hidden="true"
+								/>
+							) : (
+								<MapPinOff
+									size={16}
+									aria-hidden="true"
+								/>
+							)}
+							{t(`locStatus_${status}`)}
+						</p>
+					) : null}
+				</div>
 
-				<div class="mt-auto grid gap-3 pt-10">
+				<div class="scan-done-actions">
+					{next !== undefined &&
+						(next ? (
+							<p class="scan-next">
+								<span class="scan-next-label">
+									{t("nextCheckpoint")}
+								</span>
+								<span class="scan-next-name">{next}</span>
+							</p>
+						) : (
+							<p class="scan-next is-complete">
+								<CircleCheck
+									size={20}
+									aria-hidden="true"
+								/>
+								{t("roundComplete")}
+							</p>
+						))}
 					<Link
 						href={`/report/${outcome.scan.id}`}
-						class="btn btn-quiet btn-lg">
+						class="btn btn-outline btn-lg">
 						<FilePlus
 							size={ICON}
 							aria-hidden="true"
@@ -189,57 +291,111 @@ export function ScanPage() {
 	}
 
 	const cameraFailed = camera !== "starting" && camera !== "running";
+	const locTone =
+		location.kind === "found"
+			? "is-ok"
+			: location.kind === "finding"
+				? "is-pending"
+				: "is-warn";
 
 	return (
 		<main class="scan-screen">
-			<div class="scan-view">
+			<header class="scan-top">
+				<IconButton
+					icon={X}
+					label={t("closeScanner")}
+					class="icon-btn-lg"
+					onClick={() => navigate("/")}
+				/>
+				<h1>{t("scanCheckpoint")}</h1>
+				{flash === null ? (
+					// Keeps the title centred until the camera is running.
+					<span aria-hidden="true" />
+				) : (
+					<IconButton
+						icon={flash === "on" ? FlashlightOff : Flashlight}
+						label={
+							flash === "unsupported"
+								? t("flashUnavailable")
+								: t("flashlight")
+						}
+						class={`icon-btn-lg flash-btn ${flash === "on" ? "is-on" : ""}`}
+						aria-pressed={
+							flash === "unsupported" ? undefined : flash === "on"
+						}
+						disabled={flash === "unsupported"}
+						onClick={() => void toggleFlash()}
+					/>
+				)}
+			</header>
+
+			{/* The whole camera picture shows; the frame only marks where to hold the sticker. */}
+			<div class={`scan-view ${cameraFailed ? "hidden" : ""}`}>
 				<video
 					ref={videoRef}
 					muted
 					playsInline
-					class={cameraFailed ? "hidden" : ""}
 				/>
-				{!cameraFailed && (
-					<div
-						class="scan-frame"
-						aria-hidden="true"
-					/>
-				)}
+				<div
+					class="scan-frame"
+					aria-hidden="true">
+					<span class="corner tl" />
+					<span class="corner tr" />
+					<span class="corner bl" />
+					<span class="corner br" />
+					<span class="scan-line" />
+				</div>
 				{camera === "starting" && (
 					<p class="scan-hint">{t("startingCamera")}</p>
 				)}
 			</div>
 
-			<div class="scan-panel">
+			<div class="scan-body">
 				{cameraFailed ? (
-					<p class="notice notice-warn">{t(`camera_${camera}`)}</p>
+					<p class="notice notice-warn self-stretch">
+						{t(`camera_${camera}`)}
+					</p>
 				) : (
-					<p>{t("aimCamera")}</p>
+					<p class="scan-aim">{t("aimCamera")}</p>
 				)}
 				<p
-					class={`mt-2 text-sm ${location.kind === "found" || location.kind === "finding" ? "text-muted" : "text-warn"}`}
+					class={`loc-pill scan-loc ${locTone}`}
 					aria-live="polite">
-					{location.kind === "found"
-						? t("locFound", { m: location.accuracyM })
-						: t(LOCATION_TEXT[location.kind])}{" "}
-					{(location.kind === "off" ||
-						location.kind === "device_off" ||
-						location.kind === "slow") && (
-						<button
-							type="button"
-							class="link-btn"
-							onClick={() => geoRef.current?.retry()}>
-							<RotateCcw
-								size={ICON}
-								aria-hidden="true"
-							/>
-							{t("retry")}
-						</button>
+					{location.kind === "found" ||
+					location.kind === "finding" ? (
+						<MapPin
+							size={16}
+							aria-hidden="true"
+						/>
+					) : (
+						<MapPinOff
+							size={16}
+							aria-hidden="true"
+						/>
 					)}
+					<span>
+						{location.kind === "found"
+							? t("locFound", { m: location.accuracyM })
+							: t(LOCATION_TEXT[location.kind])}{" "}
+						{(location.kind === "off" ||
+							location.kind === "device_off" ||
+							location.kind === "slow") && (
+							<button
+								type="button"
+								class="link-btn"
+								onClick={() => geoRef.current?.retry()}>
+								<RotateCcw
+									size={ICON}
+									aria-hidden="true"
+								/>
+								{t("retry")}
+							</button>
+						)}
+					</span>
 				</p>
 				{error && (
 					<p
-						class="notice notice-warn mt-3"
+						class="notice notice-warn self-stretch"
 						role="alert">
 						{t(error)}
 					</p>
@@ -247,7 +403,7 @@ export function ScanPage() {
 
 				{showManual ? (
 					<form
-						class="grid gap-3 mt-4"
+						class="grid gap-3 self-stretch"
 						onSubmit={(e) => {
 							e.preventDefault();
 							if (manual.trim()) void submit(manual);
@@ -278,7 +434,7 @@ export function ScanPage() {
 				) : (
 					<button
 						type="button"
-						class="btn btn-quiet btn-lg w-full mt-4"
+						class="btn btn-quiet btn-lg self-stretch"
 						onClick={() => setShowManual(true)}>
 						<Keyboard
 							size={ICON}
@@ -287,16 +443,6 @@ export function ScanPage() {
 						{t("typeCode")}
 					</button>
 				)}
-				<button
-					type="button"
-					class="btn btn-ghost w-full mt-2"
-					onClick={() => navigate("/")}>
-					<X
-						size={ICON}
-						aria-hidden="true"
-					/>
-					{t("cancel")}
-				</button>
 			</div>
 		</main>
 	);

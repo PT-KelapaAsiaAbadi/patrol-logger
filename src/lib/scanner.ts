@@ -16,6 +16,35 @@ export type ScannerError =
 
 export interface ScannerHandle {
 	stop: () => void;
+	/** Whether the browser can switch this camera's flashlight (torch) on and off. */
+	hasFlash: () => Promise<boolean>;
+	setFlash: (on: boolean) => Promise<void>;
+}
+
+/*
+	Which back camera to use. Asked for "the back camera", Chrome on Android often opens a secondary
+	one (wide-angle or macro) that has no flash and focuses worse; the flash belongs to the main
+	camera. So when the opened camera has no flash, the other back cameras are tried once, and the
+	one with a flash is remembered on this phone. "none" remembers that no back camera has one
+	(iPhones, most laptops), so the search isn't repeated every time.
+*/
+const CAMERA_KEY = "patrol-scan-camera";
+const BACK_CAMERA = /back|rear|environment|belakang/i;
+
+function savedCamera(): string | null {
+	try {
+		return localStorage.getItem(CAMERA_KEY);
+	} catch {
+		return null;
+	}
+}
+
+function saveCamera(choice: string) {
+	try {
+		localStorage.setItem(CAMERA_KEY, choice);
+	} catch {
+		/* private mode: search again next time */
+	}
 }
 
 export async function startScanner(
@@ -27,6 +56,8 @@ export async function startScanner(
 	if (!(await QrScanner.hasCamera()))
 		throw "no_camera" satisfies ScannerError;
 
+	const saved = savedCamera();
+
 	// qr-scanner can still report a frame it was decoding when stop() was called; drop those.
 	let stopped = false;
 	const scanner = new QrScanner(
@@ -35,7 +66,8 @@ export async function startScanner(
 			if (!stopped) onCode(result.data);
 		},
 		{
-			preferredCamera: "environment",
+			// A remembered camera that's gone falls back to any camera; the search below fixes that.
+			preferredCamera: saved && saved !== "none" ? saved : "environment",
 			maxScansPerSecond: 5, // enough to feel instant, low enough for old CPUs
 			returnDetailedScanResult: true,
 		},
@@ -53,10 +85,38 @@ export async function startScanner(
 		) satisfies ScannerError;
 	}
 
+	const hasFlash = () => scanner.hasFlash().catch(() => false);
+	if (saved !== "none" && !(await hasFlash())) {
+		const backs = (
+			await QrScanner.listCameras(true).catch(() => [])
+		).filter((c) => BACK_CAMERA.test(c.label));
+		let found = false;
+		for (const c of backs) {
+			try {
+				await scanner.setCamera(c.id);
+				if (await hasFlash()) {
+					saveCamera(c.id);
+					found = true;
+					break;
+				}
+			} catch {
+				/* couldn't open this one: try the next */
+			}
+		}
+		if (!found) {
+			saveCamera("none");
+			await scanner.setCamera("environment").catch(() => {});
+		}
+	}
+
 	return {
 		stop: () => {
 			stopped = true;
 			scanner.destroy();
 		},
+		// The torch is a camera setting (MediaStreamTrack "torch"): Chromium browsers on Android
+		// offer it for a back camera with a flash; elsewhere hasFlash() is false.
+		hasFlash,
+		setFlash: (on) => (on ? scanner.turnFlashOn() : scanner.turnFlashOff()),
 	};
 }

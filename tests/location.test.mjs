@@ -102,7 +102,7 @@ const context = await browser.newContext();
 await context.addInitScript(() => localStorage.setItem("patrol-lang", "en"));
 await context.addInitScript(fakeGeolocation);
 const page = await context.newPage();
-const locationLine = page.locator(".scan-panel p").nth(1);
+const locationLine = page.locator(".scan-loc");
 
 async function openScanWith(script) {
 	await page.goto(BASE + "#/");
@@ -208,7 +208,9 @@ try {
 		await page.getByLabel("Code under the QR sticker").fill(cp.manual_code);
 		await page.getByRole("button", { name: "Log scan" }).click();
 		await page.getByText("Saved on phone").waitFor({ timeout: 10000 });
-		await page.getByRole("link", { name: "Back to round" }).click();
+		await page
+			.getByRole("link", { name: "Back to checkpoint list" })
+			.click();
 	};
 	const refusedNotice = page.getByText(
 		"couldn't be sent: the server refused them",
