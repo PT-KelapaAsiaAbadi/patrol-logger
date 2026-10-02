@@ -2319,11 +2319,26 @@ img {
 		color: var(--info);
 		font-weight: 700;
 	}
-	.sched-cell:hover {
+	.sched-cell:not(:disabled):hover {
 		filter: brightness(0.97);
 	}
-	.sched-cell.is-empty:hover {
+	.sched-cell.is-empty:not(:disabled):hover {
 		background: var(--info-bg);
+	}
+	/* Days before today: read-only. Guards stay readable; nothing invites a click. */
+	.sched-cell:disabled {
+		cursor: default;
+		background: var(--sunken);
+		border-top-color: var(--line);
+		color: var(--muted);
+	}
+	.sched-cell.is-empty:disabled {
+		background: transparent;
+		border-color: transparent;
+	}
+	.sched-grid thead th.is-past,
+	.sched-day.is-past:not([aria-pressed="true"]) {
+		color: var(--muted);
 	}
 	.sched-cell:focus-visible {
 		outline: 3px solid var(--accent);

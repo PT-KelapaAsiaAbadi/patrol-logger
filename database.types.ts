@@ -303,7 +303,12 @@ export type Database = {
     }
     Functions: {
       assign_shift: {
-        Args: { p_ends_at: string; p_guard_id: string; p_starts_at: string }
+        Args: {
+          p_ends_at: string
+          p_guard_id: string
+          p_starts_at: string
+          p_tz?: string
+        }
         Returns: {
           created_at: string
           created_by: string | null
@@ -409,7 +414,10 @@ export type Database = {
         }
       }
       remove_checkpoints: { Args: { p_ids: string[] }; Returns: number }
-      remove_shift: { Args: { p_id: string }; Returns: undefined }
+      remove_shift: {
+        Args: { p_id: string; p_tz?: string }
+        Returns: undefined
+      }
       route_checkpoints: {
         Args: never
         Returns: {

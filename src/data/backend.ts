@@ -654,6 +654,12 @@ export async function missedCheckpoints(date: string): Promise<Checkpoint[]> {
 
 // ---------- shifts (Schedule page) ----------
 
+/**
+ * The device's time zone, sent with every change: the database uses it to tell which days have
+ * passed (they're read-only) and to keep copied shifts at the same local time.
+ */
+const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 /** Shifts starting in [from, to), earliest first, with their guard's name. */
 export async function listShifts(from: string, to: string): Promise<Shift[]> {
 	return must(
@@ -673,7 +679,10 @@ export async function listShifts(from: string, to: string): Promise<Shift[]> {
 	}));
 }
 
-/** Puts a guard on a shift. Refused: shift_overlap (the guard already works then), not_a_guard. */
+/**
+ * Puts a guard on a shift. Refused: shift_in_past (a day before today), shift_overlap (the guard
+ * already works then), not_a_guard.
+ */
 export async function assignShift(
 	guardId: string,
 	startsAt: string,
@@ -684,24 +693,27 @@ export async function assignShift(
 			p_guard_id: guardId,
 			p_starts_at: startsAt,
 			p_ends_at: endsAt,
+			p_tz: timeZone(),
 		}),
 	);
 }
 
-/** Takes a guard off a shift. */
+/** Takes a guard off a shift. Refused for a day before today (shift_in_past). */
 export async function removeShift(id: string): Promise<void> {
-	maybe(await supabase.rpc("remove_shift", { p_id: id }));
+	maybe(await supabase.rpc("remove_shift", { p_id: id, p_tz: timeZone() }));
 }
 
-/** Repeats the shifts starting in [from, to) one week later, skipping clashes. Returns how many. */
+/**
+ * Repeats the shifts starting in [from, to) one week later, skipping clashes and days that have
+ * passed. Returns how many.
+ */
 export async function copyShifts(from: string, to: string): Promise<number> {
 	return must(
 		await supabase.rpc("copy_shifts", {
 			p_from: from,
 			p_to: to,
 			p_days: 7,
-			// Copies keep their local start time, even across a daylight-saving change.
-			p_tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+			p_tz: timeZone(),
 		}),
 	);
 }

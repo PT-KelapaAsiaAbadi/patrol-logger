@@ -1064,6 +1064,82 @@ section("shifts (manual scheduling)");
 		tz?.message,
 	);
 
+	// Days before today (in the given time zone) are read-only.
+	const daysAgo = (n, hour = 7) => {
+		const d = new Date();
+		d.setUTCDate(d.getUTCDate() - n);
+		d.setUTCHours(hour, 0, 0, 0);
+		return d.toISOString();
+	};
+	const plus8 = (iso) => new Date(Date.parse(iso) + 8 * 3600e3).toISOString();
+	const { error: pastAssign } = await sup.rpc("assign_shift", {
+		p_guard_id: guardId,
+		p_starts_at: daysAgo(2),
+		p_ends_at: plus8(daysAgo(2)),
+		p_tz: "UTC",
+	});
+	ok(
+		pastAssign?.message === "shift_in_past",
+		"a shift on a day that has passed is refused",
+		pastAssign?.message,
+	);
+	const { data: oldShift } = await admin()
+		.from("shifts")
+		.insert({
+			guard_id: guardId,
+			starts_at: daysAgo(3),
+			ends_at: plus8(daysAgo(3)),
+		})
+		.select()
+		.single();
+	const { error: pastRemove } = await sup.rpc("remove_shift", {
+		p_id: oldShift.id,
+		p_tz: "UTC",
+	});
+	ok(
+		pastRemove?.message === "shift_in_past",
+		"a shift on a day that has passed can't be removed",
+		pastRemove?.message,
+	);
+	const { data: lands } = await admin()
+		.from("shifts")
+		.insert({
+			guard_id: guardId,
+			starts_at: daysAgo(5),
+			ends_at: plus8(daysAgo(5)),
+		})
+		.select()
+		.single();
+	// Copying a week on: the shift from 9 days ago would land 2 days ago (skipped); the one from
+	// 5 days ago lands 2 days from now (added).
+	const { data: nine } = await admin()
+		.from("shifts")
+		.insert({
+			guard_id: guardId,
+			starts_at: daysAgo(9),
+			ends_at: plus8(daysAgo(9)),
+		})
+		.select()
+		.single();
+	const { data: pastCopied } = await sup.rpc("copy_shifts", {
+		p_from: daysAgo(10, 0),
+		p_to: daysAgo(4, 0),
+		p_days: 7,
+		p_tz: "UTC",
+	});
+	ok(
+		pastCopied === 1,
+		"copy last week skips copies that would land on a day that has passed",
+		pastCopied,
+	);
+	await admin()
+		.from("shifts")
+		.delete()
+		.eq("guard_id", guardId)
+		.gte("starts_at", daysAgo(10, 0))
+		.lt("starts_at", daysAgo(-3, 0));
+	ok(Boolean(lands && nine), "(test shifts cleaned up)");
+
 	const { error: re } = await sup.rpc("remove_shift", { p_id: s1.id });
 	ok(!re, "a supervisor takes a guard off a shift", re?.message);
 	const { error: gone } = await sup.rpc("remove_shift", { p_id: s1.id });

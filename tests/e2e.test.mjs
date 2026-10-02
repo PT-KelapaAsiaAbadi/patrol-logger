@@ -158,7 +158,9 @@ try {
 	ok(true, "before any scan, Needs review is empty");
 	await page.getByRole("link", { name: "Schedule" }).click();
 	section("schedule");
-	await text("21 shifts have nobody assigned.");
+	// Only today and later count (past days are read-only): 3 shifts a day to Sunday.
+	const daysLeft = 7 - ((new Date().getDay() + 6) % 7);
+	await text(`${daysLeft * 3} shifts have nobody assigned.`);
 	ok(true, "an empty week: every shift is flagged as having nobody");
 	const morningToday = page.locator(
 		".sched-grid tbody tr:first-child td.is-today .sched-cell",
@@ -168,7 +170,7 @@ try {
 	await assignDialog.getByLabel("Budi Santoso").check();
 	await assignDialog.getByRole("button", { name: "Save" }).click();
 	await morningToday.getByText("Budi Santoso").waitFor({ timeout: 15000 });
-	await text("20 shifts have nobody assigned.");
+	await text(`${daysLeft * 3 - 1} shifts have nobody assigned.`);
 	ok(true, "a supervisor assigns a guard to today's morning shift");
 	await page.getByRole("button", { name: "Copy last week" }).click();
 	await text("Nothing to copy: last week has no shifts that fit.");
@@ -180,6 +182,16 @@ try {
 		.getByText("Budi Santoso")
 		.waitFor({ timeout: 15000 });
 	ok(true, "copy last week repeats the shift in the next week");
+	await page.getByRole("button", { name: "Previous week" }).click();
+	await page.getByRole("button", { name: "Previous week" }).click();
+	await text("This week has passed: its schedule can only be viewed.");
+	ok(
+		(await page.locator(".sched-cell:not(:disabled)").count()) === 0 &&
+			(await page
+				.getByRole("button", { name: "Copy last week" })
+				.isDisabled()),
+		"a week that has passed is read-only: no cell opens, nothing can be copied in",
+	);
 	await page.getByRole("button", { name: "This week" }).click();
 	await morningToday.getByText("Budi Santoso").waitFor({ timeout: 15000 });
 	await morningToday.click();

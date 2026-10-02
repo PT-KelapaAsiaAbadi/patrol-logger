@@ -55,10 +55,33 @@ join public.profiles p on p.id = s.guard_id;
 revoke all on public.shift_rows from anon;
 
 /**
- * Puts a guard on a shift. Only for an active guard account; refuses a shift that overlaps one the
- * guard already has (shift_overlap) and the table's own limits (ends after it starts, 16 hours).
+ * Today's date in a time zone (the supervisor's device's). Days before it are history: shifts on
+ * them can't be added, removed or copied in. Refuses an unknown zone (bad_time_zone).
  */
-create function public.assign_shift(p_guard_id uuid, p_starts_at timestamptz, p_ends_at timestamptz)
+create function private.local_today(p_tz text) returns date
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+	if not exists (select 1 from pg_catalog.pg_timezone_names where name = p_tz) then
+		raise exception 'bad_time_zone' using errcode = '22023';
+	end if;
+	return (now() at time zone p_tz)::date;
+end;
+$$;
+
+grant execute on function private.local_today(text) to authenticated;
+
+/**
+ * Puts a guard on a shift. Only for an active guard account; refuses a shift on a day before
+ * today in p_tz (shift_in_past), one that overlaps a shift the guard already has (shift_overlap),
+ * and the table's own limits (ends after it starts, 16 hours).
+ */
+create function public.assign_shift(
+	p_guard_id uuid,
+	p_starts_at timestamptz,
+	p_ends_at timestamptz,
+	p_tz text default 'UTC'
+)
 returns public.shifts
 language plpgsql volatile security definer set search_path = ''
 as $$
@@ -73,6 +96,9 @@ begin
 	) then
 		raise exception 'not_a_guard' using errcode = 'P0002';
 	end if;
+	if (p_starts_at at time zone p_tz)::date < private.local_today(p_tz) then
+		raise exception 'shift_in_past' using errcode = '22023';
+	end if;
 	begin
 		insert into public.shifts (guard_id, starts_at, ends_at, created_by)
 		values (p_guard_id, p_starts_at, p_ends_at, auth.uid())
@@ -84,26 +110,33 @@ begin
 end;
 $$;
 
-/** Takes a guard off a shift. */
-create function public.remove_shift(p_id uuid) returns void
+/** Takes a guard off a shift. Not for a shift on a day before today in p_tz (shift_in_past). */
+create function public.remove_shift(p_id uuid, p_tz text default 'UTC') returns void
 language plpgsql volatile security definer set search_path = ''
 as $$
+declare
+	v_starts_at timestamptz;
 begin
 	if not private.is_supervisor() then
 		raise exception 'not_allowed' using errcode = '42501';
 	end if;
-	delete from public.shifts where id = p_id;
+	select starts_at into v_starts_at from public.shifts where id = p_id;
 	if not found then
 		raise exception 'not_found' using errcode = 'P0002';
 	end if;
+	if (v_starts_at at time zone p_tz)::date < private.local_today(p_tz) then
+		raise exception 'shift_in_past' using errcode = '22023';
+	end if;
+	delete from public.shifts where id = p_id;
 end;
 $$;
 
 /**
  * "Copy last week": every shift starting in [p_from, p_to), repeated p_days later at the same
  * local time in p_tz (the supervisor's time zone), so a 07:00 shift stays 07:00 even across a
- * daylight-saving change. Skips guards no longer active and shifts that would overlap one already
- * there, so it can be run twice. Returns how many shifts it added.
+ * daylight-saving change. Skips guards no longer active, copies that would land on a day before
+ * today, and shifts that would overlap one already there, so it can be run twice. Returns how many
+ * shifts it added.
  */
 create function public.copy_shifts(
 	p_from timestamptz,
@@ -119,6 +152,7 @@ declare
 	v_shift_by interval := make_interval(days => p_days);
 	v_start timestamptz;
 	v_end timestamptz;
+	v_today date;
 	v_added integer := 0;
 begin
 	if not private.is_supervisor() then
@@ -127,9 +161,7 @@ begin
 	if p_to <= p_from or p_to - p_from > interval '31 days' or p_days not between 1 and 31 then
 		raise exception 'bad_range' using errcode = '22023';
 	end if;
-	if not exists (select 1 from pg_catalog.pg_timezone_names where name = p_tz) then
-		raise exception 'bad_time_zone' using errcode = '22023';
-	end if;
+	v_today := private.local_today(p_tz);
 	for v_shift in
 		select s.* from public.shifts s
 		join public.profiles p on p.id = s.guard_id and p.role = 'guard' and p.active
@@ -141,11 +173,12 @@ begin
 		v_end := ((v_shift.ends_at at time zone p_tz) + v_shift_by) at time zone p_tz;
 		insert into public.shifts (guard_id, starts_at, ends_at, created_by)
 		select v_shift.guard_id, v_start, v_end, auth.uid()
-		where not exists (
-			select 1 from public.shifts o
-			where o.guard_id = v_shift.guard_id
-				and tstzrange(o.starts_at, o.ends_at) && tstzrange(v_start, v_end)
-		);
+		where (v_start at time zone p_tz)::date >= v_today
+			and not exists (
+				select 1 from public.shifts o
+				where o.guard_id = v_shift.guard_id
+					and tstzrange(o.starts_at, o.ends_at) && tstzrange(v_start, v_end)
+			);
 		if found then
 			v_added := v_added + 1;
 		end if;
@@ -155,13 +188,13 @@ end;
 $$;
 
 revoke execute on function
-	public.assign_shift(uuid, timestamptz, timestamptz),
-	public.remove_shift(uuid),
+	public.assign_shift(uuid, timestamptz, timestamptz, text),
+	public.remove_shift(uuid, text),
 	public.copy_shifts(timestamptz, timestamptz, integer, text)
 from public, anon;
 
 grant execute on function
-	public.assign_shift(uuid, timestamptz, timestamptz),
-	public.remove_shift(uuid),
+	public.assign_shift(uuid, timestamptz, timestamptz, text),
+	public.remove_shift(uuid, text),
 	public.copy_shifts(timestamptz, timestamptz, integer, text)
 to authenticated;

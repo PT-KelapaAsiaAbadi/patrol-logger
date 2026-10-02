@@ -4,7 +4,8 @@
  * problems instead of deciding anything itself (rules in lib/schedule.ts):
  *   - more hours in a week than the limit, too little rest between two shifts
  *   - shifts nobody works
- * Moves between weeks, and "Copy last week" repeats the previous week's shifts.
+ * Moves between weeks, and "Copy last week" repeats the previous week's shifts. Days before today
+ * are history: shown, but read-only (the database refuses changes to them too).
  *
  * Layout (index.css, "Schedule"): on desktop (1024px and up) a grid, one row per shift and one
  * column per day, like the design's DeskSchedule board; below that a strip of days and one card
@@ -93,7 +94,15 @@ export function Schedule() {
 	);
 	const slots = shiftsBySlot(shifts);
 	const warnings = scheduleWarnings(all, weekStart, weekEnd);
-	const empty = emptySlots(shifts, days);
+	// Past days can't be changed any more, so only today and later count as empty.
+	const isPast = (d: string) => d < today;
+	const empty = emptySlots(
+		shifts,
+		days.filter((d) => !isPast(d)),
+	);
+	const weekPast = isPast(days[6]);
+	const dayClass = (d: string) =>
+		d === today ? "is-today" : isPast(d) ? "is-past" : "";
 	const others = shifts.filter((s) => shiftKind(s) === null);
 
 	// Phones show one day at a time: today in this week, else Monday.
@@ -184,7 +193,8 @@ export function Schedule() {
 					<button
 						type="button"
 						class="btn btn-outline"
-						disabled={copying || !data.data}
+						disabled={copying || !data.data || weekPast}
+						title={weekPast ? t("pastWeekTip") : undefined}
 						onClick={() => void copyLastWeek()}>
 						<Copy
 							size={ICON}
@@ -238,6 +248,7 @@ export function Schedule() {
 					{guards.length === 0 && (
 						<p class="notice">{t("noGuards")}</p>
 					)}
+					{weekPast && <p class="text-muted">{t("pastWeekNote")}</p>}
 
 					{desktop ? (
 						<div class="sched-card">
@@ -249,11 +260,7 @@ export function Schedule() {
 											<th
 												key={d}
 												scope="col"
-												class={
-													d === today
-														? "is-today"
-														: ""
-												}
+												class={dayClass(d)}
 												aria-current={
 													d === today
 														? "date"
@@ -278,16 +285,13 @@ export function Schedule() {
 											{days.map((d) => (
 												<td
 													key={d}
-													class={
-														d === today
-															? "is-today"
-															: ""
-													}>
+													class={dayClass(d)}>
 													<SlotButton
 														label={slotLabel({
 															day: d,
 															kind,
 														})}
+														past={isPast(d)}
 														guards={
 															slots.get(
 																slotKey(
@@ -320,13 +324,16 @@ export function Schedule() {
 									<button
 										key={d}
 										type="button"
-										class={`sched-day ${d === today ? "is-today" : ""}`}
+										class={`sched-day ${dayClass(d)}`}
 										aria-pressed={d === shownDay}
 										onClick={() => setDay(d)}>
 										{formatShortDay(d, lang)}
 									</button>
 								))}
 							</div>
+							{isPast(shownDay) && (
+								<p class="text-muted">{t("pastDayNote")}</p>
+							)}
 							{SHIFT_KINDS.map(({ kind }) => {
 								const list =
 									slots.get(slotKey(shownDay, kind)) ?? [];
@@ -360,26 +367,29 @@ export function Schedule() {
 												{t("nobodyAssigned")}
 											</p>
 										)}
-										<button
-											type="button"
-											class="btn btn-outline"
-											aria-label={`${t(list.length ? "changeGuards" : "assign")}: ${slotLabel({ day: shownDay, kind })}`}
-											onClick={() =>
-												setAssigning({
-													day: shownDay,
-													kind,
-												})
-											}>
-											<Plus
-												size={ICON}
-												aria-hidden="true"
-											/>
-											{t(
-												list.length
-													? "changeGuards"
-													: "assign",
-											)}
-										</button>
+										{/* Past days are read-only: no Assign or Change. */}
+										{!isPast(shownDay) && (
+											<button
+												type="button"
+												class="btn btn-outline"
+												aria-label={`${t(list.length ? "changeGuards" : "assign")}: ${slotLabel({ day: shownDay, kind })}`}
+												onClick={() =>
+													setAssigning({
+														day: shownDay,
+														kind,
+													})
+												}>
+												<Plus
+													size={ICON}
+													aria-hidden="true"
+												/>
+												{t(
+													list.length
+														? "changeGuards"
+														: "assign",
+												)}
+											</button>
+										)}
 									</article>
 								);
 							})}
@@ -448,14 +458,19 @@ function WarningText({ warning: w }: { warning: ScheduleWarning }) {
 	);
 }
 
-/** A grid cell: the slot's guards, or "Assign"; opens the assign dialog. */
+/**
+ * A grid cell: the slot's guards, or "Assign"; opens the assign dialog. On a day before today it's
+ * disabled: the guards still show, an empty cell shows a dash.
+ */
 function SlotButton({
 	label,
 	guards,
+	past,
 	onClick,
 }: {
 	label: string;
 	guards: Shift[];
+	past: boolean;
 	onClick: () => void;
 }) {
 	const { t } = useApp();
@@ -464,7 +479,8 @@ function SlotButton({
 		<button
 			type="button"
 			class={`sched-cell ${names.length ? "" : "is-empty"}`}
-			aria-label={`${label}: ${names.length ? names.join(", ") : t("nobodyAssigned")}. ${t(names.length ? "changeGuards" : "assign")}`}
+			disabled={past}
+			aria-label={`${label}: ${names.length ? names.join(", ") : t("nobodyAssigned")}. ${t(past ? "pastDay" : names.length ? "changeGuards" : "assign")}`}
 			onClick={onClick}>
 			{names.length ? (
 				<ul>
@@ -472,6 +488,8 @@ function SlotButton({
 						<li key={n}>{n}</li>
 					))}
 				</ul>
+			) : past ? (
+				<span aria-hidden="true">-</span>
 			) : (
 				<span class="sched-assign">
 					<Plus
@@ -563,7 +581,13 @@ function AssignDialog({
 		} catch (e) {
 			const code = e instanceof Error ? e.message : "";
 			setError(
-				t(code === "shift_overlap" ? "shiftOverlap" : "saveError"),
+				t(
+					code === "shift_overlap"
+						? "shiftOverlap"
+						: code === "shift_in_past"
+							? "shiftInPast"
+							: "saveError",
+				),
 			);
 			setBusy(false);
 		}
