@@ -266,13 +266,16 @@ export function RouteTable({
 										</span>
 									</td>
 									<td class="c-sel">
-										<input
-											type="checkbox"
-											class="size-5"
-											aria-label={`${t("select")}: ${cp.name}`}
-											checked={selected.has(cp.id)}
-											onChange={() => toggle(cp.id)}
-										/>
+										{/* The label only widens the tap area; the box keeps its own name. */}
+										<label class="tap-target">
+											<input
+												type="checkbox"
+												class="size-5"
+												aria-label={`${t("select")}: ${cp.name}`}
+												checked={selected.has(cp.id)}
+												onChange={() => toggle(cp.id)}
+											/>
+										</label>
 									</td>
 									<td class="c-move">
 										<span class="inline-flex items-center gap-1">

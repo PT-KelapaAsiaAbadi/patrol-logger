@@ -2001,6 +2001,39 @@ img {
 			display: none;
 		}
 	}
+	/* A checkbox with a 44px target around it (the Checkpoints table's row selection). */
+	.tap-target {
+		display: inline-grid;
+		place-items: center;
+		min-width: 2.75rem;
+		min-height: 2.75rem;
+		cursor: pointer;
+	}
+	/* Scan detail's "on map" links: icon and text stay together. */
+	.detail-list .link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+
+	/* Touch screens: at least 44px for every control a finger needs to hit. Mouse users keep the
+	   compact sizes. Last in the layer so it wins over the per-page sizes above. */
+	@media (pointer: coarse) {
+		.lang-btn,
+		.shell-header .lang-btn {
+			justify-content: center;
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+		}
+		.icon-btn {
+			width: 2.75rem;
+			height: 2.75rem;
+		}
+		.link-btn,
+		.detail-list .link {
+			min-height: 2.75rem;
+		}
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
