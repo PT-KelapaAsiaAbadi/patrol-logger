@@ -356,7 +356,10 @@ export function ScanPage() {
 						{t(`camera_${camera}`)}
 					</p>
 				) : (
-					<p class="scan-aim">{t("aimCamera")}</p>
+					<>
+						<p class="scan-aim">{t("aimCamera")}</p>
+						<p class="scan-help">{t("cameraHelp")}</p>
+					</>
 				)}
 				<p
 					class={`loc-pill scan-loc ${locTone}`}

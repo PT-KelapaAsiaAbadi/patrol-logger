@@ -848,6 +848,14 @@ img {
 		font-weight: 600;
 		line-height: 1.4;
 	}
+	/* Under the instruction: where to look if the camera doesn't open. */
+	.scan-help {
+		max-width: 20rem;
+		margin-top: -0.5rem;
+		text-align: center;
+		font-size: 0.8125rem;
+		color: var(--muted);
+	}
 	/* Location: a pill when found or still looking; a box with Try again when there's a problem. */
 	.loc-pill {
 		display: inline-flex;

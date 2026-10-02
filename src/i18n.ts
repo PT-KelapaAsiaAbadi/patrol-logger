@@ -40,6 +40,8 @@ const id = {
 
 	aimCamera: "Arahkan kamera ke stiker QR di titik patroli.",
 	startingCamera: "Membuka kamera...",
+	cameraHelp:
+		"Kamera tidak jalan? Izinkan akses kamera di pengaturan browser.",
 	typeCode: "Ketik kode",
 	closeScanner: "Tutup pemindai",
 	flashlight: "Senter",
@@ -418,6 +420,8 @@ const en: Record<Key, string> = {
 
 	aimCamera: "Point the camera at the QR sticker at the checkpoint.",
 	startingCamera: "Opening camera...",
+	cameraHelp:
+		"Camera not working? Allow camera access in your browser settings.",
 	typeCode: "Type code",
 	closeScanner: "Close scanner",
 	flashlight: "Flashlight",
