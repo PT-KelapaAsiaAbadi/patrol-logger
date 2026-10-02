@@ -74,18 +74,17 @@ const id = {
 	addReport: "Tambah laporan",
 	backToRound: "Kembali ke daftar titik",
 
-	reportTitle: "Laporan di {name}",
 	reportNote: "Apa yang terjadi?",
 	reportNotePlaceholder:
 		"Contoh: Pintu darurat lantai 2 tidak terkunci, sudah dikunci kembali.",
-	photos: "Foto ({n} dari 5)",
+	photosOptional: "Foto (opsional)",
+	photoCount: "{n} dari {max}",
 	addPhotos: "Tambah foto",
 	removePhoto: "Hapus foto",
 	processingPhotos: "Mengecilkan foto...",
 	sendReport: "Kirim laporan",
 	sending: "Mengirim...",
 	reportSent: "Laporan terkirim.",
-	reportQueued: "Laporan tersimpan dan akan dikirim saat ada sinyal.",
 	reportEmpty: "Tulis catatan atau tambahkan minimal satu foto.",
 
 	navCheckpoints: "Titik dan QR",
@@ -452,18 +451,17 @@ const en: Record<Key, string> = {
 	addReport: "Add report",
 	backToRound: "Back to checkpoint list",
 
-	reportTitle: "Report at {name}",
 	reportNote: "What happened?",
 	reportNotePlaceholder:
 		"Example: Level 2 fire door was unlocked, locked it again.",
-	photos: "Photos ({n} of 5)",
+	photosOptional: "Photos (optional)",
+	photoCount: "{n} of {max}",
 	addPhotos: "Add photos",
 	removePhoto: "Remove photo",
 	processingPhotos: "Shrinking photos...",
 	sendReport: "Send report",
 	sending: "Sending...",
 	reportSent: "Report sent.",
-	reportQueued: "Report saved and will send when there is signal.",
 	reportEmpty: "Write a note or add at least one photo.",
 
 	navCheckpoints: "Checkpoints and QR",

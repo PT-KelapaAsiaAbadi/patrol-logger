@@ -1,6 +1,7 @@
 /**
  * After a scan, the guard can add a report: a note and up to 5 photos, shrunk before upload.
- * With no signal the report waits in the outbox like a scan.
+ * With no signal the report waits in the outbox like a scan. Blue like the other guard screens
+ * (index.css, "Report"); the sent screen reuses the scan result's layout.
  */
 import { useState } from "preact/hooks";
 import { Link } from "wouter-preact";
@@ -8,12 +9,22 @@ import { useApp } from "../../state";
 import * as api from "../../data/api";
 import { compressImage } from "../../lib/image";
 import { ICON, IconButton } from "../../components/IconButton";
-import { ArrowLeft, ImagePlus, Send, Trash2 } from "lucide-preact";
+import {
+	ArrowLeft,
+	Camera,
+	Check,
+	CloudUpload,
+	Send,
+	Trash2,
+} from "lucide-preact";
 
 /**
  * Photo submission during report is limited to 5 unless changed in future updates.
  */
 const MAX_PHOTOS = 5;
+
+/** The longest note the database accepts (reports.note). */
+const NOTE_MAX = 4000;
 
 /**
  * Guard-facing report submission page (after a scan).
@@ -78,75 +89,145 @@ export function ReportPage({ scanId }: { scanId: string }) {
 		setBusy(false);
 	}
 
-	// Report sent successfully.
+	// Report sent, or saved to send later.
 	if (result) {
 		return (
 			<main
-				class="min-h-full flex flex-col px-5 pt-10 pb-8 max-w-xl mx-auto w-full"
+				class="scan-done"
 				aria-live="polite">
-				<h1 class="text-2xl font-bold">
-					{t(result === "sent" ? "reportSent" : "reportQueued")}
-				</h1>
-				<Link
-					href="/"
-					class="btn btn-primary btn-lg mt-auto">
-					<ArrowLeft
-						size={ICON}
-						aria-hidden="true"
-					/>
-					{t("backToRound")}
-				</Link>
+				<div class="scan-done-main">
+					<span
+						class={`scan-done-icon ${result === "sent" ? "is-done" : "is-queued"}`}>
+						{result === "sent" ? (
+							<Check
+								size={52}
+								strokeWidth={2.6}
+								aria-hidden="true"
+							/>
+						) : (
+							<CloudUpload
+								size={48}
+								aria-hidden="true"
+							/>
+						)}
+					</span>
+					<h1>{t(result === "sent" ? "reportSent" : "scanSaved")}</h1>
+					<p class="scan-done-name">{name}</p>
+					{result === "queued" && (
+						<p class="text-muted">{t("scanSavedHint")}</p>
+					)}
+				</div>
+				<div class="scan-done-actions">
+					<Link
+						href="/"
+						class="btn btn-primary btn-lg">
+						<ArrowLeft
+							size={ICON}
+							aria-hidden="true"
+						/>
+						{t("backToRound")}
+					</Link>
+				</div>
 			</main>
 		);
 	}
 
-	// Sending unsuccessful.
+	// Writing the report.
 	return (
-		<main class="px-5 pt-6 pb-10 max-w-xl mx-auto w-full">
+		<main class="report-page">
 			<Link
 				href="/"
-				class="link-btn">
+				class="link-btn report-back">
 				<ArrowLeft
 					size={ICON}
 					aria-hidden="true"
 				/>
 				{t("back")}
 			</Link>
-			<h1 class="text-2xl font-bold mt-3 mb-5">
-				{t("reportTitle", { name })}
-			</h1>
+			<div>
+				<h1>{t("addReport")}</h1>
+				<p class="text-muted">{name}</p>
+			</div>
 
-			<label class="grid gap-1">
-				<span class="font-medium">{t("reportNote")}</span>
-				<textarea
-					class="field min-h-32"
-					placeholder={t("reportNotePlaceholder")}
-					value={note}
-					onInput={(e) => {
-						setNote(e.currentTarget.value);
-						setProblem(false);
-					}}
-				/>
-			</label>
+			<section class="report-card">
+				<div class="grid gap-1.5">
+					<label
+						for="report-note"
+						class="report-label">
+						{t("reportNote")}
+					</label>
+					<textarea
+						id="report-note"
+						class="field report-note"
+						maxLength={NOTE_MAX}
+						placeholder={t("reportNotePlaceholder")}
+						aria-describedby="report-note-count"
+						value={note}
+						onInput={(e) => {
+							setNote(e.currentTarget.value);
+							setProblem(false);
+						}}
+					/>
+					{/* Characters used, under the box on the right. */}
+					<p
+						class={`field-count ${note.length >= NOTE_MAX ? "is-full" : ""}`}
+						aria-hidden="true">
+						{note.length}/{NOTE_MAX}
+					</p>
+					<span
+						id="report-note-count"
+						class="sr-only">
+						{t("charCount", { n: note.length, max: NOTE_MAX })}
+					</span>
+				</div>
 
-			<fieldset class="mt-6">
-				<legend class="font-medium mb-2">
-					{t("photos", { n: photos.length })}
-				</legend>
-				{photos.length > 0 && (
-					<ul class="grid grid-cols-3 gap-2 mb-3">
+				<fieldset class="report-photos-set">
+					<legend class="report-photos-head">
+						<span class="report-label">{t("photosOptional")}</span>
+						<span class="report-photos-count">
+							{t("photoCount", {
+								n: photos.length,
+								max: MAX_PHOTOS,
+							})}
+						</span>
+					</legend>
+					<ul class="report-photos">
+						{/* Up to MAX_PHOTOS photos. */}
+						{photos.length < MAX_PHOTOS && (
+							<li>
+								<label
+									class={`photo-add ${processing ? "is-busy" : ""}`}>
+									<Camera
+										size={24}
+										aria-hidden="true"
+									/>
+									{processing
+										? t("processingPhotos")
+										: t("addPhotos")}
+									<input
+										type="file"
+										accept="image/*"
+										multiple
+										class="sr-only"
+										onChange={(e) => {
+											void addFiles(
+												e.currentTarget.files,
+											);
+											e.currentTarget.value = "";
+										}}
+									/>
+								</label>
+							</li>
+						)}
 						{photos.map((src, i) => (
-							<li
-								key={i}
-								class="grid gap-1">
+							<li key={i}>
 								<img
 									src={src}
 									alt=""
-									class="aspect-square object-cover w-full border border-line"
 								/>
 								<IconButton
 									icon={Trash2}
-									class="icon-btn-danger justify-self-start"
+									class="icon-btn-danger photo-remove"
 									label={t("removePhoto")}
 									onClick={() =>
 										setPhotos((p) =>
@@ -157,40 +238,19 @@ export function ReportPage({ scanId }: { scanId: string }) {
 							</li>
 						))}
 					</ul>
-				)}
-				{/* limit photo submission to 5 */}
-				{photos.length < MAX_PHOTOS && (
-					<label
-						class={`btn btn-quiet w-full ${processing ? "opacity-60 pointer-events-none" : ""}`}>
-						<ImagePlus
-							size={ICON}
-							aria-hidden="true"
-						/>
-						{processing ? t("processingPhotos") : t("addPhotos")}
-						<input
-							type="file"
-							accept="image/*"
-							multiple
-							class="sr-only"
-							onChange={(e) => {
-								void addFiles(e.currentTarget.files);
-								e.currentTarget.value = "";
-							}}
-						/>
-					</label>
-				)}
-			</fieldset>
+				</fieldset>
+			</section>
 
 			{problem && (
 				<p
-					class="notice notice-warn mt-4"
+					class="notice notice-warn"
 					role="alert">
 					{t("reportEmpty")}
 				</p>
 			)}
 			<button
 				type="button"
-				class="btn btn-primary btn-lg w-full mt-6"
+				class="btn btn-primary btn-lg w-full"
 				disabled={busy || processing}
 				onClick={() => void send()}>
 				<Send
