@@ -1989,9 +1989,15 @@ img {
 		font-size: 0.875rem;
 		color: var(--muted);
 	}
-	/* A row that opens a scan: its link stretches over the whole row, so any tap on it works. */
+	/* A row that opens a scan: its link stretches over the whole row, so any tap on it works.
+	   Older WebKit (iPhones, Safari before 2026) ignores position: relative on a table row, so
+	   every row's link covered the top of the page and caught taps on the filters. transform
+	   keeps it at the row's top, clip-path trims it to the row; both are needed. A popover or
+	   tooltip inside a row would be clipped too. */
 	.dash-table tr.has-link {
 		position: relative;
+		transform: translate(0);
+		clip-path: inset(0);
 	}
 	.dash-table tr.has-link:hover {
 		background: var(--sunken);
